@@ -24,7 +24,8 @@
     "smoke:chat": "node tools/smoke-chat.mjs",
     "smoke:transcribe": "node tools/smoke-transcribe.mjs",
     "smoke:memory": "node tools/smoke-memory.mjs",
-    "smoke:speak": "node tools/smoke-speak.mjs"
+    "smoke:speak": "node tools/smoke-speak.mjs",
+    "smoke:vision": "node tools/smoke-vision.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

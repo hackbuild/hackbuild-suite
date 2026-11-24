@@ -4,7 +4,6 @@
 // segments so no weight is fetched. Without ?stub the hub's transformers.js
 // provider runs whisper through its default speech recognition loader.
 import type { Asr } from '@hackbuild/transcribe'
-import type { FactoryContext } from '@hackbuild/models'
 import { coreState, provide } from '../cores.ts'
 
 /** Lines the stub reads out; the last is a known phantom so the filter has work. */
@@ -43,13 +42,6 @@ export async function addTranscribeRuntimes(): Promise<void> {
   hub.addRows(TRANSCRIBE_RECORDS)
   if (hub.STUB) {
     const asr = stubTranscriber()
-    hub.provideRuntime('tjs', async (ctx: FactoryContext) => {
-      for (let i = 1; i <= 4; i++) {
-        if (ctx.signal?.aborted) throw new DOMException('stopped', 'AbortError')
-        await new Promise((r) => setTimeout(r, 120))
-        ctx.report('fetch', i / 4)
-      }
-      return ctx.record.provides.includes('transcribe') ? asr : { stub: true, id: ctx.record.id }
-    })
+    hub.addStubs({ transcribe: () => asr }, ['tjs'])
   }
 }

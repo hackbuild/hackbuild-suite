@@ -43,7 +43,7 @@ try {
   if (tabs.length !== 7) throw new Error(`expected 7 group tabs, found ${tabs.length}: ${tabs.join(', ')}`)
   if (shots) await page.screenshot({ path: join(shots, 'home-1440.png') })
 
-  for (const [hash, expect] of [['#/image/vision', 'vision is not built yet'], ['#/rooms', 'room is not built yet']]) {
+  for (const [hash, expect] of [['#/image/masks', 'masks is not built yet'], ['#/rooms', 'room is not built yet']]) {
     await page.evaluate((h) => { location.hash = h }, hash)
     await page.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 5000 }, expect)
     const stored = await idb(page, 'kv', 'get', 'last-route')

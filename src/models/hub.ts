@@ -219,14 +219,6 @@ async function boot(): Promise<void> {
     },
   })
   if (STUB) {
-    const fake = async (ctx: { record: ModelRecord; signal?: AbortSignal; report?: (p: 'fetch', f: number | null) => void }) => {
-      for (let i = 1; i <= 4; i++) {
-        if (ctx.signal?.aborted) throw new DOMException('stopped', 'AbortError')
-        await new Promise((r) => setTimeout(r, 150))
-        ctx.report?.('fetch', i / 4)
-      }
-      return { stub: true, id: ctx.record.id }
-    }
     for (const p of new Set(records.value.map((r) => r.provider))) {
       hubRef.provide(p, fake)
       runnable.value.add(p)
@@ -249,6 +241,7 @@ async function boot(): Promise<void> {
     })
     hubRef.provide('tjs', tjs.factory)
     runnable.value.add('tjs')
+    tjsRef = tjs
   }
   hubRef.onLoad((ev) => {
     const p = { ...progress.value }
@@ -273,6 +266,28 @@ async function boot(): Promise<void> {
   runnable.value = new Set(runnable.value)
   await refreshStore()
 }
+
+// Under ?stub every provider loads nothing; a tool adds stub models by
+// capability (a transcriber, a detector) and the stub returns that one.
+const stubs = new Map<string, (r: ModelRecord) => unknown>()
+async function fake(ctx: { record: ModelRecord; signal?: AbortSignal; report?: (p: 'fetch', f: number | null) => void }): Promise<unknown> {
+  for (let i = 1; i <= 4; i++) {
+    if (ctx.signal?.aborted) throw new DOMException('stopped', 'AbortError')
+    await new Promise((r) => setTimeout(r, 150))
+    ctx.report?.('fetch', i / 4)
+  }
+  const make = ctx.record.provides.map((c) => stubs.get(c)).find((f) => f)
+  return make ? make(ctx.record) : { stub: true, id: ctx.record.id }
+}
+/** Stub models by capability, and the stub runtime for each provider named; ?stub only. */
+export function addStubs(map: Record<string, (r: ModelRecord) => unknown>, providers: string[] = []): void {
+  for (const [cap, make] of Object.entries(map)) stubs.set(cap, make)
+  for (const p of providers) if (!runnable.value.has(p)) provideRuntime(p, fake)
+}
+
+let tjsRef: ReturnType<typeof tjsProvider> | null = null
+/** The transformers.js provider of the one hub, for a tool to add loaders; null under ?stub. */
+export const transformers = () => tjsRef
 
 /** A tool adds the runtime for a provider (webllm, wllama) to the one hub. */
 export function provideRuntime(provider: string, factory: Factory): void {
