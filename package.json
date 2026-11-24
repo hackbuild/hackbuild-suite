@@ -67,6 +67,7 @@
     "@hackbuild/rig": "file:tools/vendor/hackbuild-rig-0.1.0-a047b82.tgz",
     "@hackbuild/speak": "file:tools/vendor/hackbuild-speak-0.1.0-44da07c.tgz",
     "@hackbuild/transcribe": "file:tools/vendor/hackbuild-transcribe-0.1.0-2219635.tgz",
+    "@hackbuild/tunables": "file:tools/vendor/hackbuild-tunables-0.1.0-1365c79.tgz",
     "@hackbuild/vision": "file:tools/vendor/hackbuild-vision-0.1.0-44da07c.tgz",
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.0-a79f0f5.tgz",
     "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.9.1-2cc77a7.tgz",
