@@ -23,7 +23,8 @@
     "size": "node tools/check-size.mjs",
     "smoke:chat": "node tools/smoke-chat.mjs",
     "smoke:transcribe": "node tools/smoke-transcribe.mjs",
-    "smoke:memory": "node tools/smoke-memory.mjs"
+    "smoke:memory": "node tools/smoke-memory.mjs",
+    "smoke:speak": "node tools/smoke-speak.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

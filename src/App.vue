@@ -96,6 +96,8 @@ function runPalette(key: string) {
 // The one hub and store start after the first paint (design 2.2); the
 // manager drawer is its own chunk.
 const ModelsPanel = defineAsyncComponent(() => import('./models/ModelsPanel.vue'))
+// The speech script kind registers early so a .hbspeech.json import opens in its tool.
+setTimeout(() => void Promise.all([import('./speak/kind.ts'), import('./workspace/state')]).then(([m, st]) => { if (!st.kinds.get(m.SPEECH_KIND)) st.registerKind(m.speechKind) }), 0)
 // The transcript kind registers early so a recording dropped on any page routes to its tool.
 setTimeout(() => void import('./transcribe/register.ts').then((m) => m.registerTranscript()), 0)
 // The memory kind too, so a dropped memory export opens in the memory tool.

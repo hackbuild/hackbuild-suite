@@ -24,6 +24,7 @@ export const SCHEMA: SettingDef[] = [
   { section: 'brain', key: 'think', type: 'seg', label: 'thinking', why: 'how reasoning text shows for models that write it.', default: 'fold', options: ['show', 'fold', 'hide'] },
   { section: 'voice', key: 'rate', type: 'range', label: 'rate', why: 'speaking speed.', default: 1, min: 0.5, max: 2, step: 0.05, unit: 'x' },
   { section: 'voice', key: 'pitch', type: 'range', label: 'pitch', why: 'voice pitch, for system voices.', default: 1, min: 0.5, max: 2, step: 0.05, level: 'standard' },
+  { section: 'voice', key: 'kokoro', type: 'switch', label: 'kokoro voice', why: 'opt in. kokoro-js phonemizes with espeak ng, gpl-3.0-or-later, fetched at run time and never bundled. off, kokoro never loads.', default: false, level: 'standard' },
   { section: 'memory', key: 'recall', type: 'range', label: 'recall count', why: 'memories added to each reply. more costs context.', default: 4, min: 0, max: 12, step: 1, applies: 'next reply' },
   { section: 'memory', key: 'compact', type: 'switch', label: 'compaction', why: 'folds old memories into summaries when the budget is full.', default: true, level: 'standard' },
 ]

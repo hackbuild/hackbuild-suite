@@ -43,6 +43,8 @@ async function sendToMemory(): Promise<void> {
   logEvent('note', `sent ${n} lines of ${name} to memory. chat recalls them now.`)
 }
 const sendToChat = () => router.push({ name: 'chat', query: { draft: spoken().join(' ') } })
+// speak opens the speech tool with the lines, which says them on its engine and voice
+const speakLines = () => router.push({ name: 'speak', query: { text: spoken().join(' '), say: '1' } })
 
 // The timed log (P-LOAD-15): a box in the tool, every line also in the shell log.
 const lines = ref<HbConsoleLine[]>([])
@@ -480,6 +482,7 @@ onBeforeUnmount(() => {
         <HbToggleRow v-model="showDropped" label="show dropped lines" />
         <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToMemory">send to memory</HbButton>
         <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToChat">send to chat</HbButton>
+        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="speakLines">speak</HbButton>
         <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
         <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
       </HbToolbar>

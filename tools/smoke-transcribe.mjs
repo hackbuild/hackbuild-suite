@@ -98,6 +98,9 @@ try {
     dt.items.add(new File([text], 'take one back.srt', { type: 'application/x-subrip' }))
     for (const t of ['dragenter', 'dragover', 'drop']) document.body.dispatchEvent(new DragEvent(t, { dataTransfer: dt, bubbles: true, cancelable: true }))
   }, srt)
+  // the speech tool also reads srt, so the shell asks which tool opens it
+  await page.waitForFunction(() => [...document.querySelectorAll('[role="dialog"] button')].some((b) => b.textContent.trim() === 'open as a transcript'), { timeout: 3000 }).catch(() => fail('no which tool choice for the srt'))
+  await clickText('[role="dialog"] button', 'open as a transcript')
   await page.waitForFunction((h) => location.hash !== h && location.hash.includes('doc='), { timeout: 5000 }, before).catch(() => fail('the srt import did not open a document'))
   await page.waitForFunction(() => document.querySelectorAll('.hb-qstrip-main, .hb-qstrip').length >= 2, { timeout: 4000 }).catch(() => fail('the queue list does not show both transcripts'))
   await page.waitForFunction((n) => document.querySelectorAll('.hb-transcript .hb-tseg:not(.is-dropped) .hb-tseg-text').length === n, { timeout: 4000 }, first.length).catch(() => fail('the imported transcript has a different line count'))
