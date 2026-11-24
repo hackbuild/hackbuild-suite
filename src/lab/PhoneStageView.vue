@@ -6,7 +6,7 @@ import {
   HbSwitch, HbTabs, HbViewport, usePersisted, type HbAppMode, type HbChatLine, type HudState,
 } from '@virgilvox/hackbuild-ui'
 import { DRIVES, MEMORY, NAME, ORDERS, RACK_TABS, REPLIES, TALK } from './room'
-import type { PhoneStage } from './stage3d'
+import type { PhoneStage } from '../stage/walk'
 
 // The phone layout check with the real stage: the layout of the
 // hackbuild-ui phone stage plus rack demo (HbAppShell fit, rack sheet,
@@ -35,7 +35,7 @@ let gone = false
 
 onMounted(async () => {
   try {
-    const { createPhoneStage } = await import('./stage3d')
+    const { createPhoneStage } = await import('../stage/walk')
     if (gone || !host.value) return
     ps = createPhoneStage(host.value, (s) => {
       fps.value = s.fps

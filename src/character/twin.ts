@@ -8,6 +8,7 @@ import type { PersonaFile } from '@virgilvox/hackbuild-ui/vanilla'
 import type { CardV2 } from '@hackbuild/character'
 import { cardFrom } from './kind.ts'
 import { personaOf } from './sheet.ts'
+import { BODY_ACCEPT, isBodyFile } from '../stagekit/body.ts'
 
 export type SlotKey = 'body' | 'voice' | 'persona'
 export interface BlobPointer { $blob: string }
@@ -15,7 +16,7 @@ export interface BlobPointer { $blob: string }
 export interface TwinExt { keep: true; body?: BlobPointer; voice?: BlobPointer }
 
 export const TWIN_EMPTY = 'drop your own model and a clip of your voice. they stay in this browser and are left out of exports.'
-export const BODY_ACCEPT = '.glb,.vrm'
+export { BODY_ACCEPT }
 export const VOICE_ACCEPT = '.wav,audio/wav,audio/x-wav'
 export const PERSONA_ACCEPT = '.json,application/json'
 
@@ -23,7 +24,7 @@ const ext = (name: string) => name.toLowerCase().replace(/^.*\./, '')
 /** The slot a dropped file fills, by its name, or null. */
 export function slotOf(f: { name: string; type: string }): SlotKey | null {
   const e = ext(f.name)
-  if (e === 'glb' || e === 'vrm') return 'body'
+  if (isBodyFile(f)) return 'body'
   if (e === 'wav' || f.type === 'audio/wav' || f.type === 'audio/x-wav') return 'voice'
   if (e === 'json' || f.type === 'application/json') return 'persona'
   return null

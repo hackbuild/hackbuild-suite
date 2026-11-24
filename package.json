@@ -33,7 +33,8 @@
     "smoke:stage": "node tools/smoke-stage.mjs",
     "smoke:sendto": "node tools/smoke-sendto.mjs",
     "smoke:character": "node tools/smoke-character.mjs",
-    "smoke:twin": "node tools/smoke-twin.mjs"
+    "smoke:twin": "node tools/smoke-twin.mjs",
+    "smoke:toolbar": "node tools/smoke-toolbar.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
