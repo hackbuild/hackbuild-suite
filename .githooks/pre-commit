@@ -1,0 +1,5 @@
+#!/bin/sh
+# RULES.md Language on the staged text files. CI runs the same linter over the repo.
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -Ev '\.(png|jpe?g|gif|webp|glb|gltf|bin|wasm|onnx|gguf|wav|mp3|ogg|ico|woff2?|ttf|lock)$' | grep -Ev "^(LICENSES/|RULES.md|CLAUDE.md|tools/)" | grep -v 'package-lock.json')
+[ -z "$files" ] && exit 0
+exec node tools/lint-voice.mjs $files

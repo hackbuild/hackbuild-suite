@@ -1,0 +1,3 @@
+/* Layout only. Every visual rule lives in hackbuild-ui; anything a tool
+   needs that the kit lacks goes into hackbuild-ui first (BUILD-BRIEF.md). */
+html, body, #app { height: 100%; margin: 0; }

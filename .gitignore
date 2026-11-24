@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+# test runners, coverage, local secrets
+test-results/
+playwright-report/
+coverage/
+.env
+.env.*
+!.env.example
+*.key
+out/
+target/
+pkg/
+*.wasm.b64

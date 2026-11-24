@@ -1,0 +1,36 @@
+{
+  "name": "hackbuild-suite",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Moheeb Zara <hackbuildvideo@gmail.com>",
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "build:all": "npm run build && npm run build:single",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "test": "node --test tools/test/*.test.mjs",
+    "smoke:file": "node tools/smoke-file.mjs",
+    "ui:check": "node tools/vendor/pin-ui.mjs --check",
+    "lint:voice": "git ls-files | grep -Ev '\\.(png|jpe?g|glb|bin|wasm|wav)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs node tools/lint-voice.mjs"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.2.4",
+    "puppeteer-core": "25.18.1",
+    "typescript": "5.9.3",
+    "vite": "6.4.3",
+    "vite-plugin-singlefile": "2.3.4",
+    "vue-tsc": "2.2.12"
+  },
+  "description": "Browser AI and 3D character tools in one tab, built on the hackbuild libraries.",
+  "dependencies": {
+    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.5.0-5211c3a.tgz",
+    "vue": "3.5.41",
+    "vue-router": "4.6.4"
+  }
+}
