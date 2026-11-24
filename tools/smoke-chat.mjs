@@ -63,6 +63,8 @@ try {
   if (!/reasoning|thinking/.test(t[1].think)) fail('the reply has no think fold')
   for (const w of ['speak', 'redo', 'copy', 'delete']) if (!t[1].acts.includes(w)) fail(`the reply has no ${w} action`)
   if (!t[0].acts.includes('edit')) fail('your turn has no edit action')
+  if (!(await act(1, 'remember'))) fail('the reply has no remember action')
+  await page.waitForFunction(() => document.querySelectorAll('.hb-chat-log .hb-msg')[1]?.textContent.includes('in memory'), { timeout: 5000 }).catch(() => fail('remember did not mark the reply in memory'))
   const stats = await page.$eval('.hb-chat-log .hb-msg:nth-child(2) .hb-msg-stats', (e) => e.textContent).catch(() => '')
   if (!/tok/.test(stats)) fail(`the reply has no stats strip: "${stats}"`)
 
@@ -116,7 +118,9 @@ try {
   await settled(3).catch(() => fail('the imported chat does not show 3 turns'))
   const back = await turns()
   if (back.map((x) => x.text).join('|') !== kept.map((x) => x.text).join('|')) fail('the imported turns differ from the exported ones')
-  await clickText('.hb-chat-hd button', 'chats')
+  // from 1024 px the list stands beside the chat; below it opens from the header
+  const inline = await page.evaluate(() => !!document.querySelector('.hb-toolpage.is-split > .is-side .hb-convs-item, .hb-toolpage.is-split > .is-side.hb-convs'))
+  if (!inline) await clickText('.hb-chat-hd button', 'chats')
   const listed = await page.waitForFunction(() => document.querySelectorAll('.hb-convs-item').length >= 2, { timeout: 3000 }).then(() => true, () => false)
   if (!listed) fail('the conversation list does not show both chats')
   await page.keyboard.press('Escape')

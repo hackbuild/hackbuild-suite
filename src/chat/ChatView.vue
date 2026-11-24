@@ -22,6 +22,7 @@ import { docSink } from './sink.ts'
 import { stubChat } from './stub.ts'
 import { addChatRuntimes, endpointKey, engineOf } from './runtimes.ts'
 import { rememberLine, traceHits } from '../memory/lines.ts'
+import { useWide } from '../shell/wide.ts'
 
 // the memory store loads with the first turn that needs it
 const memStore = () => import('../memory/store.ts')
@@ -42,6 +43,8 @@ const busy = ref(false)
 const live = ref<{ id: string; text: string; think: string } | null>(null)
 const draft = ref('')
 const listOpen = ref(false)
+// from 1024 px the conversation list stands beside the chat, below it is a drawer
+const wide = useWide()
 let conv: Conversation | null = null
 let off: (() => void) | null = null
 let written: unknown = null
@@ -207,6 +210,7 @@ const lines = computed<HbChatLine[]>(() => {
   const l = live.value?.id === liveId ? live.value : null
   return toLines(s, {
     live: liveId,
+    remembered: remembered.value,
     pending: engine.value === scripted ? 'the script answers' : 'waiting on the first word',
     ...(l ? { text: l.text, think: l.think } : {}),
   })
@@ -228,11 +232,27 @@ async function recall(text: string): Promise<{ id: string; text: string }[]> {
     return []
   }
 }
-async function remember(text: string): Promise<void> {
+async function remember(text: string): Promise<boolean> {
   const line = memOn.value ? rememberLine(text) : null
-  if (!line) return
+  if (!line) return false
   const r = await (await memStore()).saveLine(line, { from: 'chat' })
   logEvent('note', r.merged ? `already remembered, made stronger: ${line}` : `remembered: ${line}`)
+  return true
+}
+// the remember action under a line saves it; the phrase in it wins when there is one
+const remembered = ref<ReadonlySet<string>>(new Set())
+async function rememberAt(i: number): Promise<void> {
+  const l = lines.value[i]
+  if (!l || l.remembered) return
+  const line = rememberLine(l.text) ?? l.text.replace(/\s+/g, ' ').trim()
+  if (!line) return
+  try {
+    const r = await (await memStore()).saveLine(line, { from: 'chat' })
+    remembered.value = new Set([...remembered.value, String(l.id)])
+    logEvent('note', r.merged ? `already remembered, made stronger: ${line}` : `remembered: ${line}`)
+  } catch (err) {
+    logEvent('fail', `not remembered: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 const traceOpen = ref(false)
 const traceQuery = ref('')
@@ -249,16 +269,23 @@ async function showTrace(i: number): Promise<void> {
 const openMemory = () => router.push({ name: 'memory', query: { q: traceQuery.value } })
 
 // a message typed before the document opens waits for it
-const send = (t: string) => void ready.then(() => remember(t).catch(() => {})).then(() => conv?.send(t))
+const send = (t: string) =>
+  void ready.then(async () => {
+    const saved = await remember(t).catch(() => false)
+    const sent = conv?.send(t)
+    // "remember that ..." marks the turn it was typed in
+    const u = saved ? [...(conv?.session.messages ?? [])].reverse().find((m) => m.role === 'user') : undefined
+    if (u) remembered.value = new Set([...remembered.value, u.id])
+    await sent
+  })
 const stop = () => conv?.stop()
 const redo = () => void conv?.redo()
 const remove = (i: number) => conv?.remove(idAt(i))
 const edit = (i: number, t: string) => void conv?.edit(idAt(i), t)
+// speak opens the speech tool with the line, which says it on its engine and voice
 function speak(i: number): void {
   const t = lines.value[i]?.text
-  if (!t || typeof speechSynthesis === 'undefined') return void logEvent('warn', 'no speech synthesis in this browser. replies stay as text.')
-  speechSynthesis.cancel()
-  speechSynthesis.speak(new SpeechSynthesisUtterance(t))
+  if (t) void router.push({ name: 'speak', query: { text: t, say: '1' } })
 }
 function trim(): void {
   const s = session.value
@@ -312,8 +339,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="hb-toolpage">
+  <div ref="root" class="hb-toolpage" :class="{ 'is-split': wide }">
     <HbEngineBar
+      class="is-full"
       label="chat engine"
       :model="barFacts.model"
       :state="barState"
@@ -326,6 +354,20 @@ onBeforeUnmount(() => {
       @load="current && hub.load(current.id)"
       @cancel="current && hub.cancel(current.id)"
       @unload="current && hub.unload(current.id)"
+    />
+    <HbConversationList
+      v-if="wide"
+      class="is-side"
+      :items="chats"
+      :current="doc.doc.value?.id ?? null"
+      :busy="busy"
+      @open="openFromList"
+      @new="newChat"
+      @rename="rename"
+      @duplicate="(id) => duplicateDoc(id)"
+      @remove="removeChat"
+      @export="exportChat()"
+      @import="pickFiles()"
     />
     <HbChat
       class="is-grow"
@@ -345,13 +387,14 @@ onBeforeUnmount(() => {
       @edit="edit"
       @remove="remove"
       @speak="speak"
+      @remember="rememberAt"
       @recall="(i) => showTrace(i)"
       @clear="conv?.clear()"
       @export="exportChat()"
       @import="pickFiles()"
     >
       <template #header-extra>
-        <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="listOpen = true">chats</button>
+        <button v-if="!wide" type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="listOpen = true">chats</button>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :disabled="!lines.length" @click="exportChat('md')">markdown</button>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :aria-pressed="memOn" @click="memOn = !memOn">{{ memOn ? 'memory on' : 'memory off' }}</button>
       </template>
@@ -386,7 +429,7 @@ onBeforeUnmount(() => {
       <HbRecallTrace :hits="trace?.hits ?? []" :query="traceQuery" :how="trace?.how ?? ''" who="chat" :names="{ rel: 'relevance', rec: 'recency', imp: 'importance' }" />
       <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="openMemory">open in memory</button>
     </HbDrawer>
-    <HbDrawer v-model="listOpen" side="left" size="sm" label="chats">
+    <HbDrawer v-if="!wide" v-model="listOpen" side="left" size="sm" label="chats">
       <HbConversationList
         :items="chats"
         :current="doc.doc.value?.id ?? null"

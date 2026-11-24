@@ -438,8 +438,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="hb-toolpage">
+  <div ref="root" class="hb-toolpage is-split">
     <HbEngineBar
+      class="is-full"
       label="speech to text"
       :model="rec ? rec.label ?? rec.id : ''"
       :state="barState"
@@ -452,9 +453,9 @@ onBeforeUnmount(() => {
       @cancel="rec && hub.cancel(rec.id)"
       @unload="rec && hub.unload(rec.id)"
     />
-    <HbCallout v-if="fromFile" variant="warn">opened from a file, so decoding runs on the page and it will stutter. results are the same.</HbCallout>
+    <HbCallout v-if="fromFile" class="is-full" variant="warn">opened from a file, so decoding runs on the page and it will stutter. results are the same.</HbCallout>
 
-    <HbPanel heading="files">
+    <HbPanel heading="files" class="is-side">
       <HbToolbar>
         <HbButton variant="secondary" size="sm" @click="pickFiles()">add files</HbButton>
         <HbMicButton v-model:state="micState" :level="micLevel" @start="micStart" @stop="micStop" />
@@ -471,6 +472,7 @@ onBeforeUnmount(() => {
       />
     </HbPanel>
 
+    <div class="hb-toolpage">
     <HbPanel :heading="doc.doc.value ? doc.doc.value.name : 'transcript'">
       <HbToolbar>
         <HbButton variant="secondary" size="sm" :disabled="!src" @click="togglePlay">{{ playing ? 'pause' : 'play' }}</HbButton>
@@ -538,5 +540,6 @@ onBeforeUnmount(() => {
       :code="HOW"
       persist-key="transcribe-how"
     />
+    </div>
   </div>
 </template>

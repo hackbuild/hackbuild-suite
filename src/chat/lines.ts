@@ -11,11 +11,13 @@ export interface LineState {
   /** Text and think of the live reply, ahead of the session's copy. */
   text?: string
   think?: string
+  /** Message ids saved to memory: their remember action reads 'in memory'. */
+  remembered?: ReadonlySet<string>
 }
 
 function actions(m: SessionMessage, lastReply: boolean): HbMessageAction[] {
-  if (m.role === 'user') return ['copy', 'edit', 'remove']
-  return lastReply ? ['speak', 'retry', 'copy', 'remove'] : ['speak', 'copy', 'remove']
+  if (m.role === 'user') return ['remember', 'copy', 'edit', 'remove']
+  return lastReply ? ['speak', 'retry', 'remember', 'copy', 'remove'] : ['speak', 'remember', 'copy', 'remove']
 }
 
 export function toLines(s: Pick<ChatSession, 'messages'>, st: LineState = {}): HbChatLine[] {
@@ -32,6 +34,7 @@ export function toLines(s: Pick<ChatSession, 'messages'>, st: LineState = {}): H
         done: !live,
         actions: live ? [] : actions(m, s.messages.indexOf(m) === last),
       }
+      if (st.remembered?.has(m.id)) line.remembered = true
       if (live && !line.text) line.pending = st.pending ?? 'thinking'
       if (m.error !== undefined) {
         line.error = true

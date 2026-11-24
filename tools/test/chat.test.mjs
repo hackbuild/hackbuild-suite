@@ -114,9 +114,11 @@ test('lines carry actions, the live reply, errors and stats', () => {
     ],
   }
   const l = toLines(s)
-  assert.deepEqual(l[0].actions, ['copy', 'edit', 'remove'])
-  assert.deepEqual(l[1].actions, ['speak', 'copy', 'remove'])
-  assert.deepEqual(l[3].actions, ['speak', 'retry', 'copy', 'remove'])
+  assert.deepEqual(l[0].actions, ['remember', 'copy', 'edit', 'remove'])
+  assert.deepEqual(l[1].actions, ['speak', 'remember', 'copy', 'remove'])
+  assert.deepEqual(l[3].actions, ['speak', 'retry', 'remember', 'copy', 'remove'])
+  assert.equal(l[1].remembered, undefined)
+  assert.equal(toLines(s, { remembered: new Set(['a1']) })[1].remembered, true)
   assert.equal(l[1].stats.source, 'inferred')
   assert.equal(l[3].note, 'reply stopped: the engine closed. press redo.')
   const live = toLines(s, { live: 'a2', pending: 'thinking' })

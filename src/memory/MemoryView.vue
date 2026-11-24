@@ -269,17 +269,15 @@ onMounted(async () => {
       @cancel="hub.cancel(EMBED_ID)"
       @unload="hub.unload(EMBED_ID)"
     />
-    <HbPanel :heading="doc.doc.value?.name ?? 'memory'">
-      <HbToolbar>
-        <HbSelect v-model="pickDoc" aria-label="which memory" :options="memDocs" />
-        <HbButton variant="secondary" size="sm" @click="newMemory">new memory</HbButton>
-        <HbButton v-if="embedState === 'none' || embedState === 'fault'" variant="secondary" size="sm" @click="hub.load(EMBED_ID)">load embedder{{ embedRec?.sizeMB ? `, ${Math.round(embedRec.sizeMB)} mb` : '' }}</HbButton>
-        <HbButton variant="secondary" size="sm" :disabled="!mem" @click="compact">compact</HbButton>
-        <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
-        <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
-      </HbToolbar>
-      <HbCallout variant="info">{{ modeLine }} pinned: {{ pinCount(pins) }}, kept in every prompt.</HbCallout>
-    </HbPanel>
+    <HbToolbar>
+      <HbSelect v-model="pickDoc" label="memory" :options="memDocs" />
+      <HbButton variant="secondary" size="sm" @click="newMemory">new memory</HbButton>
+      <HbButton v-if="embedState === 'none' || embedState === 'fault'" variant="secondary" size="sm" @click="hub.load(EMBED_ID)">load embedder{{ embedRec?.sizeMB ? `, ${Math.round(embedRec.sizeMB)} mb` : '' }}</HbButton>
+      <HbButton variant="secondary" size="sm" :disabled="!mem" @click="compact">compact</HbButton>
+      <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
+      <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
+    </HbToolbar>
+    <HbCallout variant="info">{{ modeLine }} pinned: {{ pinCount(pins) }}, kept in every prompt.</HbCallout>
 
     <HbMemoryPanel
       v-model:query="query"
