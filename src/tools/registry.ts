@@ -6,7 +6,7 @@ const pending = () => import('../views/PendingTool.vue')
 
 export const TOOLS: ToolDef[] = [
   defineTool({ id: 'chat', group: 'chat', title: 'chat', job: 'talk to a model running in this tab', phase: 2, packages: ['models', 'weights', 'chat', 'converse'], load: () => import('../chat/ChatView.vue') }),
-  defineTool({ id: 'memory', group: 'chat', title: 'memory', job: 'see, edit and forget what a character remembers', phase: 2, packages: ['memory', 'embed'], load: pending }),
+  defineTool({ id: 'memory', group: 'chat', title: 'memory', job: 'see, edit and forget what a character remembers', phase: 2, packages: ['memory', 'models'], load: () => import('../memory/MemoryView.vue') }),
   defineTool({ id: 'transcribe', group: 'voice', title: 'transcribe', job: 'turn recordings into text you can edit and export', phase: 2, packages: ['transcribe', 'audio-dsp', 'media'], load: () => import('../transcribe/TranscribeView.vue') }),
   defineTool({ id: 'speak', group: 'voice', title: 'speak', job: 'read text aloud and save the audio', phase: 3, packages: ['speak'], load: pending }),
   defineTool({ id: 'vision', group: 'image', title: 'vision', job: 'find faces, hands, objects and depth in a photo or camera', phase: 3, packages: ['vision', 'media'], load: pending }),
