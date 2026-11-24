@@ -30,6 +30,7 @@
     "smoke:masks": "node tools/smoke-masks.mjs"
   },
   "devDependencies": {
+    "@types/three": "0.186.0",
     "@vitejs/plugin-vue": "5.2.4",
     "puppeteer-core": "25.18.1",
     "typescript": "5.9.3",
@@ -43,6 +44,7 @@
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.0-36e5ca9.tgz",
     "@hackbuild/chat": "file:tools/vendor/hackbuild-chat-0.1.0-a79f0f5.tgz",
     "@hackbuild/converse": "file:tools/vendor/hackbuild-converse-0.1.0-a79f0f5.tgz",
+    "@hackbuild/depth-mesh": "file:tools/vendor/hackbuild-depth-mesh-0.1.0-9448c99.tgz",
     "@hackbuild/devices": "file:tools/vendor/hackbuild-devices-0.1.0-a79f0f5.tgz",
     "@hackbuild/imagegen": "file:tools/vendor/hackbuild-imagegen-0.1.0-44da07c.tgz",
     "@hackbuild/media": "file:tools/vendor/hackbuild-media-0.1.0-2219635.tgz",
@@ -53,6 +55,7 @@
     "@hackbuild/vision": "file:tools/vendor/hackbuild-vision-0.1.0-44da07c.tgz",
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.0-a79f0f5.tgz",
     "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.8.1-bf900b7.tgz",
+    "three": "0.186.1",
     "vue": "3.5.41",
     "vue-router": "4.6.4"
   }
