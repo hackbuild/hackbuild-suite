@@ -87,11 +87,12 @@ export const characterKind: DocKind<CardV2> = {
       label: 'card only, no talk',
       ext: '.card.json',
       type: 'application/json',
-      note: 'a character card v2 without the saved conversation, for other apps.',
+      note: 'a character card v2 without the saved conversation or twin files, for other apps.',
       write(body) {
         const c = structuredClone(body)
         const x = { ...extOf(c) }
         delete x.transcript
+        delete x.twin
         c.data.extensions = { ...c.data.extensions, [EXT]: x }
         return JSON.stringify(c, null, 2)
       },

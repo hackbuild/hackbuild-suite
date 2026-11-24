@@ -13,11 +13,14 @@
 // the gate and the brain tab; "new" makes a character and shows its setup
 // rows with reasons; the stage menu sends lines; the mic listens hands free
 // or push to talk; the conversation is saved inside the character file.
+// Twin mode fills the body, voice and persona from files the person drops
+// on the gate: no url, no default, held in memory unless kept, flagged
+// local, and left out of exports unless ticked there.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  HbApiKey, HbButton, HbChat, HbContextMenu, HbField, HbFold, HbHow, HbInput, HbMessage, HbMicButton, HbNameHud, HbPersonaEditor, HbPills,
-  HbPromptInspector, HbReasons, HbSeg, HbSlider, HbStageCaption, HbStepCard, HbTabs, HbTierCards, HbToggleRow, HbViewport, HbWakeGate,
+  HbApiKey, HbButton, HbChat, HbContextMenu, HbDropzone, HbField, HbFold, HbHow, HbInput, HbMessage, HbMicButton, HbNameHud, HbPersonaEditor, HbPills,
+  HbPromptInspector, HbReasons, HbSeg, HbSlider, HbStageCaption, HbStepCard, HbTabs, HbTag, HbTierCards, HbToggleRow, HbViewport, HbWakeGate,
   type HbChatLine, type HbContextItem, type HbReasonRow, type HbTier, type HudState, type WakeSystem,
 } from '@virgilvox/hackbuild-ui'
 import { tokenEstimate, wakeError, wakePills, type MicState, type PersonaFile, type PersonaPreset, type PromptMessage, type StepState } from '@virgilvox/hackbuild-ui/vanilla'
@@ -30,15 +33,18 @@ import * as hub from '../models/hub.ts'
 import { loadModels } from '../models/lazy'
 import { logEvent, useStop } from '../shell/shell.ts'
 import { settings } from '../shell/settings.ts'
-import { exportDoc, kinds, pickFiles, registerKind, useDocument, ws } from '../workspace/state'
+import { claimDrops, exportDoc, kinds, pickFiles, registerKind, useDocument, ws } from '../workspace/state'
+import { blobRef } from '../workspace/workspace.ts'
 import { addChatRuntimes } from '../chat/runtimes.ts'
 import { stubChat } from '../chat/stub.ts'
 import { addSpeakRuntimes, SYSTEM_ID } from '../speak/runtimes.ts'
 import { EMBED_ID } from '../memory/store.ts'
 import { characterKind, CHARACTER_KIND, CHIPS, greetingOf, profileFor, systemOf, newCard } from './kind.ts'
 import type { CharacterStage } from './stage.ts'
-import { BUILT_IN, cardSink, extOf, LENGTHS, loadPresets, personaOf, planOf, REGISTERS, savePresets, setExt, withPersona, type Length, type Plan, type Register, type TierKey } from './sheet.ts'
+import { BUILT_IN, cardSink, EXT, extOf, LENGTHS, loadPresets, personaOf, planOf, REGISTERS, savePresets, setExt, withPersona, type Length, type Plan, type Register, type TierKey } from './sheet.ts'
 import type { Ears } from './ears.ts'
+import { BODY_ACCEPT, PERSONA_ACCEPT, personaFrom, sizeOf, slotOf, TWIN_EMPTY, VOICE_ACCEPT, whereLine, type SlotKey, type TwinExt } from './twin.ts'
+import type { DropRoute } from '@virgilvox/hackbuild-ui/vanilla'
 
 const POCKET_ID = 'pocket-tts'
 const memStore = () => import('../memory/store.ts')
@@ -116,6 +122,9 @@ let ctx: AudioContext | null = null
 let speaker: Speaker | null = null
 const speaking = ref(false)
 let voiceEngines: Engine[] = []
+type Cloner = Engine & { cloneVoice?: (s: Float32Array, rate: number) => Promise<void> }
+let pocket: Cloner | null = null
+const cloned = ref(false)
 /** The speaker from the card's voice; the voice tab makes a new one. */
 async function makeSpeaker(): Promise<void> {
   if (!voiceEngines.length || !ctx) return
@@ -126,7 +135,7 @@ async function makeSpeaker(): Promise<void> {
     ctx,
     engines: voiceEngines,
     voice: { rate: voice.rate, pitch: voice.pitch },
-    ...(voice.voiceId ? { voices: { [POCKET_ID]: { voice: voice.voiceId } } } : {}),
+    ...(cloned.value ? { voices: { [POCKET_ID]: { voice: 'custom' } } } : voice.voiceId ? { voices: { [POCKET_ID]: { voice: voice.voiceId } } } : {}),
     onSpeaking: (s) => {
       speaking.value = s
       cs?.setSpeaking(s)
@@ -142,7 +151,8 @@ async function startVoice(): Promise<void> {
   let pocketErr = ''
   set('voice', { state: 'loading', model: POCKET_ID, note: 'loading pocket tts' })
   try {
-    engines.push((await hold(POCKET_ID)).value as Engine)
+    pocket = (await hold(POCKET_ID)).value as Cloner
+    engines.push(pocket)
   } catch (e) {
     pocketErr = why(e)
   }
@@ -200,7 +210,11 @@ async function startBody(): Promise<void> {
     cs = createCharacterStage(host.value, {
       level: () => speaker?.level() ?? 0,
       onBody: (b) => set('body', { state: 'ready', note: b.placeholder ? 'placeholder mannequin. drop a glb or vrm on the stage.' : `ready, ${b.name}${b.mouth ? '' : '. no mouth rig: the head moves instead'}` }),
-      onBodyFailed: (m) => logEvent('warn', `that body did not load: ${m}. the mannequin stays.`),
+      onBodyFailed: (msg) => {
+        const m = msg.replace(/\.+$/, '')
+        set('body', { state: 'ready', pill: 'body*', note: `that body did not load: ${m}. the mannequin stays.` })
+        logEvent('warn', `that body did not load: ${m}. the mannequin stays.`)
+      },
     })
     ;(host.value as HTMLElement & { characterStage?: CharacterStage }).characterStage = cs
   } catch (e) {
@@ -424,7 +438,7 @@ async function wake(lite: boolean): Promise<void> {
   rows.value = fresh()
   await boot()
   if (!doc.doc.value) await doc.create(name.value)
-  const others = Promise.all([startVoice(), startMemory(), startBody()])
+  const others = Promise.all([startVoice().then(cloneTwin), startMemory(), startBody().then(showTwinBody)])
   const ok = await startBrain()
   if (!ok) {
     waking.value = false
@@ -636,6 +650,127 @@ watch(handsFree, (on) => {
   if (!on && micState.value !== 'off' && ears) micState.value = 'off'
 })
 
+// Twin mode (design 3.9, section 5 item 5): three slots filled only by a
+// dropped file. The body and voice are held in memory; "keep on this
+// device" stores them as local blobs the card points at, and unticking it
+// deletes them from this browser.
+const MODES = [{ label: 'character', value: 'character' }, { label: 'twin', value: 'twin' }]
+const mode = ref<'character' | 'twin'>('character')
+const twinBody = shallowRef<File | null>(null)
+const twinVoice = shallowRef<File | null>(null)
+const twinPersona = ref('')
+const twinError = ref('')
+const keep = ref(false)
+const twinEmpty = computed(() => !twinBody.value && !twinVoice.value && !twinPersona.value)
+const twinRows = computed<HbReasonRow[]>(() => {
+  const where = keep.value ? 'kept in this browser, local only.' : 'in this tab only, in memory.'
+  return [
+    { key: 'body', label: 'body', value: twinBody.value ? `${twinBody.value.name}, ${sizeOf(twinBody.value.size)}` : 'empty', why: twinBody.value ? where : 'drop a glb or vrm. the mannequin stands in until then.' },
+    { key: 'voice', label: 'voice', value: twinVoice.value ? `${twinVoice.value.name}, ${sizeOf(twinVoice.value.size)}` : 'empty', why: twinVoice.value ? `${where} pocket tts clones it at wake.` : 'drop a wav of your voice, 8 s or more.' },
+    { key: 'persona', label: 'persona', value: twinPersona.value || 'empty', why: twinPersona.value ? 'written into the character. it is text and exports with it.' : 'drop a persona json or a character card.' },
+  ]
+})
+async function ensureDoc(): Promise<void> {
+  if (!doc.doc.value) await doc.create(name.value)
+}
+const twinOf = (): TwinExt | undefined => extOf(card.value).twin
+async function storeTwin(): Promise<void> {
+  await ensureDoc()
+  const before = twinOf()
+  const t: TwinExt = { keep: true }
+  for (const [k, f] of [['body', twinBody.value], ['voice', twinVoice.value]] as const) {
+    if (f) t[k] = blobRef(await ws.putBlob(new Uint8Array(await f.arrayBuffer()), { name: f.name, type: f.type || (k === 'body' ? 'model/gltf-binary' : 'audio/wav'), local: true }))
+  }
+  doc.edit((c) => setExt(c, { twin: t }))
+  for (const k of ['body', 'voice'] as const) {
+    const h = before?.[k]?.$blob
+    if (h && h !== t[k]?.$blob) await ws.deleteBlob(h)
+  }
+}
+async function forgetTwin(): Promise<void> {
+  const t = twinOf()
+  if (!t) return
+  doc.edit((c) => {
+    const x = { ...extOf(c) }
+    delete x.twin
+    c.data.extensions = { ...c.data.extensions, [EXT]: x }
+    return c
+  })
+  for (const k of ['body', 'voice'] as const) if (t[k]) await ws.deleteBlob(t[k]!.$blob)
+}
+let restoring = false
+watch(keep, (on) => {
+  if (restoring) return
+  void (on ? storeTwin() : forgetTwin()).then(() => logEvent('note', `twin: ${whereLine(on)}`))
+})
+async function restoreTwin(): Promise<void> {
+  const t = twinOf()
+  if (!t) return
+  restoring = true
+  for (const k of ['body', 'voice'] as const) {
+    const b = t[k] && (await ws.getBlob(t[k]!.$blob))
+    if (b) (k === 'body' ? twinBody : twinVoice).value = new File([b.data as Uint8Array<ArrayBuffer>], b.name, { type: b.type })
+  }
+  keep.value = true
+  mode.value = 'twin'
+  await nextTick()
+  restoring = false
+}
+async function fillSlot(slot: SlotKey, files: File[]): Promise<void> {
+  const f = files[0]
+  if (!f) return
+  twinError.value = ''
+  if (slot === 'persona') {
+    try {
+      const p = personaFrom(JSON.parse(await f.text()))
+      await ensureDoc()
+      doc.edit((c) => withPersona(c, p))
+      twinPersona.value = `${p.name}, from ${f.name}`
+    } catch (e) {
+      twinError.value = e instanceof SyntaxError ? `${f.name} is not json.` : why(e) + '.'
+    }
+    return
+  }
+  ;(slot === 'body' ? twinBody : twinVoice).value = f
+  if (keep.value) await storeTwin()
+}
+async function clearSlot(slot: string): Promise<void> {
+  if (slot === 'persona') twinPersona.value = ''
+  else (slot === 'body' ? twinBody : twinVoice).value = null
+  if (keep.value && slot !== 'persona') await storeTwin()
+}
+const twinRoutes: DropRoute[] = [
+  { name: 'body', accept: BODY_ACCEPT, on: (f) => void fillSlot('body', f) },
+  { name: 'voice', accept: VOICE_ACCEPT, on: (f) => void fillSlot('voice', f) },
+  { name: 'persona', accept: PERSONA_ACCEPT, on: (f) => void fillSlot('persona', f) },
+]
+const twinReject = (files: File[]) => {
+  const f = files.find((x) => !slotOf(x))
+  twinError.value = f ? `${f.name} fills no slot. the body takes a glb or vrm, the voice a wav, the persona a json.` : ''
+}
+const twinOn = computed(() => mode.value === 'twin')
+// a file dropped anywhere on the page fills its slot while the twin gate shows
+watch([twinOn, awake], ([on, up]) => claimDrops(on && !up ? { accept: (f) => !!slotOf(f), take: (files) => { for (const f of files) void fillSlot(slotOf(f)!, [f]) } } : null), { immediate: true })
+async function showTwinBody(): Promise<void> {
+  if (twinOn.value && twinBody.value && cs) await cs.stage.show([twinBody.value])
+}
+async function cloneTwin(): Promise<void> {
+  const f = twinVoice.value
+  if (!twinOn.value || !f || !voiceOn.value) return
+  if (!pocket?.cloneVoice) return set('voice', { state: 'error', pill: 'voice*', note: `no clone: pocket tts did not start. the browser voice speaks.` })
+  try {
+    const [{ decodeAudio }, { toMono }] = await Promise.all([import('@hackbuild/media'), import('@hackbuild/speak')])
+    const a = await decodeAudio(f)
+    await pocket.cloneVoice(toMono(a.channels), a.sampleRate)
+    cloned.value = true
+    await makeSpeaker()
+    const short = a.duration < 8 ? `. the clip is ${a.duration.toFixed(0)} s; 8 s or more copies a voice better` : ''
+    set('voice', { state: 'ready', note: `ready, pocket tts cloned from ${f.name}${short}` })
+  } catch (e) {
+    set('voice', { state: 'error', pill: 'voice*', note: `no clone: ${why(e)}. pocket tts speaks in its own voice.` })
+  }
+}
+
 const HOW = `import { createConversation } from "@hackbuild/converse";
 import { createSpeaker } from "@hackbuild/speak";
 import { fillMacros } from "@hackbuild/character";
@@ -664,6 +799,7 @@ onMounted(async () => {
     if (all.length) await doc.open(all.sort((a, b) => b.updated - a.updated)[0]!.id)
   }
   tier.value = extOf(card.value).tier ?? 'tab'
+  await restoreTwin()
   await boot()
 })
 // an imported or picked character opens here: talk to it at once
@@ -676,6 +812,7 @@ watch(() => route.query.doc, async (id) => {
 })
 onBeforeUnmount(() => {
   gone = true
+  claimDrops(null)
   clearTimeout(voiceT)
   ears?.stop()
   conv?.stop()
@@ -713,6 +850,17 @@ onBeforeUnmount(() => {
       @wake-lite="wake(true)"
     >
       <template #picker>
+        <HbField label="mode"><HbSeg v-model="mode" :options="MODES" /></HbField>
+        <div v-if="twinOn" class="hb-stack">
+          <p class="hb-hint">{{ twinEmpty ? TWIN_EMPTY : whereLine(keep) }}</p>
+          <HbDropzone :routes="twinRoutes" :accept="`${BODY_ACCEPT},${VOICE_ACCEPT},${PERSONA_ACCEPT}`" multiple label="pick files" hint="or drop a glb or vrm, a wav and a persona json here" :error="twinError" @rejected="twinReject" />
+          <HbReasons :rows="twinRows" label="twin slots">
+            <template #edit="{ row }">
+              <HbButton v-if="row.value !== 'empty'" variant="ghost" size="sm" @click="clearSlot(row.key ?? row.label)">remove</HbButton>
+            </template>
+          </HbReasons>
+          <HbToggleRow v-model="keep" label="keep on this device" :description="whereLine(keep)" />
+        </div>
         <HbTierCards v-model="tier" :tiers="tiers" label="brain" />
         <div v-if="tier === 'remote'" class="hb-stack">
           <HbField label="endpoint url" for="char-remote-url" hint="an openai style server, such as http://localhost:11434/v1">
@@ -726,6 +874,7 @@ onBeforeUnmount(() => {
 
     <div v-show="awake" class="is-full hb-acts">
       <HbPills :items="pills" :label="`${name}, subsystems`" />
+      <HbTag v-if="twinOn && !twinEmpty" variant="outline" :title="whereLine(keep)">local only</HbTag>
       <HbButton variant="secondary" size="sm" :aria-pressed="voiceOn" :disabled="!speaker" @click="toggleVoice">{{ voiceOn ? 'voice on' : 'voice off' }}</HbButton>
       <HbButton variant="secondary" size="sm" :disabled="busy" @click="clear">clear</HbButton>
       <HbButton variant="secondary" size="sm" @click="newCharacter">new</HbButton>

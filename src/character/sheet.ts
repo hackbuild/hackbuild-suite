@@ -5,6 +5,7 @@
 import { migrateSession, type ChatSession, type ChatSink } from '@hackbuild/converse'
 import type { CardV2 } from '@hackbuild/character'
 import type { PersonaFile, PersonaPreset } from '@virgilvox/hackbuild-ui/vanilla'
+import type { TwinExt } from './twin.ts'
 
 /** The suite's own part of the card, beside the hackbuild profile. */
 export const EXT = 'hackbuild_suite'
@@ -17,6 +18,8 @@ export interface SuiteExt {
   tier?: TierKey
   /** The conversation, saved with the character; left out by "card only". */
   transcript?: ChatSession
+  /** Twin files kept on this device, as pointers to local blobs. */
+  twin?: TwinExt
 }
 
 export const extOf = (card: CardV2): SuiteExt => (card.data.extensions?.[EXT] as SuiteExt | undefined) ?? {}

@@ -265,7 +265,17 @@ export async function importFiles(list: File[]): Promise<void> {
 }
 
 /** The window drop routes; HbDropzone draws the ring that names them. */
+/** A tool's claim on dropped files while it shows its own slots, as the
+ * twin gate does; tried before the import routes. */
+export interface DropClaim {
+  accept(file: { name: string; type: string }): boolean
+  take(files: File[]): void
+}
+let claim: DropClaim | null = null
+export const claimDrops = (c: DropClaim | null): void => { claim = c }
+
 export const dropRoutes: DropRoute[] = [
+  { name: 'claimed', accept: (f) => !!claim?.accept(f), on: (f) => claim?.take(f) },
   { name: 'workspace', accept: WORKSPACE_EXT, on: (f) => void importFiles(f) },
   { name: 'document', accept: (f) => kinds.isDocFile(f.name), on: (f) => void importFiles(f) },
   { name: 'tool', accept: (f) => kinds.takers(f).length > 0, on: (f) => void importFiles(f) },

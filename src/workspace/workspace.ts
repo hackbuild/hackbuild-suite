@@ -249,6 +249,8 @@ export function createWorkspace(db: Backend, opts: WorkspaceOptions) {
       return hash
     },
     getBlob: (hash: string) => db.get<BlobRecord>('blobs', hash),
+    /** Remove a stored blob; a body that still points at it then finds nothing. */
+    deleteBlob: (hash: string) => db.del('blobs', hash),
   }
 
   return ws
