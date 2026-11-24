@@ -11,7 +11,7 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'speak', group: 'voice', title: 'speak', job: 'read text aloud and save the audio', phase: 3, packages: ['speak', 'models'], load: () => import('../speak/SpeakView.vue') }),
   defineTool({ id: 'vision', group: 'image', title: 'vision', job: 'point a camera or an image at the models and read what they see', phase: 3, packages: ['vision', 'models'], load: () => import('../vision/VisionView.vue') }),
   defineTool({ id: 'masks', group: 'image', title: 'masks', job: 'cut objects out of an image by pointing at them', phase: 3, packages: ['vision', 'models'], load: () => import('../masks/MasksView.vue') }),
-  defineTool({ id: 'relief', group: 'image', title: 'relief', job: 'turn a photo into a printable relief', phase: 3, packages: ['vision', 'depth-mesh'], load: pending }),
+  defineTool({ id: 'relief', group: 'image', title: 'relief', job: 'turn a photo into a printable relief', phase: 3, packages: ['vision', 'depth-mesh'], load: () => import('../relief/ReliefView.vue') }),
   defineTool({ id: 'generate', group: 'image', title: 'generate', job: 'make images from a prompt', phase: 3, packages: ['imagegen', 'models'], load: () => import('../generate/GenerateView.vue') }),
   defineTool({ id: 'character', group: 'character', title: 'character', job: 'talk with a character that sees, speaks and remembers', phase: 4, packages: ['character', 'agent', 'speak', 'listen', 'memory'], load: pending }),
   defineTool({ id: 'room', group: 'rooms', title: 'room', job: 'watch an agent live in a room and inspect its mind', phase: 4, packages: ['agent', 'act', 'senses', 'drives'], load: pending }),

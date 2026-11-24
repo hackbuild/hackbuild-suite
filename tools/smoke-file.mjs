@@ -43,7 +43,7 @@ try {
   if (tabs.length !== 7) throw new Error(`expected 7 group tabs, found ${tabs.length}: ${tabs.join(', ')}`)
   if (shots) await page.screenshot({ path: join(shots, 'home-1440.png') })
 
-  for (const [hash, expect] of [['#/image/relief', 'relief is not built yet'], ['#/rooms', 'room is not built yet']]) {
+  for (const [hash, expect] of [['#/character', 'character is not built yet'], ['#/rooms', 'room is not built yet']]) {
     await page.evaluate((h) => { location.hash = h }, hash)
     await page.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 5000 }, expect)
     const stored = await idb(page, 'kv', 'get', 'last-route')
@@ -63,8 +63,9 @@ try {
   await page.click('.hb-statusbar')
   try { await dialog('shell ready') } catch { throw new Error('the status strip did not open the event log') }
   await page.keyboard.press('Escape')
-  await page.keyboard.down('Alt'); await page.keyboard.press('Digit3'); await page.keyboard.up('Alt')
-  await page.waitForFunction(() => location.hash.startsWith('#/image'), { timeout: 3000 }).catch(() => { throw new Error('alt+3 did not open the image group') })
+  await page.keyboard.down('Alt'); await page.keyboard.press('Digit4'); await page.keyboard.up('Alt')
+  // alt+4, the character group: every image tool is built now and makes a document on mount
+  await page.waitForFunction(() => location.hash.startsWith('#/character'), { timeout: 3000 }).catch(() => { throw new Error('alt+4 did not open the character group') })
   if (shots) {
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     await page.reload({ waitUntil: 'load' })
@@ -164,7 +165,7 @@ try {
   if (shots) await page.screenshot({ path: join(shots, 'docs-1440.png') })
 
   if (errors.length) throw new Error(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-file: ok. 7 tabs, two route changes, indexeddb write read back, keys , ? m / esc alt+3 and the log strip; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
+  console.log(`smoke-file: ok. 7 tabs, two route changes, indexeddb write read back, keys , ? m / esc alt+4 and the log strip; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

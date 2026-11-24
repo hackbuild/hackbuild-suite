@@ -104,6 +104,8 @@ setTimeout(() => void import('./transcribe/register.ts').then((m) => m.registerT
 setTimeout(() => void import('./vision/frame.ts').then((m) => m.registerVision()), 0)
 // The masks kind, so an image dropped on the masks page opens there and elsewhere the chooser offers it.
 setTimeout(() => void import('./masks/register.ts').then((m) => m.registerMasks()), 0)
+// The relief kind, so a photo dropped elsewhere can open in relief through the chooser.
+setTimeout(() => void import('./relief/register.ts').then((m) => m.registerRelief()), 0)
 // The image runs kind, so a dropped run sidecar or session opens in generate.
 setTimeout(() => void Promise.all([import('./generate/kind.ts'), import('./workspace/state')]).then(([m, st]) => { if (!st.kinds.get(m.GEN_KIND)) st.registerKind(m.genKind()) }), 0)
 // The memory kind too, so a dropped memory export opens in the memory tool.

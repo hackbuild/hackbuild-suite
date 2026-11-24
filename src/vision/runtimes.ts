@@ -55,6 +55,24 @@ export function drawScene(c: HTMLCanvasElement, tone: (name: string) => string):
   x.fillRect(k.x * W, k.y * H, k.w * W, k.h * H)
 }
 
+/**
+ * The weightless depth model for ?stub: a dome, 1 at the centre falling to
+ * 0 at the corners, so every run of the relief smoke and its shots is the same.
+ */
+export function radialDepth(): { estimate(img: unknown): Promise<{ width: number; height: number; data: Float32Array; range: [number, number] }> } {
+  return {
+    async estimate(img) {
+      const { width = 64, height = 48 } = (img ?? {}) as { width?: number; height?: number }
+      const data = new Float32Array(width * height)
+      const cx = (width - 1) / 2
+      const cy = (height - 1) / 2
+      const r = Math.hypot(cx, cy) || 1
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) data[y * width + x] = 1 - Math.hypot(x - cx, y - cy) / r
+      return { width, height, data, range: [0, 1] }
+    },
+  }
+}
+
 let added = false
 /** Add the rows and the runtimes. Safe to call more than once. */
 export async function addVisionRuntimes(): Promise<void> {
@@ -64,7 +82,7 @@ export async function addVisionRuntimes(): Promise<void> {
   hub.addRows(vision.VISION_RECORDS)
   const providers = [...new Set(vision.VISION_RECORDS.map((r: ModelRecord) => r.provider))]
   if (hub.STUB) {
-    hub.addStubs({ ...vision.visionStubs(), detect: () => cannedDetector() }, providers)
+    hub.addStubs({ ...vision.visionStubs(), detect: () => cannedDetector(), depth: () => radialDepth() }, providers)
     return
   }
   hub.provideRuntime('mediapipe', vision.mediapipeProvider({ runtime: vision.loadTasksVision(), store: hub.weights() }))
@@ -73,5 +91,6 @@ export async function addVisionRuntimes(): Promise<void> {
     tjs.loader('vision.caption', vision.vlmLoader)
     tjs.loader('vision.ask', vision.vlmLoader)
     tjs.loader('segment', vision.samLoader)
+    tjs.loader('depth', vision.depthLoader)
   }
 }
