@@ -11,10 +11,16 @@ import { GROUPS, toolPath } from './tools/define'
 import { TOOLS } from './tools/registry'
 import { events, focusComposer, jobs, logEvent, overlay, runPrimary, stopAll, type Overlay } from './shell/shell'
 import { SCHEMA, SECTIONS, loadSettings, settings } from './shell/settings'
+import WorkspacePanels from './shell/WorkspacePanels.vue'
+import {
+  busy, deleteProject, duplicateProject, newProject, openProject, opened, pickFiles, project, projects, redo, renaming,
+  saveNow, startWorkspace, undo,
+} from './workspace/state'
 
 const route = useRoute()
 const router = useRouter()
 loadSettings()
+void startWorkspace()
 
 const toolId = computed(() => (route.meta.tool as string | undefined) ?? '')
 const tool = computed(() => TOOLS.find((t) => t.id === toolId.value))
@@ -56,6 +62,11 @@ useHotkeys([
   { keys: 'm', label: 'model manager', group: 'shell', run: () => open('models') },
   { keys: ',', label: 'settings', group: 'shell', run: () => open('settings') },
   { keys: '?', label: 'this key map', group: 'shell', run: () => open('keys') },
+  { keys: 'ctrl+s', label: 'save now (autosave is on)', group: 'workspace', inFields: true, run: () => void saveNow() },
+  { keys: 'ctrl+o', label: 'open or import: the documents of this project', group: 'workspace', inFields: true, run: () => open('docs') },
+  { keys: 'ctrl+shift+e', label: 'export panel', group: 'workspace', inFields: true, run: () => open('export') },
+  { keys: 'ctrl+z', label: 'undo in the open document', group: 'workspace', run: () => undo() },
+  { keys: 'ctrl+shift+z', label: 'redo in the open document', group: 'workspace', run: () => redo() },
   { keys: 'ctrl+enter', label: "run the tool's primary action", group: 'tool', inFields: true, run: () => runPrimary() },
   { keys: 'esc', label: 'close the top overlay; with none open, stop audio and generation', group: 'shell', run: () => {
     if (overlay.value) { overlay.value = ''; return }
@@ -63,13 +74,18 @@ useHotkeys([
   } },
 ])
 
-// The palette: tools, then shell commands (documents and models join in 2.5 and 2.6).
+// The palette: tools, then shell commands (models join in 2.6).
 const COMMANDS: Record<string, { label: string; kbd?: string; run: () => void }> = {
   'cmd:home': { label: 'home: every tool', run: () => router.push('/') },
   'cmd:settings': { label: 'settings', kbd: ',', run: () => open('settings') },
   'cmd:models': { label: 'model manager', kbd: 'm', run: () => open('models') },
   'cmd:log': { label: 'event log', run: () => open('log') },
   'cmd:keys': { label: 'key map', kbd: '?', run: () => open('keys') },
+  'cmd:docs': { label: 'documents: open, rename, duplicate, delete', kbd: 'ctrl+o', run: () => open('docs') },
+  'cmd:save': { label: 'save now', kbd: 'ctrl+s', run: () => void saveNow() },
+  'cmd:import': { label: 'import a file', run: () => pickFiles() },
+  'cmd:export': { label: 'export the workspace or a document', kbd: 'ctrl+shift+e', run: () => open('export') },
+  'cmd:new': { label: 'new project', run: () => void newProject() },
 }
 const sections: HbPaletteSection[] = [
   { label: 'tools', items: TOOLS.map((t) => ({ key: t.id, label: t.title, hint: t.group, words: t.job })) },
@@ -105,6 +121,14 @@ navigator.storage?.estimate?.().then(
 
 logEvent('note', `suite: shell ready. ${TOOLS.length} tools, nothing loaded, nothing fetched.`)
 watch(toolId, (id) => { if (id) logEvent('note', `open ${id}`) })
+
+// An opened or imported document goes to the tool that owns it.
+watch(opened, (d) => {
+  const t = d && TOOLS.find((x) => x.id === d.tool)
+  overlay.value = ''
+  if (t) router.push({ path: toolPath(t, TOOLS), query: { doc: d!.id } })
+})
+const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name: p.name })))
 </script>
 
 <template>
@@ -113,13 +137,20 @@ watch(toolId, (id) => { if (id) logEvent('note', `open ${id}`) })
       <HbHeader title="suite" accent="." tagline="local only. models run in this tab." tagline-kind="tool">
         <HbWorkspaceMenu
           v-model:level="settings.level as string"
-          name="scratch"
-          current="scratch"
-          :projects="[{ id: 'scratch', name: 'scratch' }]"
+          :name="project?.name ?? 'scratch'"
+          :current="project?.id ?? 'scratch'"
+          :projects="menuProjects"
           :levels="['guided', 'standard', 'expert']"
-          busy
+          :busy="!!busy"
+          @open="openProject"
+          @new="newProject"
+          @rename="renaming = true"
+          @duplicate="duplicateProject"
+          @export="open('export')"
+          @import="pickFiles"
+          @delete="deleteProject"
         >
-          <template #reason>one workspace for now. projects, export and import come next.</template>
+          <template #reason>{{ busy }}</template>
         </HbWorkspaceMenu>
         <HbPills :items="pills" label="what is loaded" @goto="open('models')" />
         <HbActivity :source="jobs" />
@@ -162,5 +193,6 @@ watch(toolId, (id) => { if (id) logEvent('note', `open ${id}`) })
       the model manager lands in phase 2. nothing downloads until you press a load button that names the size.
     </HbEmptyState>
   </HbDrawer>
+  <WorkspacePanels :side="side" />
   <HbToaster />
 </template>

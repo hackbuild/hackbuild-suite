@@ -39,7 +39,7 @@ onCore((e) => {
 })
 
 /** The one overlay open at a time. */
-export type Overlay = '' | 'settings' | 'keys' | 'log' | 'models' | 'palette'
+export type Overlay = '' | 'settings' | 'keys' | 'log' | 'models' | 'palette' | 'docs' | 'export'
 export const overlay = ref<Overlay>('')
 
 /** A tool with a composer registers it; "/" focuses it in place of the palette. */

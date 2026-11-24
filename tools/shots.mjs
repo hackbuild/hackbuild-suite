@@ -9,10 +9,12 @@
 //
 //   node tools/shots.mjs --dir dist/hosted --out <dir> [--routes "#/,#/chat"] [--widths 320,1440]
 // READY=<selector> waits for that element before each shot (default body *).
+// SETUP=<file.js> evaluates that script (an expression, awaited) in the page
+// after READY, to open a panel or load a fixture through the app's own paths.
 // Exit code 1 when a check fails; the report lists every failure.
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { extname, join, resolve } from 'node:path'
 import puppeteer from 'puppeteer-core'
@@ -37,6 +39,7 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r))
 const base = `http://127.0.0.1:${server.address().port}/`
 mkdirSync(out, { recursive: true })
 
+const SETUP = process.env.SETUP ? readFileSync(process.env.SETUP, 'utf8') : null
 const slug = (route) => route.replace(/^#\/?/, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'home'
 const profile = mkdtempSync(join(tmpdir(), 'suite-shots-'))
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: profile, args: ['--no-first-run', '--window-size=1440,900'] })
@@ -67,6 +70,7 @@ try {
         await page.setContent(`<body style="margin:0;background:#888"><iframe id="f" src="${url}" style="border:0;width:${w}px;height:900px;display:block"></iframe></body>`, { waitUntil: 'load' })
         const frame = await (await page.$('#f')).contentFrame()
         await frame.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
+        if (SETUP) await frame.evaluate(SETUP)
         await new Promise((r) => setTimeout(r, 300))
         const side = await frame.evaluate(SIDEWAYS)
         if (side > 0) fails.push(`${route} at ${w}: sideways scroll ${side} px`)
@@ -75,6 +79,7 @@ try {
         await page.setViewport({ width: w, height: 900 })
         await page.goto(url, { waitUntil: 'load' })
         await page.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
+        if (SETUP) await page.evaluate(SETUP)
         await new Promise((r) => setTimeout(r, 300))
         const side = await page.evaluate(SIDEWAYS)
         if (side > 0) fails.push(`${route} at ${w}: sideways scroll ${side} px`)
@@ -90,6 +95,7 @@ try {
     await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' }] })
     await page.goto(url, { waitUntil: 'load' })
     await page.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
+    if (SETUP) await page.evaluate(SETUP)
     await new Promise((r) => setTimeout(r, 300))
     const small = await page.evaluate(SMALL)
     for (const s of small) fails.push(`${route} touch: target under 44 px: ${s}`)
