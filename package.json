@@ -29,7 +29,8 @@
     "smoke:generate": "node tools/smoke-generate.mjs",
     "smoke:masks": "node tools/smoke-masks.mjs",
     "smoke:relief": "node tools/smoke-relief.mjs",
-    "smoke:stage": "node tools/smoke-stage.mjs"
+    "smoke:stage": "node tools/smoke-stage.mjs",
+    "smoke:sendto": "node tools/smoke-sendto.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",

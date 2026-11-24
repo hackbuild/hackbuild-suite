@@ -9,7 +9,7 @@
 // runs compare on a wipe; the png carries its settings, a sidecar json
 // holds them too, and a run can go on to vision.
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import {
   HbButton, HbConsole, HbField, HbHistoryStrip, HbHow, HbLicence, HbMethodCard, HbPanel, HbProgress, HbReadouts, HbSeed, HbSelect,
   HbSlider, HbSplit, HbStatusLine, HbTextarea, HbToolbar, HbViewport, useHotkeys,
@@ -26,12 +26,13 @@ import {
   GEN_KIND, genKind, newSession, PNG_KEY, pngWithText, reuse, runLine, sidecar, SIDECAR_EXT, withRun,
   type GenBody, type Run,
 } from './kind.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 import { addGenerateRuntimes, clipTokenizer, stubTokenize } from './runtimes.ts'
 
 if (!kinds.get(GEN_KIND)) registerKind(genKind())
 
 const route = useRoute()
-const router = useRouter()
 const doc = useDocument<GenBody>(GEN_KIND)
 const body = computed<GenBody>(() => doc.doc.value?.body ?? newSession())
 const current = computed<Run | null>(() => body.value.runs.find((r) => r.id === body.value.current) ?? body.value.runs[0] ?? null)
@@ -232,17 +233,11 @@ function saveSidecar(): void {
 }
 const exportSession = () => doc.doc.value && void exportDoc(doc.doc.value.id)
 
-// Send to vision: the run becomes a capture in a new vision session.
-async function sendToVision(): Promise<void> {
-  const r = current.value
-  if (!r) return
-  const [{ registerVision }, v] = await Promise.all([import('../vision/frame.ts'), import('../vision/kind.ts')])
-  registerVision()
-  const cap = { id: r.id, name: `seed ${r.seed}`, at: Date.now(), from: 'generate', image: r.image, width: r.size, height: r.size, found: [], points: [], caption: null, answers: [], ms: {}, models: [] }
-  const d = await ws.createDoc(v.VISION_KIND, { name: `generated, seed ${r.seed}`, body: v.withCapture(v.newSession(), cap) })
-  log(`sent seed ${r.seed} to vision.`, 'info')
-  await router.push({ name: 'vision', query: { doc: d.id } })
-}
+// Send to (design 1.2): the run as an image to vision, masks and relief.
+const offers = computed<SendOffer[]>(() => [{
+  type: 'image', what: 'image', ready: !!current.value,
+  get: () => (current.value ? { type: 'image', name: `seed ${current.value.seed}`, frame: { image: current.value.image, width: current.value.size, height: current.value.size } } : null),
+}])
 
 // Keys (P-KEY-1): ctrl+enter generates, r rerolls, esc stops, left and right walk the strip.
 usePrimary(() => void generateNow())
@@ -350,7 +345,7 @@ onMounted(async () => {
         <HbToolbar>
           <HbButton variant="secondary" size="sm" :disabled="!current" @click="savePng">save png</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!current" @click="saveSidecar">settings json</HbButton>
-          <HbButton variant="secondary" size="sm" :disabled="!current" @click="sendToVision">send to vision</HbButton>
+          <SendTo from="generate" :offers="offers" />
           <HbButton variant="secondary" size="sm" @click="exportSession">export</HbButton>
           <HbButton variant="secondary" size="sm" @click="pickFiles()">import</HbButton>
           <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>

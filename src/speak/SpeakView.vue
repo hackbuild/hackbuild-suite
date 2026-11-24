@@ -20,6 +20,8 @@ import { logEvent, usePrimary, useStop } from '../shell/shell.ts'
 import { settings } from '../shell/settings.ts'
 import { exportDoc, kinds, pickFiles, registerKind, useDocument, ws } from '../workspace/state'
 import { newScript, peaksOf, runThumb, SPEECH_KIND, speechKind, withRun, type SpeechBody } from './kind.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 import { addSpeakRuntimes, KOKORO_ID, KOKORO_OFF, SPEAK_ORDER, SYSTEM_ID, TRADES } from './runtimes.ts'
 
 if (!kinds.get(SPEECH_KIND)) registerKind(speechKind)
@@ -296,23 +298,37 @@ function stop(): void {
   speaking.value = false
 }
 
+// Send to (design 1.2): the line as text, and its offline render as audio for transcribe.
+const offers = computed<SendOffer[]>(() => {
+  const name = doc.doc.value?.name ?? 'speech'
+  const ok = !!draft.value.trim()
+  return [
+    { type: 'text', what: 'text', ready: ok, get: () => (draft.value.trim() ? { type: 'text', name, text: draft.value.trim() } : null) },
+    { type: 'audio', what: 'audio', ready: ok && !saving.value, get: async () => { const audio = await renderWav(false); return audio ? { type: 'audio', name, audio } : null } },
+  ]
+})
+
 // Save wav: an offline render on the chain, never a capture of playback.
 const saving = ref(false)
-async function saveWav(): Promise<void> {
+const saveWav = () => renderWav(true)
+async function renderWav(save: boolean): Promise<Blob | null> {
   commitText()
   const text = draft.value.trim()
-  if (!text) return say('type a line first. there is nothing to save.', 'warn')
+  if (!text) return say('type a line first. there is nothing to save.', 'warn'), null
   saving.value = true
   try {
     const r = await renderSpeech(await chain(), text, { ...cfg(), onSkip: (id, why) => logEvent('note', `speak: ${id} skipped for the wav: ${why}`) })
     const name = `${doc.doc.value?.name ?? 'speech'}.wav`
-    saveFile(name, renderedWav(r), 'audio/wav')
+    const wav = renderedWav(r)
+    if (save) saveFile(name, wav, 'audio/wav')
     const t = renderedTiming(r, text)
     doc.edit((b) => { b.timing = { engine: t.engine, sampleRate: t.sampleRate, duration: t.duration, words: r.words.map(({ start, end, t0, t1, estimated }) => ({ start, end, t0, t1, estimated })) } })
     addRun(r.duration, peaksOf(r.samples))
-    say(`saved ${name}, ${r.duration.toFixed(1)} s from ${rec(r.engine)?.label ?? r.engine} (measured).`, 'ok')
+    say(`${save ? 'saved' : 'rendered'} ${name}, ${r.duration.toFixed(1)} s from ${rec(r.engine)?.label ?? r.engine} (measured).`, 'ok')
+    return new Blob([wav as BlobPart], { type: 'audio/wav' })
   } catch (err) {
     say(err instanceof OfflineRenderError ? err.message : `no wav: ${err instanceof Error ? err.message : String(err)}`, 'err')
+    return null
   } finally {
     saving.value = false
   }
@@ -432,6 +448,7 @@ onBeforeUnmount(() => {
           <HbButton variant="danger" size="sm" :disabled="!speaking" @click="stop">stop</HbButton>
           <HbButton variant="secondary" size="sm" :loading="saving" :disabled="saving || !draft.trim()" @click="saveWav">save wav</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!body.timing" @click="exportTiming">word timing</HbButton>
+          <SendTo from="speak" :offers="offers" />
           <HbButton variant="secondary" size="sm" @click="exportScript">export</HbButton>
           <HbButton variant="secondary" size="sm" @click="pickFiles()">import</HbButton>
           <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>

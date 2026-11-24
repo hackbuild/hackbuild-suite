@@ -5,7 +5,7 @@
 // the queue through the one hub, and the open document takes edits with
 // undo. The queue list is the history.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import {
   HbButton, HbCallout, HbConsole, HbEngineBar, HbExportPanel, HbField, HbFold, HbHow, HbInput, HbLevelRail, HbMicButton, HbPanel,
   HbQueueStrip, HbReadouts, HbSelect, HbSlider, HbToggleRow, HbToolbar, HbTranscript, useHotkeys,
@@ -24,6 +24,8 @@ import { deleteDoc, docs, exportDoc, importFiles, kinds, pickFiles, useDocument,
 import type { Doc } from '../workspace/workspace.ts'
 import { CAPTURE, docOf, TRANSCRIPT_KIND, withRun, type Capture, type TranscriptBody } from './kind.ts'
 import { registerTranscript } from './register.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 import { addTranscribeRuntimes, provideDsp } from './runtimes.ts'
 
 registerTranscript()
@@ -32,19 +34,12 @@ const route = useRoute()
 const doc = useDocument<TranscriptBody>(TRANSCRIPT_KIND)
 const body = computed(() => doc.doc.value?.body ?? null)
 
-// "send to" (design 2.4): each line of the transcript into the chat memory, or the whole text into the chat composer.
-const router = useRouter()
+// Send to (design 1.2, 2.4): the transcript as text to memory, chat and speech.
 const spoken = () => segs.value.map((s) => s.text.trim()).filter(Boolean)
-async function sendToMemory(): Promise<void> {
-  const { saveLine } = await import('../memory/store.ts')
-  const name = doc.doc.value?.name ?? 'transcript'
-  let n = 0
-  for (const t of spoken()) if (t.length >= 12 && !(await saveLine(t, { kind: 'doc', from: 'transcript', section: name })).merged) n++
-  logEvent('note', `sent ${n} lines of ${name} to memory. chat recalls them now.`)
-}
-const sendToChat = () => router.push({ name: 'chat', query: { draft: spoken().join(' ') } })
-// speak opens the speech tool with the lines, which says them on its engine and voice
-const speakLines = () => router.push({ name: 'speak', query: { text: spoken().join(' '), say: '1' } })
+const offers = computed<SendOffer[]>(() => [{
+  type: 'text', what: 'transcript', ready: segs.value.length > 0,
+  get: () => ({ type: 'text', name: doc.doc.value?.name ?? 'transcript', text: spoken().join('\n') }),
+}])
 
 // The timed log (P-LOAD-15): a box in the tool, every line also in the shell log.
 const lines = ref<HbConsoleLine[]>([])
@@ -480,9 +475,7 @@ onBeforeUnmount(() => {
         <HbButton variant="secondary" size="sm" :disabled="!src" @click="togglePlay">{{ playing ? 'pause' : 'play' }}</HbButton>
         <HbField label="search" class="tx-search"><HbInput v-model="query" placeholder="ctrl+f" /></HbField>
         <HbToggleRow v-model="showDropped" label="show dropped lines" />
-        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToMemory">send to memory</HbButton>
-        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToChat">send to chat</HbButton>
-        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="speakLines">speak</HbButton>
+        <SendTo from="transcribe" :offers="offers" />
         <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
         <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
       </HbToolbar>

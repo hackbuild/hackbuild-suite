@@ -25,6 +25,8 @@ import {
 } from './kind.ts'
 import { drawSeen, fitCanvas, frameOf, readFrame, registerVision, tone } from './frame.ts'
 import { addVisionRuntimes, drawScene } from './runtimes.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 
 registerVision()
 
@@ -105,6 +107,15 @@ watch(input, async (v) => {
   } catch (err) {
     say(err instanceof Error ? err.message : String(err), 'err')
   }
+})
+
+// Send to (design 1.2): the frame as an image, the caption as text.
+const offers = computed<SendOffer[]>(() => {
+  const c = current.value
+  return [
+    { type: 'image', what: 'image', ready: !!c, get: () => (c ? { type: 'image', name: c.name, frame: { image: c.image, width: c.width, height: c.height } } : null) },
+    { type: 'text', what: 'caption', ready: !!c?.caption, get: () => (c?.caption ? { type: 'text', name: `${c.name} caption`, text: c.caption } : null) },
+  ]
 })
 
 // Run: each picked task on the current frame; one that fails leaves the rest running.
@@ -384,6 +395,7 @@ onBeforeUnmount(() => { if (live.value) stopLive() })
         <HbToolbar>
           <HbButton variant="secondary" size="sm" :disabled="!current" @click="exportPng">seen png</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!current" @click="exportResults">results</HbButton>
+          <SendTo from="vision" :offers="offers" />
           <HbButton variant="secondary" size="sm" @click="exportSession">export</HbButton>
           <HbButton variant="secondary" size="sm" @click="pickFiles()">import</HbButton>
           <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>

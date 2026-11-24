@@ -46,6 +46,13 @@ try {
   await page.setViewport({ width: 1024, height: 900 })
   await page.goto(url, { waitUntil: 'load' })
   const text = () => page.evaluate(() => document.body.textContent)
+  // the send to menu: open it, then pick the row "<what> to <tool>"
+  const sendTo = (label) => page.evaluate(async (x) => {
+    document.querySelector('[data-sendto]')?.click()
+    await new Promise((r) => setTimeout(r, 60))
+    const b = [...document.querySelectorAll('.hb-menu-item')].find((e) => e.textContent.trim() === x && !e.disabled)
+    b?.click(); return !!b
+  }, label)
   const click = (re) => page.evaluate((s) => {
     const b = [...document.querySelectorAll('.hb-toolpage button')].find((e) => new RegExp(s).test(e.textContent.trim()) && !e.disabled)
     b?.click(); return !!b
@@ -151,7 +158,7 @@ try {
   if (!(await click('^generate$'))) fail('no generate button')
   await page.waitForFunction(() => document.querySelectorAll('.hb-hist-item').length === 1 && !document.querySelector('.hb-vp-cover'), { timeout: 10000 }).catch(() => fail('the restored run did not land'))
   if ((await shown()) !== first) fail('the restored settings gave other pixels')
-  if (!(await click('^send to vision$'))) fail('no send to vision button')
+  if (!(await sendTo('image to vision'))) fail('no image to vision in send to')
   await page.waitForFunction(() => location.hash.startsWith('#/image/vision') && document.querySelectorAll('.hb-hist-item').length === 1, { timeout: 6000 }).catch(() => fail('the run did not open in vision'))
 
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)

@@ -30,6 +30,8 @@ import {
   withSaved, maskFromRgba, type Instance, type MasksBody, type Prompt,
 } from './kind.ts'
 import { registerMasks } from './register.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 
 registerMasks()
 
@@ -282,6 +284,15 @@ function clearAll(): void {
 
 // Preview of the selected instance, or of every shown one (P-SEG-3).
 const look = ref('cutout')
+// Send to (design 1.2): the image, and the shown instances as one mask that limits a relief.
+const offers = computed<SendOffer[]>(() => {
+  const b = body.value
+  const frame = b.image ? { image: b.image, width: b.width, height: b.height } : null
+  return [
+    { type: 'image', what: 'image', ready: !!frame, get: () => (frame ? { type: 'image', name: b.name, frame } : null) },
+    { type: 'mask', what: 'mask', ready: !!frame && b.instances.some((x) => !x.hidden), get: () => (frame ? { type: 'mask', name: `${b.name} mask`, frame, mask: maskToRle(unionOf(b)) } : null) },
+  ]
+})
 const lookMask = computed(() => (sel.value ? maskFromRle(sel.value.rle) : body.value.instances.length ? unionOf(body.value) : null))
 const lookUrl = computed(() => {
   const m = lookMask.value
@@ -472,6 +483,7 @@ onMounted(async () => {
         <HbToolbar>
           <HbButton variant="secondary" size="sm" :disabled="!body.image" @click="nextInstance">next instance</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!body.instances.length" @click="saveMask">save mask</HbButton>
+          <SendTo from="masks" :offers="offers" />
           <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
           <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
         </HbToolbar>

@@ -34,6 +34,8 @@ import { strokeInto } from '../masks/kind.ts'
 import { clampParams, newBody, RELIEF_KIND, withImage, type ReliefBody } from './kind.ts'
 import { provideDepthMesh, registerRelief } from './register.ts'
 import type { ReliefPreview } from './preview3d.ts'
+import SendTo from '../shell/SendTo.vue'
+import type { SendOffer } from '../workspace/sendto'
 
 registerRelief()
 provideDepthMesh()
@@ -42,6 +44,15 @@ const route = useRoute()
 const doc = useDocument<ReliefBody>(RELIEF_KIND)
 const body = computed<ReliefBody>(() => doc.doc.value?.body ?? newBody())
 const W = computed(() => body.value.width || 1)
+// Send to (design 1.2): the photo as an image, the depth map as depth.
+const offers = computed<SendOffer[]>(() => {
+  const b = body.value
+  const frame = b.image ? { image: b.image, width: b.width, height: b.height } : null
+  return [
+    { type: 'image', what: 'photo', ready: !!frame, get: () => (frame ? { type: 'image', name: b.name, frame } : null) },
+    { type: 'depth', what: 'depth', ready: !!frame && !!b.depth, get: () => (frame && b.depth ? { type: 'depth', name: `${b.name} depth`, frame, depth: b.depth, model: b.depthModel } : null) },
+  ]
+})
 const H = computed(() => body.value.height || 1)
 
 const EMPTY = 'drop a photo and it becomes a relief. or take the sample scene.'
@@ -430,6 +441,7 @@ onMounted(async () => {
         <HbToolbar>
           <HbButton variant="secondary" size="sm" :disabled="!body.image || !ready || depthBusy" @click="runDepth">run depth</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!body.keep" @click="clearBrush">clear erase</HbButton>
+          <SendTo from="relief" :offers="offers" />
           <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
           <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
           <HbButton variant="secondary" size="sm" @click="pickFiles()">import</HbButton>

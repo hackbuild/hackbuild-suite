@@ -58,6 +58,13 @@ try {
     .catch(async () => fail(`the dropped wav is not a queued strip: ${await page.evaluate(() => document.querySelector('.hb-qstrips')?.textContent)}`))
 
   // one press runs the queue: the stub model loads, the dsp core runs, segments land
+  // the send to menu: open it, then pick the row "<what> to <tool>"
+  const sendTo = (label) => page.evaluate(async (x) => {
+    document.querySelector('[data-sendto]')?.click()
+    await new Promise((r) => setTimeout(r, 60))
+    const b = [...document.querySelectorAll('.hb-menu-item')].find((e) => e.textContent.trim() === x && !e.disabled)
+    b?.click(); return !!b
+  }, label)
   const clickText = (sel, w) => page.evaluate((s, x) => {
     const b = [...document.querySelectorAll(s)].find((e) => e.textContent.trim().startsWith(x) && !e.disabled)
     b?.click(); return !!b
@@ -115,9 +122,11 @@ try {
   if (!zip.includes(Buffer.from('manifest.json'))) fail('the zip has no manifest.json')
 
   // send to memory, then send to chat with the text in the composer
-  if (!(await clickText('button', 'send to memory'))) fail('no send to memory')
-  await wait(600)
-  if (!(await clickText('button', 'send to chat'))) fail('no send to chat')
+  if (!(await sendTo('transcript to memory'))) fail('no transcript to memory in send to')
+  await page.waitForFunction(() => location.hash.includes('/chat/memory'), { timeout: 5000 }).catch(() => fail('send to memory did not open memory'))
+  await page.goBack()
+  await page.waitForFunction(() => location.hash.includes('/voice/transcribe') && document.querySelector('[data-sendto]') && !document.querySelector('[data-sendto]').disabled, { timeout: 5000 }).catch(() => fail('back to the transcript failed'))
+  if (!(await sendTo('transcript to chat'))) fail('no transcript to chat in send to')
   await page.waitForFunction((t) => location.hash.includes('/chat') && document.querySelector('.hb-composer textarea')?.value.includes(t), { timeout: 5000 }, back[0].trim()).catch(() => fail('send to chat did not fill the composer'))
   await page.focus('.hb-composer textarea')
   await page.keyboard.press('Enter')
