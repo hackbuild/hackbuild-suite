@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   HbActivity, HbAppShell, HbDrawer, HbEmptyState, HbEventLog, HbHeader, HbKeyMap, HbPalette, HbPills,
   HbSettingsForm, HbStatusBar, HbSuiteNav, HbTag, HbToaster, HbWorkspaceMenu, useHotkeys,
-  type HbPaletteSection, type HbStatusItem, type HbSuiteGroup,
+  type HbPaletteSection, type HbStatusCell, type HbStatusItem, type HbSuiteGroup,
 } from '@virgilvox/hackbuild-ui'
 import { resetValues, summarize, type ActivityTask } from '@virgilvox/hackbuild-ui/vanilla'
 import { GROUPS, toolPath } from './tools/define'
@@ -40,12 +40,6 @@ const navRoute = computed({
 })
 
 // One overlay at a time; each drawer is a bottom sheet under 761 px.
-const wideQuery = matchMedia('(min-width: 761px)')
-const wide = ref(wideQuery.matches)
-const onWide = () => (wide.value = wideQuery.matches)
-wideQuery.addEventListener('change', onWide)
-onBeforeUnmount(() => wideQuery.removeEventListener('change', onWide))
-const side = computed(() => (wide.value ? 'right' : 'bottom'))
 const shown = (o: Overlay) =>
   computed({ get: () => overlay.value === o, set: (v: boolean) => (overlay.value = v ? o : overlay.value === o ? '' : overlay.value) })
 const settingsOpen = shown('settings')
@@ -119,6 +113,14 @@ navigator.storage?.estimate?.().then(
   () => undefined,
 )
 
+const cells = computed<HbStatusCell[]>(() => [
+  { key: 'job', label: 'job', value: job.value, priority: 1 },
+  { key: 'device', label: 'device', value: gpu ? 'webgpu' : 'cpu', priority: 1 },
+  { key: 'model', label: 'model', value: 'none', priority: 2 },
+  { key: 'stored', label: 'stored', value: used.value, priority: 2 },
+  { key: 'tool', label: 'tool', value: tool.value?.title ?? 'home', priority: 3 },
+])
+
 logEvent('note', `suite: shell ready. ${TOOLS.length} tools, nothing loaded, nothing fetched.`)
 watch(toolId, (id) => { if (id) logEvent('note', `open ${id}`) })
 
@@ -162,18 +164,12 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
     </template>
     <RouterView />
     <template #statusbar>
-      <HbStatusBar role="button" tabindex="0" aria-label="open the event log" @click="open('log')" @keydown.enter="open('log')">
-        <span>job <b>{{ job }}</b></span>
-        <span>device <b>{{ gpu ? 'webgpu' : 'cpu' }}</b></span>
-        <span>model <b>none</b></span>
-        <span>stored <b>{{ used }}</b></span>
-        <span>tool <b>{{ tool?.title ?? 'home' }}</b></span>
-      </HbStatusBar>
+      <HbStatusBar :cells="cells" action="open the event log" @press="open('log')" />
     </template>
   </HbAppShell>
 
   <HbPalette v-model:open="paletteOpen" :sections="sections" :keys="false" placeholder="tools and commands" @run="runPalette" />
-  <HbDrawer v-model="settingsOpen" :side="side" title="settings">
+  <HbDrawer v-model="settingsOpen" side="auto" title="settings">
     <HbSettingsForm
       v-model="settings"
       :schema="SCHEMA"
@@ -182,17 +178,17 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
       @reset="(s) => (settings = resetValues(settings, SCHEMA, s))"
     />
   </HbDrawer>
-  <HbDrawer v-model="keysOpen" :side="side" title="keys">
+  <HbDrawer v-model="keysOpen" side="auto" title="keys">
     <HbKeyMap />
   </HbDrawer>
-  <HbDrawer v-model="logOpen" :side="side" title="event log">
+  <HbDrawer v-model="logOpen" side="auto" title="event log">
     <HbEventLog :rows="events" label="this project" filters />
   </HbDrawer>
-  <HbDrawer v-model="modelsOpen" :side="side" title="models">
+  <HbDrawer v-model="modelsOpen" side="auto" title="models">
     <HbEmptyState title="no models yet">
       the model manager lands in phase 2. nothing downloads until you press a load button that names the size.
     </HbEmptyState>
   </HbDrawer>
-  <WorkspacePanels :side="side" />
+  <WorkspacePanels />
   <HbToaster />
 </template>

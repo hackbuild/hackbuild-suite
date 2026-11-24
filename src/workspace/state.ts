@@ -2,6 +2,7 @@
 // the menu and the documents drawer, save, export, import, the drop routes
 // and the document composable tools use (design 2.5, 2.6).
 import { computed, getCurrentInstance, onBeforeUnmount, ref, shallowRef, type Ref, type ShallowRef } from 'vue'
+import { useToast } from '@virgilvox/hackbuild-ui'
 import { confirmDialog, saveFile, undoStack, type DropRoute, type UndoStack } from '@virgilvox/hackbuild-ui/vanilla'
 import { idbBackend, memoryBackend, type Backend } from './db.ts'
 import { kinds, WORKSPACE_EXT, type DocKind, type NativeImport } from './kinds.ts'
@@ -13,15 +14,10 @@ export type { DocKind } from './kinds.ts'
 
 const files = () => import('./files.ts')
 
-// Short answers go to the activity line in the header and stay a moment;
-// failures stay longer. The hackbuild-ui 0.6.0 toast store calls setTimeout
-// off its window, which throws in Chrome, so the shell does not toast.
-let sayTimer: ReturnType<typeof setTimeout> | undefined
+// Short answers go to the toaster; failures stay longer.
+const { toast: say } = useToast()
 function toast(message: string, o: { kind: 'ok' | 'warn' | 'err' }): void {
-  clearTimeout(sayTimer)
-  if (o.kind === 'err') jobs.fail('ws-say', message)
-  else jobs.set('ws-say', message)
-  sayTimer = setTimeout(() => jobs.end('ws-say'), o.kind === 'ok' ? 2500 : 6000)
+  say(message, { kind: o.kind, duration: o.kind === 'ok' ? 2500 : 6000 })
 }
 
 let backend: Backend = idbBackend
