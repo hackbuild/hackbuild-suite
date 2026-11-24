@@ -6,7 +6,7 @@ import { ref } from 'vue'
 import { HbCapabilities, HbCustomModelForm, HbModelManager, HbModelRack, HbReasons } from '@virgilvox/hackbuild-ui'
 import {
   act, addCustom, allRecords, customModes, cancel, caps, checkCustom, customCheck, customSaved, defaultId, defaults, evict, fits, load,
-  machine, persist, policy, rackPresets, rackSlots, rackStates, reasons, removeCustom, resident, states, storage, stored, unload,
+  machine, persist, policy, rackPresets, rackSlots, rackStates, reasons, removeCustom, removeSlot, resident, states, storage, stored, unload,
 } from './hub'
 
 const picked = ref<string | null>(null)
@@ -41,7 +41,7 @@ function preset(id: string) {
       <HbReasons :rows="reasons" />
     </template>
     <template #rack>
-      <HbModelRack v-model="picks" :slots="rackSlots" :states="rackStates(picks)" :presets="rackPresets" @load="(_s, id) => load(id)" @preset="preset" />
+      <HbModelRack v-model="picks" :slots="rackSlots" :states="rackStates(picks)" :presets="rackPresets" @load="(_s, id) => load(id)" @preset="preset" @remove="removeSlot" />
     </template>
     <template #custom>
       <HbCustomModelForm

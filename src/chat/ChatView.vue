@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root">
+  <div ref="root" class="hb-toolpage">
     <HbEngineBar
       label="chat engine"
       :model="barFacts.model"
@@ -290,6 +290,7 @@ onBeforeUnmount(() => {
       @unload="current && hub.unload(current.id)"
     />
     <HbChat
+      class="is-grow"
       v-model:draft="draft"
       v-model:api-key="shownKey"
       :lines="lines"

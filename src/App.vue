@@ -195,7 +195,7 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
   <HbDrawer v-model="logOpen" side="auto" title="event log">
     <HbEventLog :rows="events" label="this project" filters />
   </HbDrawer>
-  <HbDrawer v-model="modelsOpen" side="auto" title="models">
+  <HbDrawer v-model="modelsOpen" side="auto" size="md" title="models">
     <ModelsPanel />
   </HbDrawer>
   <WorkspacePanels />

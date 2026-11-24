@@ -360,8 +360,13 @@ export const rackSlots = computed<HbRackSlot[]>(() =>
         const fit = fits.value[r.id]
         return { value: r.id, label: r.label ?? r.id, sizeMB: r.sizeMB, sizeSource: r.sizeSource, disabled: fit && !fit.ok ? fit.reason : undefined }
       }),
-  })).filter((s) => s.options.length),
+  })),
 )
+/** Remove pressed on a rack slot whose pick the catalogue no longer has: the rack clears the pick. */
+export function removeSlot(slot: string): void {
+  const l = SLOTS.find((s) => s.slot === slot)?.label ?? slot
+  logEvent('note', `${l}: the pick is not in the catalogue, so it was cleared. pick another or leave it empty.`)
+}
 export const rackPresets = computed<HbRackPreset[]>(() =>
   PRESETS.map((p) => {
     const t = presetTotal(p, records.value)
