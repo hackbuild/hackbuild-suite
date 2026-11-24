@@ -8,6 +8,7 @@
 // sentence, display inline, are exempt as wcag 2.5.8 allows).
 //
 //   node tools/shots.mjs --dir dist/hosted --out <dir> [--routes "#/,#/chat"] [--widths 320,1440]
+// READY=<selector> waits for that element before each shot (default body *).
 // Exit code 1 when a check fails; the report lists every failure.
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
@@ -65,7 +66,7 @@ try {
         await page.goto(base, { waitUntil: 'load' })
         await page.setContent(`<body style="margin:0;background:#888"><iframe id="f" src="${url}" style="border:0;width:${w}px;height:900px;display:block"></iframe></body>`, { waitUntil: 'load' })
         const frame = await (await page.$('#f')).contentFrame()
-        await frame.waitForSelector('#app *', { timeout: 10000 })
+        await frame.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
         await new Promise((r) => setTimeout(r, 300))
         const side = await frame.evaluate(SIDEWAYS)
         if (side > 0) fails.push(`${route} at ${w}: sideways scroll ${side} px`)
@@ -73,7 +74,7 @@ try {
       } else {
         await page.setViewport({ width: w, height: 900 })
         await page.goto(url, { waitUntil: 'load' })
-        await page.waitForSelector('#app *', { timeout: 10000 })
+        await page.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
         await new Promise((r) => setTimeout(r, 300))
         const side = await page.evaluate(SIDEWAYS)
         if (side > 0) fails.push(`${route} at ${w}: sideways scroll ${side} px`)
@@ -88,7 +89,7 @@ try {
     const cdp = await page.createCDPSession()
     await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' }] })
     await page.goto(url, { waitUntil: 'load' })
-    await page.waitForSelector('#app *', { timeout: 10000 })
+    await page.waitForSelector(process.env.READY ?? 'body *', { timeout: 10000 })
     await new Promise((r) => setTimeout(r, 300))
     const small = await page.evaluate(SMALL)
     for (const s of small) fails.push(`${route} touch: target under 44 px: ${s}`)
