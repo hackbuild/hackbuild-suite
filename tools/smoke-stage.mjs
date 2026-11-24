@@ -39,14 +39,14 @@ try {
   await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' }] })
   await page.goto(url, { waitUntil: 'load' })
 
-  await page.waitForFunction(() => document.querySelector('.hb-viewport-media')?.phoneStage && !document.querySelector('.hb-vp-cover'), { timeout: 15000 })
+  await page.waitForFunction(() => document.querySelector('.hb-viewport-host')?.phoneStage && !document.querySelector('.hb-vp-cover'), { timeout: 15000 })
     .catch(async () => fail(`the stage did not start: ${await page.evaluate(() => document.querySelector('.hb-vp-cover')?.textContent ?? 'no cover')}`))
   if (await page.evaluate(() => !!document.querySelector('.hb-suite-nav, .hb-suitenav'))) fail('the suite shell drew around the lab page')
 
   // pixels: one frame rendered and read in the same task, more than a flat fill
   await wait(600)
   const px = await page.evaluate(async () => {
-    const ps = document.querySelector('.hb-viewport-media').phoneStage
+    const ps = document.querySelector('.hb-viewport-host').phoneStage
     const blob = await ps.stage.snapshot()
     const bmp = await createImageBitmap(blob)
     const c = new OffscreenCanvas(bmp.width, bmp.height)
@@ -64,7 +64,7 @@ try {
   if (px.colours < 8 || px.lit < 100) fail(`the canvas looks blank: ${JSON.stringify(px)}`)
 
   // pad: press up (forward is y < 0) for a second; the body walks away from the camera (-z here)
-  const pos = () => page.evaluate(() => document.querySelector('.hb-viewport-media').phoneStage.position())
+  const pos = () => page.evaluate(() => document.querySelector('.hb-viewport-host').phoneStage.position())
   const before = await pos()
   const r = await page.$eval('.hb-pad-base', (e) => { const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2, h: b.height } })
   if (!r.h) fail('the pad is not shown on a coarse pointer')
@@ -82,7 +82,7 @@ try {
     await page.setViewport(phone(w, h))
     await wait(700)
     const s = await page.evaluate(() => {
-      const host = document.querySelector('.hb-viewport-media')
+      const host = document.querySelector('.hb-viewport-host')
       const cv = host.querySelector('canvas')
       const b = host.getBoundingClientRect()
       const c = cv.getBoundingClientRect()

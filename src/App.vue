@@ -141,9 +141,9 @@ const used = computed(() => {
 })
 
 const cells = computed<HbStatusCell[]>(() => [
-  { key: 'job', label: 'job', value: job.value, priority: 1 },
+  { key: 'job', label: 'job', value: job.value, priority: 1, state: job.value === 'idle' ? 'off' : 'load' },
   { key: 'device', label: 'device', value: models.value?.env.value ? (models.value.env.value.webgpu ? 'webgpu' : 'cpu') : gpu ? 'webgpu' : 'cpu', priority: 1 },
-  { key: 'model', label: 'model', value: models.value?.modelLine.value ?? 'none', priority: 2 },
+  { key: 'model', label: 'model', value: models.value?.modelLine.value ?? 'none', priority: 2, state: (models.value?.modelLine.value ?? 'none') === 'none' ? 'off' : 'ok' },
   { key: 'stored', label: 'stored', value: used.value, priority: 2 },
   { key: 'tool', label: 'tool', value: tool.value?.title ?? 'home', priority: 3 },
 ])

@@ -419,7 +419,7 @@ onMounted(async () => {
           :cover-title="modelState === 'downloading' ? 'loading the depth model' : undefined"
           :cover-note="modelState === 'downloading' && record ? `${sizeWord(record)}. brightness works now.` : undefined"
         >
-          <div v-show="view === '3d'" ref="stageEl" class="hb-split-side" />
+          <div v-show="view === '3d'" ref="stageEl" class="hb-viewport-host" />
           <HbArtboard
             v-if="view === 'face'" v-model:selected="artSel" v-model:tool="tool" fill :width="W" :height="H" :layers="layers" :brush="{ size: brush }"
             caption="face, shaded relief" :label="`${body.name} face`" @stroke="onStroke"

@@ -76,14 +76,15 @@ function act() {
 <template>
   <HbAppShell v-model:mode="mode" v-model:rail-open="rack" recipe="rack" rail-label="rack" fit>
     <template #header>
-      <HbHeader title="phone stage" accent="." tagline="real 3d stage. replies and rack tabs are fixtures." tagline-kind="tool">
+      <HbHeader title="phone stage" accent="." tagline="real 3d stage." tagline-kind="tool">
+        <p class="hb-fixture is-strip"><b>fixture</b> replies and rack tabs are sample state.</p>
         <a class="hb-link" href="#/">exit</a>
         <HbPill status="ok">stage</HbPill>
       </HbHeader>
     </template>
 
     <HbViewport aspect="fill" label="the stage" :cover-title="cover || undefined" :cover-error="failed">
-      <div ref="host" class="hb-viewport-media" />
+      <div ref="host" class="hb-viewport-host" />
       <template #tl><HbNameHud :name="NAME" :state="hud" /></template>
       <template #telemetry>
         <HbHudStat label="fps" :value="fps" :digits="0" />
@@ -105,7 +106,7 @@ function act() {
               <button v-for="o in ORDERS" :key="o" type="button" class="hb-chip" @click="send(o)">{{ o }}</button>
             </div>
           </HbPanel>
-          <HbPanel v-else-if="value === 'mind'" heading="drives" sunk>
+          <HbPanel v-else-if="value === 'mind'" heading="drives" sunk class="hb-instrument">
             <HbKv label="state" value="standing" />
             <HbGauges :rows="DRIVES" :max="1" label="drives" />
           </HbPanel>

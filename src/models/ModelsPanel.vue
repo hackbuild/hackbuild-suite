@@ -19,6 +19,7 @@ function preset(id: string) {
 
 <template>
   <HbModelManager
+    class="hb-instrument"
     v-model="picked"
     :records="allRecords"
     :fits="fits"
