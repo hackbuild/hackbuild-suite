@@ -25,6 +25,8 @@ void startWorkspace()
 
 const toolId = computed(() => (route.meta.tool as string | undefined) ?? '')
 const tool = computed(() => TOOLS.find((t) => t.id === toolId.value))
+// A lab page draws its own shell, so the suite shell steps aside.
+const bare = computed(() => route.meta.bare === true)
 
 // Groups and tools for the nav and the tool sheet (design 2.1).
 const groups: HbSuiteGroup[] = GROUPS.map((g) => ({
@@ -159,7 +161,8 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
 </script>
 
 <template>
-  <HbAppShell>
+  <RouterView v-if="bare" />
+  <HbAppShell v-else>
     <template #header>
       <HbHeader title="suite" accent="." tagline="local only. models run in this tab." tagline-kind="tool">
         <HbWorkspaceMenu

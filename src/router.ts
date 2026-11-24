@@ -24,6 +24,9 @@ export const router = createRouter({
     { path: '/', name: 'home', component: () => import('./views/HomeView.vue') },
     ...toolRoutes,
     ...groupRoutes,
+    // Lab pages are layout checks, not tools: they stay out of the nav and
+    // the palette and draw their own shell (meta.bare).
+    { path: '/lab/phone-stage', name: 'lab-phone-stage', component: () => import('./lab/PhoneStageView.vue'), meta: { bare: true } },
     { path: '/:rest(.*)*', name: 'missing', component: () => import('./views/MissingView.vue') },
   ],
 })
