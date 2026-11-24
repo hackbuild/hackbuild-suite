@@ -5,7 +5,7 @@ import { defineTool, type ToolDef } from './define'
 const pending = () => import('../views/PendingTool.vue')
 
 export const TOOLS: ToolDef[] = [
-  defineTool({ id: 'chat', group: 'chat', title: 'chat', job: 'talk to a model running in this tab', phase: 2, packages: ['models', 'weights', 'chat', 'memory'], load: pending }),
+  defineTool({ id: 'chat', group: 'chat', title: 'chat', job: 'talk to a model running in this tab', phase: 2, packages: ['models', 'weights', 'chat', 'converse'], load: () => import('../chat/ChatView.vue') }),
   defineTool({ id: 'memory', group: 'chat', title: 'memory', job: 'see, edit and forget what a character remembers', phase: 2, packages: ['memory', 'embed'], load: pending }),
   defineTool({ id: 'transcribe', group: 'voice', title: 'transcribe', job: 'turn recordings into text you can edit and export', phase: 2, packages: ['transcribe', 'audio-dsp', 'listen'], load: pending }),
   defineTool({ id: 'speak', group: 'voice', title: 'speak', job: 'read text aloud and save the audio', phase: 3, packages: ['speak'], load: pending }),
