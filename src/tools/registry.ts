@@ -13,7 +13,7 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'masks', group: 'image', title: 'masks', job: 'cut objects out of an image by pointing at them', phase: 3, packages: ['vision', 'models'], load: () => import('../masks/MasksView.vue') }),
   defineTool({ id: 'relief', group: 'image', title: 'relief', job: 'turn a photo into a printable relief', phase: 3, packages: ['vision', 'depth-mesh'], load: () => import('../relief/ReliefView.vue') }),
   defineTool({ id: 'generate', group: 'image', title: 'generate', job: 'make images from a prompt', phase: 3, packages: ['imagegen', 'models'], load: () => import('../generate/GenerateView.vue') }),
-  defineTool({ id: 'character', group: 'character', title: 'character', job: 'talk with a character that sees, speaks and remembers', phase: 4, packages: ['character', 'agent', 'speak', 'listen', 'memory'], load: pending }),
+  defineTool({ id: 'character', group: 'character', title: 'character', job: 'talk with a character that sees, speaks and remembers', phase: 4, packages: ['character', 'converse', 'speak', 'avatar-host', 'memory'], load: () => import('../character/CharacterView.vue') }),
   defineTool({ id: 'room', group: 'rooms', title: 'room', job: 'watch an agent live in a room and inspect its mind', phase: 4, packages: ['agent', 'act', 'senses', 'drives'], load: pending }),
   ...['avatar', 'retarget', 'ik', 'gait', 'lipsync', 'motion-match', 'motion-net'].map((id) =>
     defineTool({ id, group: 'motion', title: id, job: `${id} for 3d characters`, phase: 5, packages: [id], load: pending }),

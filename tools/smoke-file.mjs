@@ -43,7 +43,7 @@ try {
   if (tabs.length !== 7) throw new Error(`expected 7 group tabs, found ${tabs.length}: ${tabs.join(', ')}`)
   if (shots) await page.screenshot({ path: join(shots, 'home-1440.png') })
 
-  for (const [hash, expect] of [['#/character', 'character is not built yet'], ['#/rooms', 'room is not built yet']]) {
+  for (const [hash, expect] of [['#/character', 'wake mannequin up.'], ['#/rooms', 'room is not built yet']]) {
     await page.evaluate((h) => { location.hash = h }, hash)
     await page.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 5000 }, expect)
     const stored = await idb(page, 'kv', 'get', 'last-route')
@@ -64,7 +64,7 @@ try {
   try { await dialog('shell ready') } catch { throw new Error('the status strip did not open the event log') }
   await page.keyboard.press('Escape')
   await page.keyboard.down('Alt'); await page.keyboard.press('Digit4'); await page.keyboard.up('Alt')
-  // alt+4, the character group: every image tool is built now and makes a document on mount
+  // alt+4, the character group: every image tool is built now and makes a document on mount; character makes one at wake
   await page.waitForFunction(() => location.hash.startsWith('#/character'), { timeout: 3000 }).catch(() => { throw new Error('alt+4 did not open the character group') })
   if (shots) {
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
