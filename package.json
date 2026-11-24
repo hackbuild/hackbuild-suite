@@ -41,7 +41,7 @@
     "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.0-a79f0f5.tgz",
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.1.0-a79f0f5.tgz",
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.0-a79f0f5.tgz",
-    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.6.3-2ba684e.tgz",
+    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.6.5-9c848a3.tgz",
     "vue": "3.5.41",
     "vue-router": "4.6.4"
   }
