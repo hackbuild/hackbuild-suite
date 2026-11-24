@@ -96,6 +96,8 @@ function runPalette(key: string) {
 // The one hub and store start after the first paint (design 2.2); the
 // manager drawer is its own chunk.
 const ModelsPanel = defineAsyncComponent(() => import('./models/ModelsPanel.vue'))
+// The transcript kind registers early so a recording dropped on any page routes to its tool.
+setTimeout(() => void import('./transcribe/register.ts').then((m) => m.registerTranscript()), 0)
 setTimeout(() => void loadModels().catch((err: unknown) => logEvent('fail', `models: the manager did not start. ${err instanceof Error ? err.message : String(err)}`)), 0)
 
 // Header pills from the hub: what is loaded per organ, and the gpu.

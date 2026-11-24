@@ -566,6 +566,13 @@ function addRecords(list: SavedCustom[]): void {
 }
 addRecords(saved.value)
 
+/** A tool adds its catalogue rows (the transcribe records) to the one registry. */
+export function addRows(rows: ModelRecord[]): void {
+  const fresh = rows.filter((r) => !registry.get(r.id))
+  if (fresh.length) registry.add(...fresh)
+  addRecords(saved.value)
+}
+
 async function checkOnnx(values: CustomValues): Promise<CustomCheck> {
   const repo = str(values, 'repo')
   const dtype = str(values, 'dtype') || 'q4'

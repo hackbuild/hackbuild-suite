@@ -21,7 +21,8 @@
     "lint:voice": "git ls-files | grep -Ev '\\.(png|jpe?g|glb|bin|wasm|wav)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs node tools/lint-voice.mjs",
     "shots": "node tools/shots.mjs",
     "size": "node tools/check-size.mjs",
-    "smoke:chat": "node tools/smoke-chat.mjs"
+    "smoke:chat": "node tools/smoke-chat.mjs",
+    "smoke:transcribe": "node tools/smoke-transcribe.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",
