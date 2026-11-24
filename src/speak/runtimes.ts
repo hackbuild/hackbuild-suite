@@ -9,7 +9,7 @@
 // switch in voice settings is on, and only then fetches kokoro-js.
 import type { FactoryContext, ModelRecord } from '@hackbuild/models'
 import type { Engine, PcmChunk, PcmEngine, Timed } from '@hackbuild/speak'
-import { wordSpans } from '@hackbuild/speak'
+import { prepareClone, wordSpans } from '@hackbuild/speak'
 
 /** Engine rows in the order the cards show them. */
 export const SPEAK_ORDER = ['web-speech', 'bellows-voice', 'pocket-tts', 'kokoro-82m'] as const
@@ -77,6 +77,30 @@ export function toneEngine(id = 'tone', o: { rate?: number; secPerChar?: number;
   }
 }
 
+/** Voices the stub Pocket lists; the real list comes from the worker once it loads. */
+export const STUB_POCKET_VOICES = ['stub one', 'stub two']
+
+/**
+ * The stub Pocket: the tone voice with a voice list and a clone path. A
+ * clip goes through the same prepareClone the real engine uses, then the
+ * custom voice plays a step lower so a clone is audible in a smoke.
+ */
+export function stubPocket(id = 'pocket-tts'): PcmEngine & { cloneVoice(s: Float32Array, rate: number): Promise<void>; readonly sampleRate: number } {
+  const base = toneEngine(id)
+  let cloned = false
+  return {
+    ...base,
+    sampleRate: 24000,
+    synth: (text, cfg, signal) => base.synth(text, cfg.voice === 'custom' ? { ...cfg, pitch: (cfg.pitch ?? 1) * 0.8 } : cfg, signal),
+    voices: () => (cloned ? [...STUB_POCKET_VOICES, 'custom'] : [...STUB_POCKET_VOICES]),
+    async cloneVoice(samples, rate) {
+      const audio = prepareClone(samples, rate, { rate: 24000 })
+      if (!audio.length) throw new Error('the clip has no audio')
+      cloned = true
+    },
+  }
+}
+
 async function report(ctx: FactoryContext, steps = 3): Promise<void> {
   for (let i = 1; i <= steps; i++) {
     if (ctx.signal?.aborted) throw new DOMException('stopped', 'AbortError')
@@ -98,7 +122,7 @@ export async function addSpeakRuntimes(o: { kokoro: () => boolean }): Promise<vo
       hub.provideRuntime(p, async (ctx: FactoryContext) => {
         if (ctx.record.id === KOKORO_ID && !o.kokoro()) throw new Error(KOKORO_OFF)
         await report(ctx)
-        return toneEngine(ctx.record.id)
+        return p === 'pocket-worker' ? stubPocket(ctx.record.id) : toneEngine(ctx.record.id)
       })
     }
     return

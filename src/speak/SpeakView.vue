@@ -7,11 +7,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  HbButton, HbChip, HbHistoryStrip, HbHow, HbMethodCard, HbPanel, HbSelect, HbSlider, HbSpokenText, HbStatusLine, HbTextarea, HbToolbar,
+  HbButton, HbChip, HbDropzone, HbMicButton, HbHistoryStrip, HbHow, HbMethodCard, HbPanel, HbSelect, HbSlider, HbSpokenText, HbStatusLine, HbTextarea, HbToolbar,
   useHotkeys, type HbHistoryItem,
 } from '@virgilvox/hackbuild-ui'
-import { saveFile, type MethodState } from '@virgilvox/hackbuild-ui/vanilla'
-import { createSpeaker, renderSpeech, renderedWav, renderedTiming, wordSpans, OfflineRenderError, type Engine, type Speaker } from '@hackbuild/speak'
+import { saveFile, type MethodState, type MicState } from '@virgilvox/hackbuild-ui/vanilla'
+import { decodeAudio, record } from '@hackbuild/media'
+import { createSpeaker, renderSpeech, renderedWav, renderedTiming, toMono, wordSpans, OfflineRenderError, type Engine, type Speaker } from '@hackbuild/speak'
 import type { Loaded } from '@hackbuild/models'
 import * as hub from '../models/hub.ts'
 import { loadModels } from '../models/lazy'
@@ -77,9 +78,18 @@ const active = ref<string | null>(null)
 function pick(id: string): void {
   set('engine', id)
   if (id === KOKORO_ID && !settings.value.kokoro) return say(KOKORO_OFF, 'warn')
-  if (id !== SYSTEM_ID && !ready(id) && stateOf(id) !== 'downloading') void booted.then(() => hub.load(id))
   void refreshVoices()
 }
+// Nothing is fetched on pick: a heavy engine loads only from this button, which names its size.
+const needsLoad = computed(() => picked.value !== SYSTEM_ID && !ready(picked.value) && !(picked.value === KOKORO_ID && !settings.value.kokoro))
+const loadLabel = computed(() => {
+  const r = rec(picked.value)
+  if (!r) return 'load'
+  if (stateOf(r.id) === 'downloading') return `loading ${r.label ?? r.id}`
+  const size = r.sizeMB === null ? 'size unknown' : r.sizeMB === 0 ? 'code only' : `${Math.round(r.sizeMB)} mb (${r.sizeSource})`
+  return `load ${r.label ?? r.id}, ${size}`
+})
+const loadPicked = () => void booted.then(() => hub.load(picked.value))
 
 // Loaded engines, held while the tool is open. None is asked for before the voice runtimes are in.
 const handles = new Map<string, Loaded>()
@@ -112,7 +122,7 @@ async function refreshVoices(): Promise<void> {
   const e = await engineOf(picked.value)
   voices.value = e?.voices?.() ?? []
 }
-const voiceOptions = computed(() => [{ value: '', label: 'engine default' }, ...voices.value.map((v) => ({ value: v, label: v }))])
+const voiceOptions = computed(() => [{ value: '', label: 'engine default' }, ...voices.value.map((v) => ({ value: v, label: v === 'custom' ? 'custom, your clip' : v }))])
 const voiceNote = computed(() => {
   const r = rec(picked.value)
   return r ? `${r.label ?? r.id}: ${r.licence}.` : ''
@@ -136,16 +146,13 @@ const wordAt = (offset: number) => {
   return i
 }
 
-async function sayNow(): Promise<void> {
-  commitText()
-  const text = draft.value.trim()
-  if (!text) return say('type a line and press say. the system voice needs no download.')
-  stop()
+/** The speaker over the loaded chain; rebuilt when the chain or the voice changes. */
+async function ensureSpeaker(): Promise<Speaker | null> {
   ctx ??= new AudioContext()
   if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined)
-  if (ctx.state !== 'running') return say('the browser wants a tap before sound. press say again.', 'warn')
+  if (ctx.state !== 'running') return say('the browser wants a tap before sound. press say again.', 'warn'), null
   const engines = await chain()
-  if (!engines.length) return say('no voice is ready. pick the system voice or load another.', 'err')
+  if (!engines.length) return say('no voice is ready. pick the system voice or load another.', 'err'), null
   const key = engines.map((e) => e.id).join(',') + JSON.stringify(cfg())
   if (!speaker || key !== speakerKey) {
     speaker?.dispose()
@@ -155,20 +162,33 @@ async function sayNow(): Promise<void> {
       ctx: ctx as unknown as Parameters<typeof createSpeaker>[0]['ctx'],
       engines,
       ...cfg(),
+      watchdogMs: WATCHDOG_MS,
       onProgress: (p) => {
         if (p.kind === 'word') lit.value = wordAt(p.offset)
         else if (p.kind === 'end') lit.value = words.value.length
       },
       onSpeaking: (s) => { speaking.value = s },
+      onSegment: (g) => { active.value = g.engine },
       onStatus: (s) => { if (s.kind === 'failed' || s.kind === 'watchdog') say(`${s.text} the next voice takes over.`, 'warn') },
     })
   }
+  return speaker
+}
+/** A sentence with no audio for this long moves to the next voice. */
+const WATCHDOG_MS = 20000
+
+async function sayNow(): Promise<void> {
+  commitText()
+  const text = draft.value.trim()
+  if (!text) return say('type a line and press say. the system voice needs no download.')
+  stop()
+  const sp = await ensureSpeaker()
+  if (!sp) return
   if (picked.value !== SYSTEM_ID && !ready(picked.value)) {
     const st = hub.states.value[picked.value]
     say(`loading ${rec(picked.value)?.label ?? picked.value}${st?.state === 'downloading' && st.total ? `, ${Math.round(((st.loaded ?? 0) / st.total) * 100)} percent` : ''}. the system voice is ready now.`, 'busy')
   }
   lit.value = -1
-  const sp = speaker
   const mine = ++sayId
   const done = sp.say(text)
   // the engine that answered, named (P-FAIL-4)
@@ -181,6 +201,96 @@ async function sayNow(): Promise<void> {
   say(`said on ${rec(active.value ?? '')?.label ?? active.value ?? 'the voice'}.`, 'ok')
   addRun(null, null)
 }
+// Stream: the line arrives a word at a time, as a reply does, and each
+// sentence is spoken as soon as it is whole (Speaker.feed).
+const STREAM_STEP_MS = 60
+async function streamNow(): Promise<void> {
+  commitText()
+  const text = draft.value.trim()
+  if (!text) return say('type a line and press say. the system voice needs no download.')
+  stop()
+  const sp = await ensureSpeaker()
+  if (!sp) return
+  const mine = ++sayId
+  lit.value = -1
+  speaking.value = true
+  const t0 = performance.now()
+  let first: number | null = null
+  const off = watch(lit, (v) => { if (v !== null && v >= 0 && first === null) first = performance.now() - t0 })
+  let sofar = ''
+  for (const piece of text.split(/(?<=\s)/)) {
+    if (mine !== sayId) break
+    sofar += piece
+    sp.feed(sofar)
+    await new Promise((r) => setTimeout(r, STREAM_STEP_MS))
+  }
+  const arrived = performance.now() - t0
+  if (mine === sayId) sp.feed(text, true)
+  await sp.done()
+  off()
+  if (mine !== sayId) return
+  speaking.value = false
+  const f = first as number | null
+  say(f !== null && f < arrived
+    ? `streamed: first sound at ${Math.round(f)} ms, before the last word arrived at ${Math.round(arrived)} ms (measured).`
+    : `streamed: the text arrived in ${Math.round(arrived)} ms; sound began after it. one sentence is spoken whole.`, 'ok')
+  addRun(null, null)
+}
+
+// Clone (Pocket): a dropped or recorded clip becomes voice "custom". The clip stays in this tab.
+const CLONE_ID = 'pocket-tts'
+const cloneLine = ref('no clip. drop a wav of the voice.')
+const cloned = ref(false)
+async function cloneFrom(blob: Blob): Promise<void> {
+  const e = (await engineOf(CLONE_ID)) as (Engine & { cloneVoice?: (s: Float32Array, r: number) => Promise<void> }) | null
+  if (!e?.cloneVoice) return void (cloneLine.value = 'load pocket tts first. the clone runs inside it.')
+  try {
+    const a = await decodeAudio(blob)
+    const short = a.duration < 8 ? ` reference clip is ${a.duration.toFixed(0)} s. 8 s or more copies the voice better.` : ''
+    cloneLine.value = 'encoding voice...'
+    await e.cloneVoice(toMono(a.channels), a.sampleRate)
+    cloned.value = true
+    voices.value = [...new Set([...(e.voices?.() ?? voices.value), 'custom'])]
+    set('voice', 'custom')
+    cloneLine.value = `cloned voice active. up to 15 s of audio is used.${short}`
+  } catch (err) {
+    cloneLine.value = `no clone: ${err instanceof Error ? err.message : String(err)}`
+  }
+}
+const cloneFiles = (files: File[]) => { if (files[0]) void cloneFrom(files[0]) }
+const micState = ref<MicState>('off')
+let take: { stop(): Promise<Blob> } | null = null
+let micStream: MediaStream | null = null
+let micTimer = 0
+async function recStart(): Promise<void> {
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    micState.value = 'unsupported'
+    return void (cloneLine.value = 'no mic here. drop a wav of the voice.')
+  }
+  micState.value = 'asking'
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  } catch (err) {
+    micState.value = 'blocked'
+    return void (cloneLine.value = `mic unavailable: ${err instanceof Error ? err.message : String(err)}. drop a wav instead.`)
+  }
+  take = record(micStream)
+  micState.value = 'listening'
+  cloneLine.value = 'recording for 10 s, talk normally...'
+  micTimer = window.setTimeout(() => void recStop(), 10000)
+}
+async function recStop(): Promise<void> {
+  clearTimeout(micTimer)
+  const t = take
+  take = null
+  if (!t) return
+  const blob = await t.stop()
+  micStream?.getTracks().forEach((k) => k.stop())
+  micStream = null
+  micState.value = 'off'
+  await cloneFrom(blob)
+}
+
 function stop(): void {
   sayId++
   speaker?.stop()
@@ -273,6 +383,7 @@ onMounted(async () => {
   logEvent('note', 'speak: ready.')
 })
 onBeforeUnmount(() => {
+  void recStop()
   speaker?.dispose()
   for (const l of handles.values()) hub.hub().release(l)
   void ctx?.close()
@@ -297,11 +408,17 @@ onBeforeUnmount(() => {
           @pick="pick(c.id)"
         />
       </div>
-      <p class="hb-hint">order: {{ orderLine }}.{{ active ? ` speaking with ${rec(active)?.label ?? active}.` : '' }}</p>
+      <HbButton v-if="needsLoad" variant="secondary" size="sm" :loading="stateOf(picked) === 'downloading'" @click="loadPicked">{{ loadLabel }}</HbButton>
+      <p class="hb-hint">order: {{ orderLine }}.{{ active ? ` speaking with ${rec(active)?.label ?? active}.` : '' }} a sentence with no sound for {{ WATCHDOG_MS / 1000 }} s moves to the next voice.</p>
       <HbSelect v-model="voice" label="voice" :options="voiceOptions" />
       <p class="hb-hint">{{ voiceNote }}</p>
       <HbSlider v-model="rate" label="rate" :min="0.5" :max="2" :step="0.05" unit="x" />
       <HbSlider v-model="pitch" label="pitch" :min="0.5" :max="2" :step="0.05" />
+      <template v-if="picked === CLONE_ID">
+        <HbDropzone v-if="ready(CLONE_ID)" accept="audio/*" hint="drop a wav of the voice, or pick one. it stays in this tab." @files="cloneFiles" />
+        <HbMicButton v-if="ready(CLONE_ID)" v-model:state="micState" @start="recStart" @stop="recStop" />
+        <p class="hb-hint">{{ ready(CLONE_ID) ? cloneLine : 'load pocket tts to clone a voice.' }}</p>
+      </template>
     </HbPanel>
 
     <div class="hb-toolpage">
@@ -312,6 +429,7 @@ onBeforeUnmount(() => {
         <HbTextarea v-model="draft" :rows="4" aria-label="text to speak" placeholder="type a line to speak" @blur="commitText" />
         <HbToolbar>
           <HbButton size="sm" :disabled="!draft.trim()" @click="sayNow">say</HbButton>
+          <HbButton variant="secondary" size="sm" :disabled="!draft.trim()" @click="streamNow">stream</HbButton>
           <HbButton variant="danger" size="sm" :disabled="!speaking" @click="stop">stop</HbButton>
           <HbButton variant="secondary" size="sm" :loading="saving" :disabled="saving || !draft.trim()" @click="saveWav">save wav</HbButton>
           <HbButton variant="secondary" size="sm" :disabled="!body.timing" @click="exportTiming">word timing</HbButton>

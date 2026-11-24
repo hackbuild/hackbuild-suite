@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { renderSpeech, renderedWavBytes, SPEAK_RECORDS } from '@hackbuild/speak'
 import { createKinds } from '../../src/workspace/kinds.ts'
 import { linesFrom, newScript, peaksOf, runThumb, speechKind, withRun, RUNS_CAP } from '../../src/speak/kind.ts'
-import { SPEAK_ORDER, TRADES, toneEngine } from '../../src/speak/runtimes.ts'
+import { SPEAK_ORDER, STUB_POCKET_VOICES, TRADES, stubPocket, toneEngine } from '../../src/speak/runtimes.ts'
 
 test('the speech kind registers and checks its body', () => {
   const k = createKinds()
@@ -49,4 +49,14 @@ test('every engine card has a record with a licence and a trade', () => {
     assert.ok(TRADES[id].trade, id)
   }
   assert.ok(!SPEAK_ORDER.slice(0, 1).includes('kokoro-82m'), 'kokoro is never the first engine')
+})
+
+test('the stub pocket lists voices and clones a clip into "custom"', async () => {
+  const p = stubPocket()
+  assert.deepEqual(p.voices(), STUB_POCKET_VOICES)
+  await assert.rejects(p.cloneVoice(new Float32Array(0), 16000))
+  await p.cloneVoice(new Float32Array(16000).fill(0.1), 16000)
+  assert.ok(p.voices().includes('custom'))
+  const r = await renderSpeech(p, 'one two', { voice: { voice: 'custom' } })
+  assert.equal(r.words.length, 2)
 })

@@ -10,6 +10,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
+import { writeFileSync } from 'node:fs'
+import { testWav } from './test-wav.mjs'
 
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const file = resolve('dist/single/index.html')
@@ -93,9 +95,38 @@ try {
   const runs = await page.$$eval('.hb-hist-item', (els) => els.length)
   if (runs < 2) fail(`the imported script carries ${runs} runs, want 2`)
 
+  // pocket: picking it fetches nothing; load is a separate press that names the size
+  await page.evaluate(() => [...document.querySelectorAll('.hb-method')].find((m) => /pocket/.test(m.textContent))?.click())
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /^load pocket tts, size unknown/.test(b.textContent.trim())), { timeout: 3000 }).catch(() => fail('pocket has no load button with its size'))
+  if (await page.$('.is-side .hb-dropzone')) fail('the clone slot shows before pocket loads')
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /^load pocket tts/.test(b.textContent.trim()))?.click())
+  await page.waitForSelector('.is-side .hb-dropzone input[type=file]', { timeout: 6000 }).catch(() => fail('pocket did not load'))
+  const licence = await page.evaluate(() => document.body.textContent.includes('CC-BY-4.0'))
+  if (!licence) fail('the pocket licence is not shown as recorded')
+  await page.waitForFunction(() => [...document.querySelectorAll('select option')].some((o) => o.textContent.trim() === 'stub one'), { timeout: 3000 }).catch(() => fail('the pocket voice list is missing'))
+
+  // clone from a generated wav: the custom voice is picked
+  const clip = join(profile, 'clip.wav')
+  writeFileSync(clip, Buffer.from(testWav()))
+  const input = await page.$('.is-side .hb-dropzone input[type=file]')
+  await input.uploadFile(clip)
+  await input.evaluate((e) => e.dispatchEvent(new Event('change', { bubbles: true })))
+  await page.waitForFunction(() => document.body.textContent.includes('cloned voice active'), { timeout: 6000 }).catch(async () => fail(`the clone did not land: ${await page.evaluate(() => document.querySelector('.is-side .hb-dropzone')?.parentElement?.textContent)}`))
+  const picked = await page.evaluate(() => [...document.querySelectorAll('select')].find((x) => [...x.options].some((o) => o.value === 'custom'))?.value)
+  if (picked !== 'custom') fail(`the custom voice is not picked: ${picked}`)
+
+  // stream: the first sentence sounds before the last word has arrived
+  await page.evaluate(() => { const t = document.querySelector('textarea'); t.focus(); t.value = ''; t.dispatchEvent(new Event('input')) })
+  await page.keyboard.type('the first sentence speaks right away. the second one is still arriving word by word while the first plays.')
+  await page.evaluate(() => document.activeElement?.blur())
+  if (!(await clickText('.hb-toolpage button', 'stream'))) fail('no stream button')
+  await page.waitForFunction(() => /streamed: first sound at \d+ ms, before the last word/.test(document.body.textContent), { timeout: 15000 })
+    .catch(async () => fail(`the stream did not start before the text finished: ${await page.evaluate(() => document.querySelector('.hb-statusline, .hb-status')?.textContent ?? document.body.textContent.match(/streamed[^.]*\./)?.[0])}`))
+  const streamed = await page.evaluate(() => document.body.textContent.match(/first sound at (\d+) ms, before the last word arrived at (\d+) ms/).slice(1).join(' of '))
+
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-speak: ok. a typed line is said on the tone voice and the lit word advances through ${seen.length} of ${words} words, save wav writes a riff file with ${dataLen} B of samples (measured), the word timing has ${timing.words.length} words, the script exports and imports back with its text and ${runs} runs, 0 requests off file:// (measured)`)
+  console.log(`smoke-speak: ok. a typed line is said on the tone voice and the lit word advances through ${seen.length} of ${words} words, save wav writes a riff file with ${dataLen} B of samples (measured), the word timing has ${timing.words.length} words, the script exports and imports back with its text and ${runs} runs; pocket loads only on its load press, lists its voices, clones from a generated wav, and a streamed line sounds at ${streamed} ms (measured), 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
