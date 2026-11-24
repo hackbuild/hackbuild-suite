@@ -5,7 +5,7 @@
 // the queue through the one hub, and the open document takes edits with
 // undo. The queue list is the history.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   HbButton, HbCallout, HbConsole, HbEngineBar, HbExportPanel, HbField, HbFold, HbHow, HbInput, HbLevelRail, HbMicButton, HbPanel,
   HbQueueStrip, HbReadouts, HbSelect, HbSlider, HbToggleRow, HbToolbar, HbTranscript, useHotkeys,
@@ -31,6 +31,18 @@ provideDsp()
 const route = useRoute()
 const doc = useDocument<TranscriptBody>(TRANSCRIPT_KIND)
 const body = computed(() => doc.doc.value?.body ?? null)
+
+// "send to" (design 2.4): each line of the transcript into the chat memory, or the whole text into the chat composer.
+const router = useRouter()
+const spoken = () => segs.value.map((s) => s.text.trim()).filter(Boolean)
+async function sendToMemory(): Promise<void> {
+  const { saveLine } = await import('../memory/store.ts')
+  const name = doc.doc.value?.name ?? 'transcript'
+  let n = 0
+  for (const t of spoken()) if (t.length >= 12 && !(await saveLine(t, { kind: 'doc', from: 'transcript', section: name })).merged) n++
+  logEvent('note', `sent ${n} lines of ${name} to memory. chat recalls them now.`)
+}
+const sendToChat = () => router.push({ name: 'chat', query: { draft: spoken().join(' ') } })
 
 // The timed log (P-LOAD-15): a box in the tool, every line also in the shell log.
 const lines = ref<HbConsoleLine[]>([])
@@ -464,6 +476,8 @@ onBeforeUnmount(() => {
         <HbButton variant="secondary" size="sm" :disabled="!src" @click="togglePlay">{{ playing ? 'pause' : 'play' }}</HbButton>
         <HbField label="search" class="tx-search"><HbInput v-model="query" placeholder="ctrl+f" /></HbField>
         <HbToggleRow v-model="showDropped" label="show dropped lines" />
+        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToMemory">send to memory</HbButton>
+        <HbButton variant="secondary" size="sm" :disabled="!segs.length" @click="sendToChat">send to chat</HbButton>
         <HbButton variant="ghost" size="sm" :disabled="!doc.canUndo.value" @click="doc.undo()">undo</HbButton>
         <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
       </HbToolbar>

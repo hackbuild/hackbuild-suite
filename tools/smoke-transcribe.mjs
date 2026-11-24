@@ -111,9 +111,18 @@ try {
   const zip = readFileSync(await download('.zip'))
   if (!zip.includes(Buffer.from('manifest.json'))) fail('the zip has no manifest.json')
 
+  // send to memory, then send to chat with the text in the composer
+  if (!(await clickText('button', 'send to memory'))) fail('no send to memory')
+  await wait(600)
+  if (!(await clickText('button', 'send to chat'))) fail('no send to chat')
+  await page.waitForFunction((t) => location.hash.includes('/chat') && document.querySelector('.hb-composer textarea')?.value.includes(t), { timeout: 5000 }, back[0].trim()).catch(() => fail('send to chat did not fill the composer'))
+  await page.focus('.hb-composer textarea')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => document.querySelector('.hb-chat-log .hb-msg-used'), { timeout: 8000 }).catch(() => fail('the reply to the sent transcript recalls nothing from memory'))
+
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-transcribe: ok. a dropped wav queues, one press loads the stub model and runs the real dsp core, ${first.length} segments land, an edit is undone with ctrl+z, the srt exports and imports back with the same ${first.length} lines, the zip carries manifest.json, 0 requests off file:// (measured)`)
+  console.log(`smoke-transcribe: ok. a dropped wav queues, one press loads the stub model and runs the real dsp core, ${first.length} segments land, an edit is undone with ctrl+z, the srt exports and imports back with the same ${first.length} lines, the zip carries manifest.json, send to memory and send to chat carry the lines and the reply recalls them, 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
