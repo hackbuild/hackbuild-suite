@@ -158,8 +158,7 @@ async function ensureSpeaker(): Promise<Speaker | null> {
     speaker?.dispose()
     speakerKey = key
     speaker = createSpeaker({
-      // the package's AudioContextLike types onended with no event argument, so the dom type needs a cast
-      ctx: ctx as unknown as Parameters<typeof createSpeaker>[0]['ctx'],
+      ctx,
       engines,
       ...cfg(),
       watchdogMs: WATCHDOG_MS,
