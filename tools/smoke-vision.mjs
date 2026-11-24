@@ -119,6 +119,8 @@ try {
   const hash = await page.evaluate(() => location.hash)
   const [ch2] = await Promise.all([page.waitForFileChooser({ timeout: 3000 }), click('^import$')])
   await ch2.accept([pngIn])
+  // masks reads images too: the chooser names each taker
+  await page.waitForFunction(() => { const b = [...document.querySelectorAll('[role="dialog"] button')].find((e) => e.textContent.trim() === 'open in vision'); b?.click(); return !!b }, { timeout: 4000 }).catch(() => fail('no chooser for the png'))
   await page.waitForFunction((h) => location.hash !== h, { timeout: 5000 }, hash).catch(() => fail('the png did not open in vision'))
   await page.waitForFunction(() => document.querySelectorAll('.hb-hist-item').length === 1 && location.hash.startsWith('#/image/vision'), { timeout: 4000 }).catch(() => fail('the png did not land as one capture'))
 

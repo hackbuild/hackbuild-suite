@@ -26,7 +26,8 @@
     "smoke:memory": "node tools/smoke-memory.mjs",
     "smoke:speak": "node tools/smoke-speak.mjs",
     "smoke:vision": "node tools/smoke-vision.mjs",
-    "smoke:generate": "node tools/smoke-generate.mjs"
+    "smoke:generate": "node tools/smoke-generate.mjs",
+    "smoke:masks": "node tools/smoke-masks.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",
