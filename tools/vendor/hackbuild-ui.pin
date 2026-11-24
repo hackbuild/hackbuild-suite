@@ -1,5 +1,5 @@
 # written by hackbuild-ui tools/pin-ui.mjs; rerun it there, do not edit
-version 0.9.0
-commit 4f41ce513838dc6fac5b056a25eacdf65dab26d0
-tarball hackbuild-ui-0.9.0-4f41ce5.tgz
-sha256 5ec01c8bb2fbd3b31bd69ac9ba82f40186eacb891b22bc232a9372e9b8e4f3b2
+version 0.9.1
+commit 2cc77a7605971501f4dab42366c932c0491fd705
+tarball hackbuild-ui-0.9.1-2cc77a7.tgz
+sha256 32b4ac8bd9ffead58e22503f0e3c108486aeee85bcf7d87b50f5d464e2789228
