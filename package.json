@@ -17,7 +17,9 @@
     "test": "node --test tools/test/*.test.mjs",
     "smoke:file": "node tools/smoke-file.mjs",
     "ui:check": "node tools/vendor/pin-ui.mjs --check",
-    "lint:voice": "git ls-files | grep -Ev '\\.(png|jpe?g|glb|bin|wasm|wav)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs node tools/lint-voice.mjs"
+    "lint:voice": "git ls-files | grep -Ev '\\.(png|jpe?g|glb|bin|wasm|wav)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs node tools/lint-voice.mjs",
+    "shots": "node tools/shots.mjs",
+    "size": "node tools/check-size.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

@@ -35,6 +35,7 @@ jobs:
       - run: node tools/vendor/pin-ui.mjs --check
       - run: npm run typecheck
       - run: npm run build:all
+      - run: npm run size
       - run: npm test
   rust:
     runs-on: ubuntu-24.04

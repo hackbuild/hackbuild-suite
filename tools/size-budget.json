@@ -1,0 +1,15 @@
+{
+  "about": "suite size budgets (design 5 item 11), gzip level 9 bytes unless stated. first-load is the entry html plus every js and css it loads before any route chunk; tool-chunk is any lazy js chunk, model runtimes and wasm cores excluded because they never enter the bundle; single is the raw size of the single file html. Check with node tools/check-size.mjs after a build.",
+  "measured": "2026-11-24",
+  "budgets": {
+    "first-load-gzip": 256000,
+    "tool-chunk-gzip": 153600,
+    "single-raw": 8388608
+  },
+  "today": {
+    "note": "measured 2026-11-24 on the skeleton; rewrite this block when a phase lands",
+    "first-load-gzip": 56378,
+    "largest-chunk-gzip": 825,
+    "single-raw": 432819
+  }
+}
