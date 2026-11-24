@@ -17,8 +17,10 @@ import type {
   HbCap, HbCustomEntry, HbModelStatus, HbRackPreset, HbRackSlot, HbRackSlotState, HbReasonRow, HbResident,
   HbStorage, HbStoredWeight,
 } from '@virgilvox/hackbuild-ui'
-import type { CustomCheck, CustomValues } from '@virgilvox/hackbuild-ui/vanilla'
-import { jobs, logEvent } from '../shell/shell'
+import { customId, type CustomCheck, type CustomMode, type CustomValues } from '@virgilvox/hackbuild-ui/vanilla'
+import { createEngine } from '@hackbuild/chat'
+import { transformersDriver, type TextGenerationLike, type TransformersModule } from '@hackbuild/chat/transformers'
+import { jobs, logEvent } from '../shell/shell.ts'
 
 const MB = 1024 * 1024
 export const STUB = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stub')
@@ -69,7 +71,23 @@ export const fits = computed<Record<string, FitResult>>(() => {
   return Object.fromEntries(records.value.map((r) => [r.id, fitOf(r, e, estimate.value, budget)]))
 })
 
-const storedIds = computed(() => new Set(keys.value.map((k) => owner(k.key)?.id).filter((x): x is string => !!x)))
+/** WebLLM keeps its own IndexedDB cache; the chat tool hands its adapter in with keepWebllm. */
+export interface KeptCache {
+  list(): Promise<{ modelId: string; bytes: number }[]>
+  evict(modelId: string): Promise<void>
+}
+let webllmKeeper: KeptCache | null = null
+const kept = shallowRef<{ modelId: string; bytes: number }[]>([])
+async function refreshKept(): Promise<void> {
+  kept.value = webllmKeeper ? await webllmKeeper.list().catch(() => []) : []
+}
+/** Show webllm's own cache as the "kept by webllm" group, and remove from it. */
+export async function keepWebllm(cache: KeptCache): Promise<void> {
+  webllmKeeper = cache
+  await refreshKept()
+}
+
+const storedIds = computed(() => new Set([...keys.value.map((k) => owner(k.key)?.id), ...kept.value.map((k) => owner(k.modelId)?.id)].filter((x): x is string => !!x)))
 const loadedIds = computed(() => new Set(status.value.map((s) => s.id)))
 
 export const states = computed<Record<string, HbModelStatus>>(() => {
@@ -105,7 +123,12 @@ export const stored = computed<HbStoredWeight[]>(() => {
     row.updated = Math.max(row.updated, k.updated)
     by.set(id, row)
   }
-  return [...by.values()].map(({ updated, ...r }) => ({ ...r, lastUsed: ago(updated) }))
+  const mine = [...by.values()].map(({ updated, ...r }) => ({ ...r, lastUsed: ago(updated) }))
+  const theirs = kept.value.map((k): HbStoredWeight => {
+    const id = owner(k.modelId)?.id ?? k.modelId
+    return { key: id, label: label(id), bytes: k.bytes, keeper: 'webllm' }
+  })
+  return [...mine, ...theirs]
 })
 
 export const resident = computed<HbResident[]>(() => status.value.map((s) => ({ id: s.id, label: label(s.id), mb: s.sizeMB })))
@@ -162,6 +185,7 @@ async function refreshStore(): Promise<void> {
   keys.value = metas.filter((m) => !!m).map((m) => ({ key: m!.key, bytes: m!.parts.reduce((a, b) => a + b, 0), updated: m!.updated }))
   estimate.value = await store.estimate()
   persisted.value = await store.persisted()
+  await refreshKept()
 }
 
 function refreshHub(): void {
@@ -216,7 +240,12 @@ async function boot(): Promise<void> {
     tjs.loader('chat', (ctx) => {
       const pipeline = ctx.tjs.pipeline
       if (!pipeline) throw new Error('the transformers.js module has no pipeline export')
-      return pipeline('text-generation', ctx.record.source.modelId ?? ctx.record.id, ctx.options)
+      // the chat tool streams through a chat engine: think split, stats and stop
+      return Promise.resolve(pipeline('text-generation', ctx.record.source.modelId ?? ctx.record.id, ctx.options)).then((generator) =>
+        createEngine(transformersDriver({ module: ctx.tjs as unknown as TransformersModule, generator: generator as TextGenerationLike, id: ctx.record.id }), {
+          ...(ctx.record.quirks?.systemRole === false ? { quirks: { systemRole: false } } : {}),
+        }),
+      )
     })
     hubRef.provide('tjs', tjs.factory)
     runnable.value.add('tjs')
@@ -303,6 +332,7 @@ export async function evict(id: string): Promise<void> {
   await start()
   const doomed = keys.value.filter((k) => (owner(k.key)?.id ?? k.key) === id)
   for (const k of doomed) await store.evict(k.key)
+  for (const k of kept.value) if ((owner(k.modelId)?.id ?? k.modelId) === id) await webllmKeeper?.evict(k.modelId)
   logEvent('note', `removed ${label(id)} from this browser.`)
   await refreshStore()
 }
@@ -457,62 +487,118 @@ export function act(capId: string, verb: string): void {
   else if (verb === 'disable' || verb === 'unload') void unload(id)
 }
 
-// Custom rows (design 2.2 section 3): an onnx repo, checked with one listing
-// request before anything downloads. The chat item adds mlc, gguf and endpoints.
+// Custom rows (design 2.2 section 3): an onnx repo, mlc weights, a gguf file
+// or an endpoint, each checked with one request before anything downloads.
+// The onnx check is here; the chat tool provides the other three with
+// provideCustomCheck, with the runtimes that load them.
 const CUSTOM_KEY = 'hb-suite.custom-models'
-interface Saved { repo: string; dtype: string; sizeMB: number | null }
-const readSaved = (): Saved[] => {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]') as Saved[] } catch { return [] }
+/** One saved custom row: its way in, the form values, the size the check found. */
+export interface SavedCustom { mode: CustomMode; id: string; values: CustomValues; sizeMB: number | null }
+type CustomRunner = (values: CustomValues) => Promise<CustomCheck>
+const readSaved = (): SavedCustom[] => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]') as (SavedCustom | { repo: string; dtype: string; sizeMB: number | null })[]
+    // rows saved before the mode field were all onnx repos
+    return raw.map((s) => ('mode' in s ? s : { mode: 'onnx' as const, id: s.repo, values: { repo: s.repo, dtype: s.dtype }, sizeMB: s.sizeMB }))
+  } catch { return [] }
 }
-const saved = shallowRef<Saved[]>(readSaved())
-export const customSaved = computed<HbCustomEntry[]>(() => saved.value.map((s) => ({ id: s.repo, mode: 'onnx', source: s.repo })))
+const saved = shallowRef<SavedCustom[]>(readSaved())
+const checks = shallowRef<Partial<Record<CustomMode, CustomRunner>>>({})
+/** The ways in that have a check, onnx first. */
+export const customModes = computed<CustomMode[]>(() => (['onnx', 'mlc', 'gguf', 'endpoint'] as const).filter((m) => m === 'onnx' || checks.value[m]))
+export const customSaved = computed<HbCustomEntry[]>(() => saved.value.map((s) => ({ id: s.id, mode: s.mode, source: String(s.values.url ?? s.values.repo ?? s.id) })))
 export const customCheck = shallowRef<CustomCheck | null>(null)
+/** The saved row behind a record id, for the runtime that loads it. */
+export const customOf = (id: string): SavedCustom | undefined => saved.value.find((s) => s.id === id)
 
-function customRecord(s: Saved): ModelRecord {
-  return {
-    id: s.repo, label: s.repo.split('/').pop(), group: 'custom', note: 'added by you. checked by a repo listing.',
-    provides: ['chat'], provider: 'tjs', source: { modelId: s.repo }, sizeMB: s.sizeMB, sizeSource: s.sizeMB === null ? 'unknown' : 'vendor',
-    ladder: [{ device: 'webgpu', dtype: s.dtype }, { device: 'wasm', dtype: s.dtype }], censorship: 'unknown',
-    licence: 'unknown, not checked', commercial: 'unknown',
-  }
+/** A tool adds the check for a way in (mlc, gguf, endpoint) with the runtime that loads it. */
+export function provideCustomCheck(mode: CustomMode, run: CustomRunner): void {
+  checks.value = { ...checks.value, [mode]: run }
 }
-function addRecords(list: Saved[]): void {
-  const fresh = list.filter((s) => !registry.get(s.repo))
+
+const str = (v: CustomValues, k: string) => String(v[k] ?? '').trim()
+
+/** The catalogue record for a saved custom row. */
+export function customRecord(s: SavedCustom): ModelRecord {
+  const base = {
+    id: s.id, group: 'custom', provides: ['chat'] as Capability[], sizeMB: s.sizeMB, sizeSource: (s.sizeMB === null ? 'unknown' : 'vendor') as ModelRecord['sizeSource'],
+    censorship: 'unknown' as const, licence: 'unknown, not checked', commercial: 'unknown' as const,
+  }
+  const ctx = Number(str(s.values, 'ctx')) || undefined
+  if (s.mode === 'mlc') {
+    const dtype = s.values.f16 === false ? 'q4f32_1' : 'q4f16_1'
+    return {
+      ...base, label: s.id, note: 'added by you. mlc weights, checked by a repo listing.', provider: 'webllm',
+      source: { modelId: s.id, url: str(s.values, 'url') }, ...(ctx ? { ctx } : {}),
+      ladder: [{ device: 'webgpu', dtype, ...(s.values.f16 === false ? {} : { needs: ['f16'] }) }],
+    } as ModelRecord
+  }
+  if (s.mode === 'gguf') {
+    const file = str(s.values, 'file')
+    return {
+      ...base, label: file.replace(/\.gguf$/i, ''), note: 'added by you. a gguf file, checked by a repo listing.', provider: 'wllama',
+      source: { repo: str(s.values, 'repo'), file }, ...(ctx ? { ctx } : {}),
+      ladder: [{ device: 'webgpu', dtype: 'gguf' }, { device: 'wasm', dtype: 'gguf' }],
+    } as ModelRecord
+  }
+  if (s.mode === 'endpoint') {
+    return {
+      ...base, label: s.id, note: 'your endpoint. replies leave this tab.', provider: 'remote', sizeMB: 0, sizeSource: 'inferred',
+      source: { url: str(s.values, 'url'), modelId: s.id }, ladder: [{ device: 'remote' }],
+    } as ModelRecord
+  }
+  const dtype = str(s.values, 'dtype') || 'q4'
+  return {
+    ...base, label: s.id.split('/').pop(), note: 'added by you. checked by a repo listing.', provider: 'tjs', source: { modelId: s.id },
+    ladder: [{ device: 'webgpu', dtype }, { device: 'wasm', dtype }],
+  } as ModelRecord
+}
+function addRecords(list: SavedCustom[]): void {
+  const fresh = list.filter((s) => !registry.get(s.id))
   if (fresh.length) registry.add(...fresh.map(customRecord))
-  const keep = new Set(saved.value.map((s) => s.repo))
+  const keep = new Set(saved.value.map((s) => s.id))
   records.value = registry.list().filter((r) => r.group !== 'custom' || keep.has(r.id))
 }
 addRecords(saved.value)
 
-export async function checkCustom(values: CustomValues): Promise<void> {
-  const repo = String(values.repo ?? '').trim()
-  const dtype = String(values.dtype ?? '').trim() || 'q4'
+async function checkOnnx(values: CustomValues): Promise<CustomCheck> {
+  const repo = str(values, 'repo')
+  const dtype = str(values, 'dtype') || 'q4'
+  const res = await fetch(`https://huggingface.co/api/models/${repo}/tree/main/onnx`)
+  if (!res.ok) throw new Error(res.status === 404 ? `no onnx folder in ${repo}, or the repo is private.` : `the hub answered ${res.status}.`)
+  const files = (await res.json()) as { path: string; size?: number }[]
+  const mine = files.filter((f) => f.path.includes(`_${dtype}.onnx`))
+  if (!mine.length) throw new Error(`no ${dtype} file in ${repo}/onnx. pick another quant.`)
+  return { state: 'ok', sizeMB: mine.reduce((a, f) => a + (f.size ?? 0), 0) / MB, lines: mine.map((f) => f.path) }
+}
+
+export async function checkCustom(mode: CustomMode, values: CustomValues): Promise<void> {
+  const run = mode === 'onnx' ? checkOnnx : checks.value[mode]
   customCheck.value = { state: 'checking' }
   try {
-    const res = await fetch(`https://huggingface.co/api/models/${repo}/tree/main/onnx`)
-    if (!res.ok) throw new Error(res.status === 404 ? `no onnx folder in ${repo}, or the repo is private.` : `the hub answered ${res.status}.`)
-    const files = (await res.json()) as { path: string; size?: number }[]
-    const mine = files.filter((f) => f.path.includes(`_${dtype}.onnx`))
-    if (!mine.length) throw new Error(`no ${dtype} file in ${repo}/onnx. pick another quant.`)
-    const bytes = mine.reduce((a, f) => a + (f.size ?? 0), 0)
-    customCheck.value = { state: 'ok', sizeMB: bytes / MB, lines: mine.map((f) => f.path) }
+    if (!run) throw new Error(`no check for ${mode} rows in this build.`)
+    customCheck.value = await run(values)
   } catch (err) {
     customCheck.value = { state: 'fail', lines: [err instanceof Error ? err.message : String(err)] }
   }
 }
 
-export function addCustom(values: CustomValues): void {
-  const repo = String(values.repo ?? '').trim()
-  const s: Saved = { repo, dtype: String(values.dtype ?? '').trim() || 'q4', sizeMB: customCheck.value?.sizeMB ?? null }
-  saved.value = [s, ...saved.value.filter((x) => x.repo !== repo)]
+export function addCustom(mode: CustomMode, values: CustomValues): string {
+  const id = customId(mode, values)
+  const v = { ...values }
+  // a key never enters storage; the chat tool keeps it in memory
+  delete v.key
+  const s: SavedCustom = { mode, id, values: v, sizeMB: mode === 'endpoint' ? 0 : customCheck.value?.sizeMB ?? null }
+  saved.value = [s, ...saved.value.filter((x) => x.id !== id)]
   try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(saved.value)) } catch { /* private window: kept for this visit */ }
   addRecords(saved.value)
   customCheck.value = null
-  logEvent('note', `added ${repo}. its licence is not checked.`)
+  logEvent('note', `added ${id}. its licence is not checked.`)
+  return id
 }
 
-export function removeCustom(repo: string): void {
-  saved.value = saved.value.filter((x) => x.repo !== repo)
+export function removeCustom(id: string): void {
+  saved.value = saved.value.filter((x) => x.id !== id)
   try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(saved.value)) } catch { /* nothing kept */ }
   addRecords(saved.value)
 }

@@ -4,7 +4,7 @@
 import { onBeforeUnmount, ref, shallowRef, type Ref } from 'vue'
 import { activity } from '@virgilvox/hackbuild-ui/vanilla'
 import type { HbEventRow } from '@virgilvox/hackbuild-ui'
-import { onCore } from '../cores'
+import { onCore } from '../cores.ts'
 
 /** What the app is busy with now; the header line and the status strip read it. */
 export const jobs = activity()
