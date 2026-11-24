@@ -4,10 +4,10 @@
 // is an undo step and autosaves. Before any load the scripted engine
 // answers, and the page says so.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbTierCards, useHotkeys,
-  type HbChatLine, type HbEngineState, type HbTier,
+  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbRecallTrace, HbTierCards, useHotkeys,
+  type HbChatLine, type HbEngineState, type HbRecallHit, type HbTier,
 } from '@virgilvox/hackbuild-ui'
 import { createConversation, type ChatSession, type Conversation, type ConverseEngine } from '@hackbuild/converse'
 import type { ChatEngine } from '@hackbuild/chat'
@@ -21,10 +21,15 @@ import { contextSegments, toLines } from './lines.ts'
 import { docSink } from './sink.ts'
 import { stubChat } from './stub.ts'
 import { addChatRuntimes, endpointKey, engineOf } from './runtimes.ts'
+import { rememberLine, traceHits } from '../memory/lines.ts'
+
+// the memory store loads with the first turn that needs it
+const memStore = () => import('../memory/store.ts')
 
 if (!kinds.get(CHAT_KIND)) registerKind(chatKind)
 
 const route = useRoute()
+const router = useRouter()
 const doc = useDocument<ChatSession>(CHAT_KIND)
 const scripted = stubChat()
 const engine = shallowRef<ChatEngine>(scripted)
@@ -59,7 +64,7 @@ async function attach(id: string): Promise<void> {
   conv?.stop()
   off?.()
   live.value = null
-  const c = createConversation({ engine: proxy, now: Date.now, id, sink, debounceMs: 250 })
+  const c = createConversation({ engine: proxy, now: Date.now, id, sink, debounceMs: 250, memory: { recall } })
   off = c.on((e) => {
     if (e.type === 'change') {
       session.value = e.session
@@ -211,8 +216,40 @@ const segments = computed(() => (void tick.value, session.value ? contextSegment
 const budget = computed(() => (engine.value as { contextWindow?: number }).contextWindow ?? current.value?.ctx ?? 4096)
 const examples = ['say hi', 'what can you do here', 'show me the think fold']
 
+// Memory (design 3.1 step 7, 3.8): each turn recalls from the chat store;
+// "remember that ..." saves the line first (P-MEM-10).
+const memOn = ref(true)
+async function recall(text: string): Promise<{ id: string; text: string }[]> {
+  if (!memOn.value) return []
+  try {
+    return await (await memStore()).recallFor(text)
+  } catch (err) {
+    logEvent('warn', `memory is off for this turn: ${err instanceof Error ? err.message : String(err)}`)
+    return []
+  }
+}
+async function remember(text: string): Promise<void> {
+  const line = memOn.value ? rememberLine(text) : null
+  if (!line) return
+  const r = await (await memStore()).saveLine(line, { from: 'chat' })
+  logEvent('note', r.merged ? `already remembered, made stronger: ${line}` : `remembered: ${line}`)
+}
+const traceOpen = ref(false)
+const traceQuery = ref('')
+const trace = shallowRef<{ hits: HbRecallHit[]; how: string } | null>(null)
+async function showTrace(i: number): Promise<void> {
+  const asked = lines.value.slice(0, i).reverse().find((l) => l.role === 'user')
+  if (!asked) return
+  traceQuery.value = asked.text
+  trace.value = null
+  traceOpen.value = true
+  const t = await (await memStore()).traceFor(asked.text)
+  trace.value = { hits: traceHits(t), how: t.how }
+}
+const openMemory = () => router.push({ name: 'memory', query: { q: traceQuery.value } })
+
 // a message typed before the document opens waits for it
-const send = (t: string) => void ready.then(() => conv?.send(t))
+const send = (t: string) => void ready.then(() => remember(t).catch(() => {})).then(() => conv?.send(t))
 const stop = () => conv?.stop()
 const redo = () => void conv?.redo()
 const remove = (i: number) => conv?.remove(idAt(i))
@@ -258,6 +295,7 @@ useComposer({ get value() { return root.value?.querySelector<HTMLElement>('.hb-c
 useStop(stop)
 useHotkeys([{ keys: 'ctrl+shift+n', label: 'new chat', group: 'tool', inFields: true, run: () => void newChat() }])
 
+if (typeof route.query.draft === 'string') draft.value = route.query.draft
 const q = route.query.doc
 const ready = openDoc(typeof q === 'string' ? q : undefined)
 onMounted(async () => {
@@ -307,6 +345,7 @@ onBeforeUnmount(() => {
       @edit="edit"
       @remove="remove"
       @speak="speak"
+      @recall="(i) => showTrace(i)"
       @clear="conv?.clear()"
       @export="exportChat()"
       @import="pickFiles()"
@@ -314,6 +353,7 @@ onBeforeUnmount(() => {
       <template #header-extra>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="listOpen = true">chats</button>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :disabled="!lines.length" @click="exportChat('md')">markdown</button>
+        <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :aria-pressed="memOn" @click="memOn = !memOn">{{ memOn ? 'memory on' : 'memory off' }}</button>
       </template>
       <template #empty>
         <div v-if="!lines.length" class="hb-chat-empty">
@@ -342,6 +382,10 @@ onBeforeUnmount(() => {
         <HbContextMeter :segments="segments" :budget="budget" @new="newChat" @trim="trim" />
       </template>
     </HbChat>
+    <HbDrawer v-model="traceOpen" side="right" size="sm" label="memory used">
+      <HbRecallTrace :hits="trace?.hits ?? []" :query="traceQuery" :how="trace?.how ?? ''" who="chat" :names="{ rel: 'relevance', rec: 'recency', imp: 'importance' }" />
+      <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="openMemory">open in memory</button>
+    </HbDrawer>
     <HbDrawer v-model="listOpen" side="left" size="sm" label="chats">
       <HbConversationList
         :items="chats"

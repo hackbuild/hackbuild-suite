@@ -41,7 +41,9 @@ export function toLines(s: Pick<ChatSession, 'messages'>, st: LineState = {}): H
         line.stats = { tokPerSec: m.stats.tokensPerSecond, firstMs: m.stats.firstTokenMs, tokens: m.stats.tokens, source: m.stats.tokensSource }
       }
       if (m.toolCalls?.length) line.tools = m.toolCalls.map((c) => ({ name: c.name, args: c.arguments, state: 'ok' }))
-      if (m.recalled?.length) line.recalled = m.recalled.map((r) => ({ title: r.text, ref: r.id }))
+      // recall runs for the user turn; "memory used" shows under the reply it fed
+      const asked = m.role === 'assistant' ? s.messages[s.messages.indexOf(m) - 1] : undefined
+      if (asked?.role === 'user' && asked.recalled?.length) line.recalled = asked.recalled.map((r) => ({ title: r.text, ref: r.id }))
       if (m.seen) line.seen = m.seen
       return line
     })
