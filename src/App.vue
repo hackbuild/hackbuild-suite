@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  HbActivity, HbAppShell, HbDrawer, HbEmptyState, HbEventLog, HbHeader, HbKeyMap, HbPalette, HbPills,
+  HbActivity, HbAppShell, HbDrawer, HbEventLog, HbHeader, HbKeyMap, HbPalette, HbPills,
   HbSettingsForm, HbStatusBar, HbSuiteNav, HbTag, HbToaster, HbWorkspaceMenu, useHotkeys,
   type HbPaletteSection, type HbStatusCell, type HbStatusItem, type HbSuiteGroup,
 } from '@virgilvox/hackbuild-ui'
@@ -12,6 +12,7 @@ import { TOOLS } from './tools/registry'
 import { events, focusComposer, jobs, logEvent, overlay, runPrimary, stopAll, type Overlay } from './shell/shell'
 import { SCHEMA, SECTIONS, loadSettings, settings } from './shell/settings'
 import WorkspacePanels from './shell/WorkspacePanels.vue'
+import { loadModels, models } from './models/lazy'
 import {
   busy, deleteProject, duplicateProject, newProject, openProject, opened, pickFiles, project, projects, redo, renaming,
   saveNow, startWorkspace, undo,
@@ -68,7 +69,7 @@ useHotkeys([
   } },
 ])
 
-// The palette: tools, then shell commands (models join in 2.6).
+// The palette: tools, then shell commands.
 const COMMANDS: Record<string, { label: string; kbd?: string; run: () => void }> = {
   'cmd:home': { label: 'home: every tool', run: () => router.push('/') },
   'cmd:settings': { label: 'settings', kbd: ',', run: () => open('settings') },
@@ -92,12 +93,23 @@ function runPalette(key: string) {
   else navRoute.value = key
 }
 
-// Header pills: nothing is loaded in the shell. The manager (2.6) feeds them.
+// The one hub and store start after the first paint (design 2.2); the
+// manager drawer is its own chunk.
+const ModelsPanel = defineAsyncComponent(() => import('./models/ModelsPanel.vue'))
+setTimeout(() => void loadModels().catch((err: unknown) => logEvent('fail', `models: the manager did not start. ${err instanceof Error ? err.message : String(err)}`)), 0)
+
+// Header pills from the hub: what is loaded per organ, and the gpu.
 const gpu = 'gpu' in navigator
-const pills: HbStatusItem[] = [
-  ...['brain', 'voice', 'ears', 'eyes', 'memory'].map((key) => ({ key, label: key, state: 'off' as const, title: 'no model loaded', goto: 'models' })),
-  { key: 'gpu', label: 'gpu', state: gpu ? 'ok' : 'warn', title: gpu ? 'webgpu api present. no adapter asked for yet.' : 'no webgpu here. models run on cpu, slower.', goto: 'models' },
-]
+const pills = computed<HbStatusItem[]>(() => {
+  const m = models.value
+  const env = m?.env.value
+  return [
+    ...['brain', 'voice', 'ears', 'eyes', 'memory'].map((key) => ({ key, label: key, goto: 'models', ...(m ? m.organ(key) : { state: 'off' as const, title: 'no model loaded' }) })),
+    env
+      ? { key: 'gpu', label: 'gpu', state: env.webgpu ? 'ok' as const : 'warn' as const, title: env.webgpu ? `webgpu adapter${env.f16 ? ' with shader-f16' : ''}.` : 'no webgpu adapter. models run on cpu, slower.', goto: 'models' }
+      : { key: 'gpu', label: 'gpu', state: gpu ? 'load' as const : 'warn' as const, title: gpu ? 'checking the adapter.' : 'no webgpu here. models run on cpu, slower.', goto: 'models' },
+  ]
+})
 
 // Status strip figures: job, device, storage, tools.
 const tasks = ref<ActivityTask[]>(jobs.list())
@@ -107,16 +119,15 @@ const job = computed(() => {
   const s = summarize(tasks.value)
   return s.first ? s.first.label : 'idle'
 })
-const used = ref('unknown')
-navigator.storage?.estimate?.().then(
-  (e) => (used.value = e.usage === undefined ? 'unknown' : `${(e.usage / 1e6).toFixed(1)} mb`),
-  () => undefined,
-)
+const used = computed(() => {
+  const u = models.value?.storage.value?.used
+  return u === null || u === undefined ? 'unknown' : `${(u / 1048576).toFixed(1)} mb`
+})
 
 const cells = computed<HbStatusCell[]>(() => [
   { key: 'job', label: 'job', value: job.value, priority: 1 },
-  { key: 'device', label: 'device', value: gpu ? 'webgpu' : 'cpu', priority: 1 },
-  { key: 'model', label: 'model', value: 'none', priority: 2 },
+  { key: 'device', label: 'device', value: models.value?.env.value ? (models.value.env.value.webgpu ? 'webgpu' : 'cpu') : gpu ? 'webgpu' : 'cpu', priority: 1 },
+  { key: 'model', label: 'model', value: models.value?.modelLine.value ?? 'none', priority: 2 },
   { key: 'stored', label: 'stored', value: used.value, priority: 2 },
   { key: 'tool', label: 'tool', value: tool.value?.title ?? 'home', priority: 3 },
 ])
@@ -185,9 +196,7 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
     <HbEventLog :rows="events" label="this project" filters />
   </HbDrawer>
   <HbDrawer v-model="modelsOpen" side="auto" title="models">
-    <HbEmptyState title="no models yet">
-      the model manager lands in phase 2. nothing downloads until you press a load button that names the size.
-    </HbEmptyState>
+    <ModelsPanel />
   </HbDrawer>
   <WorkspacePanels />
   <HbToaster />

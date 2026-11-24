@@ -16,6 +16,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "test": "node --test tools/test/*.test.mjs",
     "smoke:file": "node tools/smoke-file.mjs",
+    "smoke:models": "node tools/smoke-models.mjs",
     "ui:check": "node tools/vendor/pin-ui.mjs --check",
     "lint:voice": "git ls-files | grep -Ev '\\.(png|jpe?g|glb|bin|wasm|wav)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs node tools/lint-voice.mjs",
     "shots": "node tools/shots.mjs",

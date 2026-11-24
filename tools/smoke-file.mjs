@@ -54,7 +54,7 @@ try {
   const dialog = (t) => page.waitForFunction((x) => [...document.querySelectorAll('[role="dialog"]')].some((d) => d.checkVisibility() && d.textContent.includes(x)), { timeout: 3000 }, t)
   const closed = () => page.waitForFunction(() => ![...document.querySelectorAll('[role="dialog"]')].some((d) => d.checkVisibility()), { timeout: 3000 })
   await page.click('body')
-  for (const [key, expect] of [[',', 'disclosure'], ['?', 'focus the composer'], ['m', 'no models yet'], ['/', 'commands']]) {
+  for (const [key, expect] of [[',', 'disclosure'], ['?', 'focus the composer'], ['m', 'this machine'], ['/', 'commands']]) {
     await page.keyboard.type(key)
     try { await dialog(expect) } catch { throw new Error(`key ${key} did not open the overlay with "${expect}"`) }
     await page.keyboard.press('Escape')
