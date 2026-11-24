@@ -72,5 +72,6 @@ export async function addVisionRuntimes(): Promise<void> {
   if (tjs) {
     tjs.loader('vision.caption', vision.vlmLoader)
     tjs.loader('vision.ask', vision.vlmLoader)
+    tjs.loader('segment', vision.samLoader)
   }
 }
