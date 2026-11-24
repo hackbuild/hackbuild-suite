@@ -34,7 +34,10 @@
   "dependencies": {
     "@hackbuild/ai-env": "file:tools/vendor/hackbuild-ai-env-0.1.0-a79f0f5.tgz",
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.0-36e5ca9.tgz",
+    "@hackbuild/chat": "file:tools/vendor/hackbuild-chat-0.1.0-a79f0f5.tgz",
+    "@hackbuild/converse": "file:tools/vendor/hackbuild-converse-0.1.0-a79f0f5.tgz",
     "@hackbuild/devices": "file:tools/vendor/hackbuild-devices-0.1.0-a79f0f5.tgz",
+    "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.0-a79f0f5.tgz",
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.1.0-a79f0f5.tgz",
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.0-a79f0f5.tgz",
     "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.6.3-2ba684e.tgz",
