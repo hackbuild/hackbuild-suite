@@ -6,6 +6,7 @@
 // model file is fetched unless the person drops one. Framework free.
 import { fillMacros, profileOf, type CardV2, type Profile } from '@hackbuild/character'
 import type { DocKind } from '../workspace/kinds.ts'
+import { EXT, extOf, styleLines } from './sheet.ts'
 
 export const CHARACTER_KIND = 'character.card'
 export const DEFAULT_NAME = 'mannequin'
@@ -50,7 +51,7 @@ export function newCard(name = DEFAULT_NAME): CardV2 {
 
 const names = (card: CardV2) => ({ char: card.data.name || DEFAULT_NAME, user: 'you' })
 /** The system prompt with the names filled. */
-export const systemOf = (card: CardV2) => fillMacros([card.data.system_prompt, card.data.scenario].filter(Boolean).join('\n'), names(card))
+export const systemOf = (card: CardV2) => fillMacros([card.data.system_prompt, card.data.scenario, styleLines(card)].filter(Boolean).join('\n'), names(card))
 /** The first line, with the names filled. */
 export const greetingOf = (card: CardV2) => fillMacros(card.data.first_mes, names(card))
 /** The profile, or a new one when the card has none. */
@@ -80,6 +81,22 @@ export const characterKind: DocKind<CardV2> = {
       return e instanceof Error ? e.message : String(e)
     }
   },
+  exports: [
+    {
+      key: 'card',
+      label: 'card only, no talk',
+      ext: '.card.json',
+      type: 'application/json',
+      note: 'a character card v2 without the saved conversation, for other apps.',
+      write(body) {
+        const c = structuredClone(body)
+        const x = { ...extOf(c) }
+        delete x.transcript
+        c.data.extensions = { ...c.data.extensions, [EXT]: x }
+        return JSON.stringify(c, null, 2)
+      },
+    },
+  ],
   imports: [
     {
       accept: '.json,application/json',
