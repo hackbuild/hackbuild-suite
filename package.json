@@ -31,7 +31,7 @@
   },
   "description": "Browser AI and 3D character tools in one tab, built on the hackbuild libraries.",
   "dependencies": {
-    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.5.0-5211c3a.tgz",
+    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.6.0-7dc69bc.tgz",
     "vue": "3.5.41",
     "vue-router": "4.6.4"
   }
