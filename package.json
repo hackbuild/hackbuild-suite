@@ -62,6 +62,7 @@
   },
   "description": "Browser AI and 3D character tools in one tab, built on the hackbuild libraries.",
   "dependencies": {
+    "@hackbuild/agent": "file:tools/vendor/hackbuild-agent-0.1.0-1d5b864.tgz",
     "@hackbuild/ai-env": "file:tools/vendor/hackbuild-ai-env-0.1.0-1d5b864.tgz",
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.0-1d5b864.tgz",
     "@hackbuild/avatar": "file:tools/vendor/hackbuild-avatar-0.1.0-6ef5b9a.tgz",
@@ -92,6 +93,7 @@
     "@hackbuild/scenario": "file:tools/vendor/hackbuild-scenario-0.2.0-60e4fff.tgz",
     "@hackbuild/senses": "file:tools/vendor/hackbuild-senses-0.1.0-60e4fff.tgz",
     "@hackbuild/speak": "file:tools/vendor/hackbuild-speak-0.1.0-1d5b864.tgz",
+    "@hackbuild/structured": "file:tools/vendor/hackbuild-structured-0.1.0-1d5b864.tgz",
     "@hackbuild/transcribe": "file:tools/vendor/hackbuild-transcribe-0.1.0-1d5b864.tgz",
     "@hackbuild/tunables": "file:tools/vendor/hackbuild-tunables-0.1.0-60e4fff.tgz",
     "@hackbuild/vision": "file:tools/vendor/hackbuild-vision-0.1.0-1d5b864.tgz",
