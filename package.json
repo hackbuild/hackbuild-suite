@@ -41,7 +41,9 @@
     "smoke:ik": "node tools/smoke-ik.mjs",
     "smoke:gait": "node tools/smoke-locomotion.mjs gait",
     "smoke:motionmatch": "node tools/smoke-locomotion.mjs motionmatch",
-    "smoke:motionnet": "node tools/smoke-motionnet.mjs"
+    "smoke:motionnet": "node tools/smoke-motionnet.mjs",
+    "smoke:senses": "node tools/smoke-agents.mjs senses",
+    "smoke:drives": "node tools/smoke-agents.mjs drives"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
