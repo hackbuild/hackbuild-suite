@@ -16,3 +16,5 @@ pkg/
 *.wasm.b64
 # owner likeness never enters the repo (design section 5 item 5)
 assets-local/
+# library head packs (tools/library-heads.mjs)
+.local/

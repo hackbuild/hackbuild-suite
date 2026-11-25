@@ -1,0 +1,76 @@
+# The suite against the head of every library it consumes (design 6.2 item
+# 7.3). A workflow of its own, on a schedule and by hand, so a red run here
+# never touches the pinned job in ci.yml: that one installs tools/vendor as
+# locked, this one packs hackbuild-ui and the three libraries at their default
+# branch heads and lays them over the vendored tarballs.
+name: library-heads
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: library-heads
+  cancel-in-progress: true
+jobs:
+  library-heads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CHROME: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: hackbuild-suite
+      - uses: actions/checkout@v7
+        with:
+          repository: hackbuild/hackbuild-ui
+          path: hackbuild-ui
+      - uses: actions/checkout@v7
+        with:
+          repository: hackbuild/hackbuild-browser-ai
+          path: hackbuild-browser-ai
+      - uses: actions/checkout@v7
+        with:
+          repository: hackbuild/hackbuild-motion
+          path: hackbuild-motion
+      - uses: actions/checkout@v7
+        with:
+          repository: hackbuild/hackbuild-agents
+          path: hackbuild-agents
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: hackbuild-suite/.nvmrc
+      - run: npm install -g npm@11.21.0
+      # the libraries build their wasm cores from their crates
+      - run: rustup toolchain install && rustup target add wasm32-unknown-unknown && rustc --version
+        working-directory: hackbuild-motion
+      - run: rustup toolchain install && rustup target add wasm32-unknown-unknown
+        working-directory: hackbuild-agents
+      - run: rustup toolchain install && rustup target add wasm32-unknown-unknown
+        working-directory: hackbuild-browser-ai
+      - run: cargo install wasm-pack --version 0.13.1 --locked
+      - run: npm ci
+        working-directory: hackbuild-suite
+      - run: node tools/library-heads.mjs --root ..
+        working-directory: hackbuild-suite
+      - run: npm run typecheck
+        working-directory: hackbuild-suite
+      - run: npm run build:all
+        working-directory: hackbuild-suite
+      - run: npm test
+        working-directory: hackbuild-suite
+      # every smoke but generate and sendto, which need a webgpu adapter; the
+      # stage smokes draw on swiftshader
+      - name: smokes without a gpu
+        working-directory: hackbuild-suite
+        run: |
+          fail=0
+          for s in $(node -p 'Object.keys(require("./package.json").scripts).filter((k) => k.startsWith("smoke:") && !["smoke:generate", "smoke:sendto"].includes(k)).join(" ")'); do
+            echo "::group::$s"
+            npm run -s "$s" || { echo "::error::$s failed"; fail=1; }
+            echo "::endgroup::"
+          done
+          npm run -s test:roundtrip || fail=1
+          exit $fail
