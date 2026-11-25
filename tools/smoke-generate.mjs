@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
+import { unzipStore } from '@hackbuild/audio-dsp'
 import { pngText, PNG_KEY, readSettings } from '../src/generate/kind.ts'
 
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -134,6 +135,12 @@ try {
   const inPng = readSettings(pngText(new Uint8Array(png))[PNG_KEY] ?? 'x')
   if (inPng.seed !== 4242 || inPng.prompt !== 'a brass ferrule on a bench' || inPng.model !== 'sd-turbo') fail('the png lacks its settings')
   if (!/generate_sd-turbo_4242_/.test(readdirSync(downloads).find((n) => n.endsWith('.png')))) fail('the png name does not carry the run')
+  // the strip as one zip: a png with its settings and a sidecar per run
+  if (!(await click('^download all as zip$'))) fail('no zip button on the runs strip')
+  const zipped = unzipStore(new Uint8Array(readFileSync(await download('.zip'))))
+  const zpng = zipped.filter((e) => e.name.endsWith('.png'))
+  if (zpng.length !== 3 || zipped.length !== 6) fail(`the strip zip holds ${zipped.length} files, not 3 png and 3 sidecars`)
+  if (!zpng.some((e) => readSettings(pngText(e.data)[PNG_KEY] ?? 'x').seed === 4242)) fail('the zipped png lack their settings')
   if (!(await click('^settings json$'))) fail('no settings json button')
   const side = await download('.imagegen.json')
   await wait(900)
@@ -163,7 +170,7 @@ try {
 
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log('smoke-generate: ok. the load button names 2.6 gb (inferred) and sd 1.5 shows its inferred repo and size, the form reshapes per model, a prompt runs with the step on the stage and 4 timing cells, the locked seed repeats the pixels, esc stops a 22 step run and keeps nothing, a reroll gives other pixels, the wipe compares two runs, history restores seed 4242, the png carries its settings, the sidecar restores them, the session exports and imports with 3 runs, a run opens in vision, 0 requests off file:// (measured)')
+  console.log('smoke-generate: ok. the load button names 2.6 gb (inferred) and sd 1.5 shows its inferred repo and size, the form reshapes per model, a prompt runs with the step on the stage and 4 timing cells, the locked seed repeats the pixels, esc stops a 22 step run and keeps nothing, a reroll gives other pixels, the wipe compares two runs, history restores seed 4242, the png carries its settings, the sidecar restores them, the strip zips 3 png with their sidecars, the session exports and imports with 3 runs, a run opens in vision, 0 requests off file:// (measured)')
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

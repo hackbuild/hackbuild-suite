@@ -232,6 +232,20 @@ function saveSidecar(): void {
   if (!r) return say('nothing to save yet. generate first.', 'warn')
   saveFile(`${nameOf(r)}${SIDECAR_EXT}`, sidecar(r), 'application/json')
 }
+// The strip as one zip: each run's png with its settings inside, beside its sidecar.
+async function saveZip(): Promise<void> {
+  const runs = body.value.runs
+  if (!runs.length) return say('nothing to zip yet. generate first.', 'warn')
+  const { zipStore } = await import('@hackbuild/audio-dsp')
+  const entries: { name: string; data: string | Uint8Array }[] = []
+  for (const r of runs) {
+    const bytes = new Uint8Array(await (await fetch(r.image)).arrayBuffer())
+    entries.push({ name: `${nameOf(r)}.png`, data: pngWithText(bytes, PNG_KEY, sidecar(r)) }, { name: `${nameOf(r)}${SIDECAR_EXT}`, data: sidecar(r) })
+  }
+  const name = `${exportName(['generate', 'runs', runs.length])}.zip`
+  saveFile(name, new Blob([zipStore(entries) as BlobPart], { type: 'application/zip' }), 'application/zip')
+  log(`saved ${name} with ${runs.length} runs and their settings.`, 'ok')
+}
 const exportSession = () => doc.doc.value && void exportDoc(doc.doc.value.id)
 
 // Send to (design 1.2): the run as an image to vision, masks and relief.
@@ -346,6 +360,9 @@ onMounted(async () => {
 
       <HbPanel heading="runs">
         <HbHistoryStrip :items="history" :current="current?.id ?? null" empty="runs appear here. a press puts the settings back." @restore="restore" @remove="removeRun" />
+        <HbToolbar>
+          <HbButton variant="secondary" size="sm" :disabled="!body.runs.length" @click="saveZip">download all as zip</HbButton>
+        </HbToolbar>
       </HbPanel>
 
       <HbPanel v-if="current && other" heading="compare">
