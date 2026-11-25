@@ -6,7 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbRecallTrace, HbTierCards, useHotkeys,
+  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbMicButton, HbRecallTrace, HbTierCards, useHotkeys,
   type HbChatLine, type HbEngineState, type HbRecallHit, type HbTier,
 } from '@virgilvox/hackbuild-ui'
 import { createConversation, type ChatSession, type Conversation, type ConverseEngine } from '@hackbuild/converse'
@@ -23,6 +23,8 @@ import { stubChat } from './stub.ts'
 import { addChatRuntimes, endpointKey, engineOf } from './runtimes.ts'
 import { rememberLine, traceHits } from '../memory/lines.ts'
 import { useWide } from '../shell/wide.ts'
+import type { MicState } from '@virgilvox/hackbuild-ui/vanilla'
+import { startDictation, type Dictator } from './dictation.ts'
 
 // the memory store loads with the first turn that needs it
 const memStore = () => import('../memory/store.ts')
@@ -334,7 +336,28 @@ onMounted(async () => {
   await loadModels()
   addChatRuntimes()
 })
+// Mic dictation: interim words fill the composer, the final stays there to send.
+const micState = ref<MicState>('off')
+let dictator: Dictator | null = null
+const draftBox = { get value() { return draft.value }, set value(v: string) { draft.value = v } }
+async function micStart(): Promise<void> {
+  if (dictator) return
+  micState.value = 'asking'
+  logEvent('note', 'dictation: the browser speech recognition may send the audio to its own service.')
+  dictator = await startDictation(draftBox, {
+    state: (s) => { micState.value = s },
+    committed: (v) => logEvent('note', `dictation: heard "${v.slice(-60)}". press enter to send.`),
+    failed: (m) => { logEvent('warn', `dictation: ${m}`); dictator = null },
+  })
+}
+function micStop(): void {
+  dictator?.stop()
+  dictator = null
+  micState.value = 'off'
+}
+
 onBeforeUnmount(() => {
+  micStop()
   conv?.stop()
   void conv?.flush()
   off?.()
@@ -424,6 +447,9 @@ onBeforeUnmount(() => {
             </template>
           </HbTierCards>
         </div>
+      </template>
+      <template #composer-end>
+        <HbMicButton v-model:state="micState" :listen="false" title="dictate. the browser recognizer may send audio to its own service." @start="micStart" @stop="micStop" />
       </template>
       <template #above>
         <HbContextMeter :segments="segments" :budget="budget" @new="newChat" @trim="trim" />

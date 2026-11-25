@@ -142,9 +142,31 @@ try {
   const val = await phone.$eval('.hb-composer textarea', (e) => e.value)
   if (n1 !== n0 || !val.includes('\n')) fail('enter sent on a coarse pointer')
 
+  // mic dictation on the stub recognizer: interim words fill the box after what was typed, the final stays to send
+  await phone.$eval('.hb-composer textarea', (e) => { e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true })) })
+  await phone.focus('.hb-composer textarea')
+  await phone.keyboard.type('note:')
+  await phone.$eval('.hb-composer .hb-mic-btn', (b) => b.click())
+  const box = () => phone.$eval('.hb-composer textarea', (e) => e.value)
+  await phone.waitForFunction(() => /^note: what is( on)?$/.test(document.querySelector('.hb-composer textarea').value), { timeout: 5000 })
+    .catch(async () => fail(`no interim words in the composer: "${await box()}"`))
+  const partial = await box()
+  // the last interim reads like the final; the final is in once the mic is back to listening
+  await phone.waitForFunction(() => document.querySelector('.hb-composer textarea').value === 'note: what is on the shelf' && document.querySelector('.hb-composer .hb-mic').classList.contains('is-listening'), { timeout: 6000 })
+    .catch(async () => fail(`the final did not land in the composer: "${await box()}"`))
+  const n2 = await phone.$$eval('.hb-chat-log .hb-msg', (m) => m.length)
+  if (n2 !== n1) fail('dictation sent the message on its own')
+  await phone.$eval('.hb-composer .hb-mic-btn', (b) => b.click())
+  await new Promise((r) => setTimeout(r, 300))
+  if ((await box()) !== 'note: what is on the shelf') fail(`stopping the mic changed the composer: "${await box()}"`)
+  if (process.env.SHOTS) {
+    await phone.$eval('.hb-composer', (e) => e.scrollIntoView({ block: 'center' }))
+    await phone.screenshot({ path: join(process.env.SHOTS, 'chat-dictation-390.png') })
+  }
+
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-chat: ok. "/" focuses the composer, a stub reply streams with its think text in the fold, redo answers again, delete removes a turn, ctrl+z and ctrl+shift+z undo and redo it, ${saved} exports 3 messages and imports back as a second chat, enter on a touch pointer adds a line, 0 requests off file:// (measured)`)
+  console.log(`smoke-chat: ok. "/" focuses the composer, a stub reply streams with its think text in the fold, redo answers again, delete removes a turn, ctrl+z and ctrl+shift+z undo and redo it, ${saved} exports 3 messages and imports back as a second chat, enter on a touch pointer adds a line, dictation on the stub recognizer showed "${partial}" then the final in the composer and did not send, 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
