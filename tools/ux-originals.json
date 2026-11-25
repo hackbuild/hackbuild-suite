@@ -1,0 +1,99 @@
+{
+  "#/": {
+    "original": "~/Downloads/hackle (10).html",
+    "note": "home leads with the yard"
+  },
+  "#/chat/chat": {
+    "original": "~/Downloads/chatbot-forge (3).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/chat/chatbot-forge-empty-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/chat/chatbot-forge-empty-390.png"
+  },
+  "#/chat/memory": {
+    "original": "~/Downloads/clevis.html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-memory-empty-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-memory-empty-390.png"
+  },
+  "#/voice/transcribe": {
+    "original": "~/Downloads/scribe (12).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png"
+  },
+  "#/voice/speak": null,
+  "#/image/vision": {
+    "original": "~/Downloads/arbor (10).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-eyes-detector-1440.png",
+    "note": "arbor eyes tab; no 390 shot of it"
+  },
+  "#/image/masks": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam.html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-390.png"
+  },
+  "#/image/relief": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/bail/bail (16).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-welcome-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-welcome-390.png"
+  },
+  "#/image/generate": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/grommet-sd-turbo/grommet.html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-390.png"
+  },
+  "#/character": {
+    "original": "~/Downloads/ferrule (13).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-390.png"
+  },
+  "#/rooms": {
+    "original": "~/Downloads/arbor (10).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-390.png"
+  },
+  "#/motion/avatar": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/gimbal/gimbal (4).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-390.png"
+  },
+  "#/motion/retarget": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/gimbal/gimbal (4).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-390.png"
+  },
+  "#/motion/ik": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/gimbal/gimbal (4).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-390.png"
+  },
+  "#/motion/gait": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/motion/lipsync": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/sonic/sonic-vrm-console.html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/sonic-vrm-console-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/sonic-vrm-console-initial-390.png"
+  },
+  "#/motion/motion-match": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/dolly/DOLLY-How-to-Give-a-Tour (3).html"
+  },
+  "#/motion/motion-net": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/agents/senses": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/agents/drives": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/agents/cameras": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/agents/mover": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "#/agents/scenario": {
+    "original": "~/Downloads/hackle (10).html"
+  },
+  "dog-simulator-public.html": {
+    "original": "~/Downloads/hackle (10).html"
+  }
+}
