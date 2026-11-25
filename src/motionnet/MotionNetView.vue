@@ -26,6 +26,7 @@ import { bakedClip } from '../gait/kind.ts'
 import type { GaitRig } from '../gait/bind.ts'
 import { NET_KIND, SHOWS, STYLE_CHIPS, WEIGHTS_MB, netKind, sourceOf, weightsLine, type NetBody } from './kind.ts'
 import type { NetRig, Network } from './bind.ts'
+import how from '@hackbuild/motion-net/how'
 
 if (!kinds.get(NET_KIND)) registerKind(netKind)
 
@@ -318,21 +319,6 @@ watch([net, gait], ([n, g]) => {
   }
 })
 
-const HOW = `import { Predictor, QuadrupedHost, UPSTREAM, WEIGHT_LICENCE, loadWeights } from "@hackbuild/motion-net";
-import { openWeightStore } from "@hackbuild/weights";
-
-const store = await openWeightStore(); // the second visit reads, no download
-const ref = { licence: WEIGHT_LICENCE };
-const manifest = await store.get({ ...ref, url: UPSTREAM.manifest });
-const bin = await store.get({ ...ref, url: UPSTREAM.bin, sha256: UPSTREAM.binSha256 }, { onProgress, signal });
-const weights = await loadWeights({ manifest: JSON.parse(await manifest.text()), bin });
-const dog = new QuadrupedHost(await Predictor.create(weights), weights.styles);
-function frame(dt, cmd) {
-  dog.update(dt, { speed: cmd.speed, turnRate: cmd.turnRate, style: "auto" });
-  dog.positions; // 27 bones x 3, world, meters
-  dog.paws;      // contact, stance, phase per paw
-  dog.evalMs;    // one evaluation, measured
-}`
 </script>
 
 <template>
@@ -407,12 +393,7 @@ function frame(dt, cmd) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="net ? '' : 'the stage is starting.'" label="motion-net" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/motion-net', '@hackbuild/weights', '@hackbuild/gait']"
-        install="npm i @hackbuild/motion-net @hackbuild/weights three"
-        :code="HOW"
-        persist-key="net-how"
-      />
+      <HbHow v-bind="how" persist-key="net-how" />
     </template>
   </StageTool>
 </template>

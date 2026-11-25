@@ -28,6 +28,7 @@ import {
 import { FPS, TrackWriter, fromSamples, fromText, readAudio, voiced, type TimedWord } from './track.ts'
 import { take } from './inbox.ts'
 import type { Mouth } from './bind.ts'
+import how from '@hackbuild/lipsync/how'
 
 if (!kinds.get(LIPSYNC_KIND)) registerKind(lipsyncKind)
 
@@ -402,17 +403,6 @@ watch(mouth, (m) => {
   if (el && m) el.lipsync = { track, map, now, morphs, read: (n: string) => mouth.value?.read(n) ?? 0 }
 })
 
-const HOW = `import { LipSync, drive, rms, bandsFromSpectrum, estimateWords } from "@hackbuild/lipsync";
-
-const lips = new LipSync({ lead: 0.04 });
-lips.push(estimateWords("hello there", 0, 1.2)); // or word times from a speech engine
-function frame(t: number, dt: number) {
-  analyser.getFloatTimeDomainData(buf);
-  analyser.getFloatFrequencyData(spec);
-  lips.setLevel(rms(buf), bandsFromSpectrum(spec, ctx.sampleRate, analyser.fftSize));
-  const f = lips.update(t, dt); // f.visemes: 15 oculus weights, f.source says which input moved it
-  drive(avatar.expressions, f, "vrm"); // or map each viseme to your own morph
-}`
 </script>
 
 <template>
@@ -481,12 +471,7 @@ function frame(t: number, dt: number) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="exportBusy" label="lipsync" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/lipsync', '@hackbuild/speak', '@hackbuild/avatar-host']"
-        install="npm i @hackbuild/lipsync"
-        :code="HOW"
-        persist-key="lipsync-how"
-      />
+      <HbHow v-bind="how" persist-key="lipsync-how" />
     </template>
   </StageTool>
 </template>

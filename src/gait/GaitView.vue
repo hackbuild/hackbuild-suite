@@ -22,6 +22,7 @@ import { tone } from '../vision/frame'
 import { CLIP_EXT } from '../avatar/pose.ts'
 import { GAIT_CHIPS, GAIT_KIND, TERRAINS, bakedClip, chipSpeed, gaitKind, type GaitBody, type GaitChip, type Terrain } from './kind.ts'
 import type { GaitRig, MapReport } from './bind.ts'
+import how from '@hackbuild/gait/how'
 
 if (!kinds.get(GAIT_KIND)) registerKind(gaitKind)
 
@@ -255,20 +256,6 @@ watch(rig, (r) => {
   if (el && r) el.gait = { pose: () => ({ ...r.pose }), contacts: () => r.strip.slice(), live, opts, report: () => report.value }
 })
 
-const HOW = `import { load, QuadrupedGait, BodyDynamics } from "@hackbuild/gait";
-import { measureQuadruped, driveQuadruped } from "@hackbuild/gait/three";
-
-await load(); // the wasm core, inlined: works from file://
-const rig = measureQuadruped(dog, names); // dog at the origin, facing +z
-const gait = new QuadrupedGait(rig.specs, rig.legLength, { ground: heightAt, rng });
-const body = new BodyDynamics(rig.geometry, rng);
-function frame(dt, pose, cmd) {
-  const s = gait.update(dt, pose, cmd); // phase, contacts, gait weights
-  const under = gait.nominal(pose.x, pose.z, pose.yaw).map(([x, z]) => heightAt(x, z));
-  const b = body.update(dt, s, cmd, under); // pitch and roll from the ground
-  gait.setOffsets(b.legOffsets);
-  driveQuadruped(rig, pose, s, b); // two bone leg ik onto the bones
-}`
 </script>
 
 <template>
@@ -339,12 +326,7 @@ function frame(dt, pose, cmd) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="rig ? '' : 'the stage is starting.'" label="gait" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/gait', '@hackbuild/rig', '@hackbuild/avatar-host']"
-        install="npm i @hackbuild/gait three"
-        :code="HOW"
-        persist-key="gait-how"
-      />
+      <HbHow v-bind="how" persist-key="gait-how" />
     </template>
   </StageTool>
 </template>

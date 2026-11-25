@@ -18,6 +18,7 @@ import { docs, kinds, registerKind, useDocument, ws } from '../workspace/state'
 import { emptyData, MEMORY_KIND, memoryKind, newStore, readExport, type MemoryBody } from './kind.ts'
 import { ADD_KINDS, PINNED, pinCount, pinIndex, toEntries, traceEntries, traceHits } from './lines.ts'
 import { bump, EMBED_ID, lastUsed, memory, rev } from './store.ts'
+import how from '@hackbuild/memory/how'
 
 if (!kinds.get(MEMORY_KIND)) registerKind(memoryKind)
 
@@ -234,17 +235,6 @@ const root = ref<HTMLElement | null>(null)
 useComposer({ get value() { return root.value?.querySelector<HTMLElement>('.hb-mempanel input[type=search]') ?? null } } as Ref<HTMLElement | null>)
 useHotkeys([{ keys: 'n', label: 'new note', group: 'tool', run: () => root.value?.querySelector<HTMLElement>('.hb-mempanel textarea')?.focus() }])
 
-const HOW = `import { loadCore, open, hashedEmbedder } from "@hackbuild/memory";
-import { MEMORY_WASM_BASE64 } from "@hackbuild/memory/inline";
-
-const core = await loadCore({ base64: MEMORY_WASM_BASE64 });
-const mem = await open("chat", { core, embed: hashedEmbedder() });
-const { id } = await mem.add("the mug goes on the shelf", { kind: "fact" });
-const t = await mem.explain("where does the mug go"); // t.rows: rank, score, parts
-await mem.edit(id, { text: "the mug goes on the top shelf" });
-await mem.remove([id]);
-const json = mem.export(); await mem.import(json);`
-
 watch(() => route.query.q, (q) => { if (typeof q === 'string') query.value = q })
 onMounted(async () => {
   const id = route.query.doc
@@ -302,11 +292,6 @@ onMounted(async () => {
     <HbPanel heading="recall trace">
       <HbRecallTrace v-model:weights="weights" :hits="hits" :query="trace?.query ?? lastUsed?.query ?? ''" :how="trace?.how ?? ''" who="chat" tunable :names="{ rel: 'relevance', rec: 'recency', imp: 'importance' }" />
     </HbPanel>
-    <HbHow
-        :packages="['@hackbuild/memory', '@hackbuild/models']"
-        install="npm i @hackbuild/memory @hackbuild/models"
-        :code="HOW"
-      persist-key="memory-how"
-    />
+    <HbHow v-bind="how" persist-key="memory-how" />
   </div>
 </template>

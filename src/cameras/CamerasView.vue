@@ -20,6 +20,7 @@ import { tone } from '../vision/frame'
 import { seededLayout } from '../agents/props.ts'
 import { CAMERAS_COPY, CAMERAS_KIND, RIGS, Walker, camerasKind, seededLoop, type CamerasBody, type Rig } from './kind.ts'
 import type { CameraRig } from './rig.ts'
+import how from '@hackbuild/cameras/how'
 
 if (!kinds.get(CAMERAS_KIND)) registerKind(camerasKind)
 
@@ -257,27 +258,6 @@ watch(rig, (r) => {
   if (el && r) el.cameras = { live, opts, rig: () => ({ rig: r.rig, split: r.split, drawn: r.drawn, amp: r.shake.amplitude, yaw: r.orbit.yaw }), kick: shake }
 })
 
-const HOW = `import { Follow, Orbit, FirstPerson, Group, Shake, splitViewports } from "@hackbuild/cameras";
-import { seededRng } from "@hackbuild/organic";
-
-const follow = new Follow(camera, { distance: 3.6, clear }); // clear: a raycast, pulls in at walls
-const orbit = new Orbit(camera, 0.6, 0.45, 6, target);       // drive it with drag and pinch deltas
-const eye = new FirstPerson(camera, avatar.bones.head);      // hides the head while it renders
-const group = new Group(camera);                             // keeps every point in view
-const shake = new Shake(seededRng(7));                       // its own stream: frame rate free
-
-function frame(dt) {
-  follow.update(body.position, body.rotation.y, dt);
-  const o = shake.step(dt);
-  camera.position.x += o.x; camera.position.y += o.y; camera.position.z += o.z;
-  // split: one camera a viewport, the renderer's scissor, no addon
-  for (const [i, v] of splitViewports(2, width, height).entries()) {
-    renderer.setViewport(v.x, v.yGl, v.w, v.h);
-    renderer.setScissor(v.x, v.yGl, v.w, v.h);
-    renderer.setScissorTest(true);
-    renderer.render(scene, cams[i]);
-  }
-}`
 </script>
 
 <template>
@@ -333,7 +313,7 @@ function frame(dt) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="rig ? '' : 'the stage is starting.'" label="cameras" @export="onExport" />
       </HbFold>
 
-      <HbHow :packages="['@hackbuild/cameras', '@hackbuild/avatar-host']" install="npm i @hackbuild/cameras three" :code="HOW" persist-key="cameras-how" />
+      <HbHow v-bind="how" persist-key="cameras-how" />
     </template>
   </StageTool>
 </template>

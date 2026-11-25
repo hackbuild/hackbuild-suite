@@ -19,6 +19,7 @@ import { logEvent } from '../shell/shell'
 import { tone } from '../vision/frame'
 import { CHAINS, CHAIN_TARGET, IK_KIND, SOLVERS, ikKind, poseFile, reachLine, type ChainId, type IkBody, type Solver, type TargetId } from './kind.ts'
 import type { IkRig } from './bind.ts'
+import how from '@hackbuild/ik/how'
 
 if (!kinds.get(IK_KIND)) registerKind(ikKind)
 
@@ -187,18 +188,6 @@ watch(rig, (r) => {
   if (el && r) el.ik = { screenOf: (id: TargetId) => r.screenOf(id), where: (b: string) => r.where(b), target: (id: TargetId) => r.targets.get(id)!.pos.toArray(), live, opts }
 })
 
-const HOW = `import { load, pelvisDrop } from "@hackbuild/ik";
-import { solveTwoBone, solveChain, lookAtChain, FootLock } from "@hackbuild/ik/three";
-
-await load(); // the wasm core, inlined: works from file://
-const lock = new FootLock();
-function frame(dt) {
-  // after the body's own pose
-  lock.update(dt, footTarget, contact); // holds a planted foot
-  solveTwoBone(b.leftUpperLeg, b.leftLowerLeg, b.leftFoot, footTarget, kneeForward);
-  solveChain([b.leftUpperArm, b.leftLowerArm, b.leftHand], handTarget, { method: "fabrik" });
-  lookAtChain([b.neck, b.head], [0.4, 0.6], lookTarget, body.quaternion);
-}`
 </script>
 
 <template>
@@ -230,12 +219,7 @@ function frame(dt) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="rig ? '' : 'the stage is starting.'" label="ik" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/ik', '@hackbuild/avatar-host']"
-        install="npm i @hackbuild/ik three"
-        :code="HOW"
-        persist-key="ik-how"
-      />
+      <HbHow v-bind="how" persist-key="ik-how" />
     </template>
   </StageTool>
 </template>

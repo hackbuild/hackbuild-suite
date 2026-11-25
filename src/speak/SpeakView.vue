@@ -23,6 +23,7 @@ import { newScript, peaksOf, runThumb, SPEECH_KIND, speechKind, withRun, type Sp
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
 import { addSpeakRuntimes, KOKORO_ID, KOKORO_OFF, SPEAK_ORDER, SYSTEM_ID, TRADES } from './runtimes.ts'
+import how from '@hackbuild/speak/how'
 
 if (!kinds.get(SPEECH_KIND)) registerKind(speechKind)
 
@@ -371,16 +372,6 @@ usePrimary(() => void sayNow())
 useStop(stop)
 useHotkeys([{ keys: 'space', label: 'say the line again', group: 'tool', run: () => void sayNow() }])
 
-const HOW = `import { createSpeaker, renderSpeech, renderedWav, webSpeechEngine, bellowsEngine } from "@hackbuild/speak";
-
-const engines = [bellowsEngine({ runtime, rng: Math.random }), webSpeechEngine()];
-const speaker = createSpeaker({ ctx: new AudioContext(), engines, onProgress: (p) => light(p.offset) });
-await speaker.say("no webgpu adapter. chat runs on cpu.");
-
-// a wav from an offline render, not from capturing playback
-const r = await renderSpeech(engines, "no webgpu adapter. chat runs on cpu.");
-download("line.wav", renderedWav(r));`
-
 watch(() => route.query.doc, (id) => { if (typeof id === 'string' && id !== doc.doc.value?.id) void doc.open(id) })
 watch(() => hub.states.value[picked.value]?.state, () => void refreshVoices())
 onMounted(async () => {
@@ -470,12 +461,7 @@ onBeforeUnmount(() => {
         <HbHistoryStrip :items="runs" :current="currentRun" grid empty="each line you say or save lands here." @restore="restore" @remove="removeRun" />
       </HbPanel>
 
-      <HbHow
-        :packages="['@hackbuild/speak', '@hackbuild/audio-dsp', '@hackbuild/models']"
-        install="npm i @hackbuild/speak"
-        :code="HOW"
-        persist-key="speak-how"
-      />
+      <HbHow v-bind="how" persist-key="speak-how" />
     </div>
   </div>
 </template>

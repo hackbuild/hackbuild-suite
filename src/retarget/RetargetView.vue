@@ -22,6 +22,7 @@ import { CLIP_EXT } from '../avatar/pose.ts'
 import { RETARGET_KIND, UNITS, retargetKind, type RetargetBody, type RetargetOpts } from './kind.ts'
 import { BODY_BONES, BUILTIN, SOURCE_ACCEPT, isClipFile, type MapEdits } from './source.ts'
 import type { MapRow, Result, Retargeter, Source } from './bind.ts'
+import how from '@hackbuild/retarget/how'
 
 if (!kinds.get(RETARGET_KIND)) registerKind(retargetKind)
 
@@ -272,18 +273,6 @@ watch(rt, (r) => {
   if (el && r) el.retarget = { dir: (w: 'source' | 'target', b: string) => r.boneDir(w, b), result, edits }
 })
 
-const HOW = `import { load, parseBvh, RetargetRig, settleOnFloor, analyzeMotion, packMotion } from "@hackbuild/retarget";
-import { skeletonFromObject3D, toAnimationClip } from "@hackbuild/retarget/three";
-
-await load(); // the core, inlined: works from file://
-const { skeleton, clip } = parseBvh(await file.text());
-const target = skeletonFromObject3D(model); // in its rest pose
-const src = new RetargetRig(skeleton);
-const dst = new RetargetRig(target.skeleton);
-const { motion } = settleOnFloor(src.toHumanoid(clip));
-console.log(analyzeMotion(motion).tags);
-mixer.clipAction(toAnimationClip(dst.bind(motion), target)).play();
-save(packMotion(motion)); // hbm1, about 16 bytes per bone per frame`
 </script>
 
 <template>
@@ -343,12 +332,7 @@ save(packMotion(motion)); // hbm1, about 16 bytes per bone per frame`
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="exportBusy" label="retarget" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/retarget', '@hackbuild/rig', '@hackbuild/avatar-host']"
-        install="npm i @hackbuild/retarget @hackbuild/rig three"
-        :code="HOW"
-        persist-key="retarget-how"
-      />
+      <HbHow v-bind="how" persist-key="retarget-how" />
     </template>
   </StageTool>
 </template>

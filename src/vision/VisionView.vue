@@ -27,6 +27,7 @@ import { drawSeen, fitCanvas, frameOf, readFrame, registerVision, tone } from '.
 import { addVisionRuntimes, drawScene } from './runtimes.ts'
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
+import how from '@hackbuild/vision/how'
 
 registerVision()
 
@@ -324,16 +325,6 @@ useHotkeys([
   { keys: 'space', label: 'keep the live frame, or run again', group: 'tool', run: () => void (live.value ? keepFrame() : runAll()) },
 ])
 
-const HOW = `import { probe } from "@hackbuild/ai-env";
-import { createHub, createRegistry } from "@hackbuild/models";
-import { loadTransformers } from "@hackbuild/devices";
-import { attachVision, caption, detect } from "@hackbuild/vision";
-
-const hub = createHub({ registry: createRegistry(), env: await probe() });
-attachVision(hub, await loadTransformers());
-const boxes = await detect(hub, image);
-const text = await caption(hub, image, { maxTokens: 40 });`
-
 let docDone!: () => void
 const docReady = new Promise<void>((r) => { docDone = r })
 let bootDone!: () => void
@@ -431,12 +422,7 @@ onBeforeUnmount(() => { if (live.value) stopLive() })
         <HbHistoryStrip :items="history" :current="current?.id ?? null" empty="each image and kept frame lands here." @restore="restore" @remove="removeCapture" />
       </HbPanel>
 
-      <HbHow
-        :packages="['@hackbuild/vision', '@hackbuild/models', '@hackbuild/devices', '@hackbuild/ai-env']"
-        install="npm i @hackbuild/vision @hackbuild/models @hackbuild/devices @hackbuild/ai-env"
-        :code="HOW"
-        persist-key="vision-how"
-      />
+      <HbHow v-bind="how" persist-key="vision-how" />
     </div>
   </div>
 </template>

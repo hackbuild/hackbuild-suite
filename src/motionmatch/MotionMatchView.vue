@@ -22,6 +22,7 @@ import { CLIP_EXT } from '../avatar/pose.ts'
 import { bakedClip } from '../gait/kind.ts'
 import { BUILTIN_CLIPS, MM_KIND, fewClipsLine, mmKind, traceCsv, type MmBody, type TraceRow } from './kind.ts'
 import type { Candidate, MatchRig, Tuning } from './bind.ts'
+import how from '@hackbuild/motion-match/how'
 
 if (!kinds.get(MM_KIND)) registerKind(mmKind)
 
@@ -238,19 +239,6 @@ watch(rig, (r) => {
   if (el && r) el.mm = { live, root: () => (r.last ? { x: r.last.x, z: r.last.z } : null), cands: () => cands.value }
 })
 
-const HOW = `import { load, ClipSet, MotionMatcher } from "@hackbuild/motion-match";
-
-await load(); // the wasm core, inlined: works from file://
-const clips = new ClipSet(30);
-clips.addSynthetic({ speed: 1.2 });                 // a walk loop
-clips.addSynthetic({ speed: 0, speedEnd: 1.2 });    // a start
-const mm = new MotionMatcher(clips);
-function frame(dt, speed, turnRate) {
-  const want = mm.trajectory(speed, turnRate); // from the root velocity
-  const f = mm.step(dt, want);   // clip, frame, cost, jumped
-  const pose = mm.pose();        // rotations, hips, feet in the root frame
-  const motor = mm.motorState(); // phase and contacts
-}`
 </script>
 
 <template>
@@ -291,12 +279,7 @@ function frame(dt, speed, turnRate) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="rig ? '' : 'the stage is starting.'" label="motion-match" @export="onExport" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/motion-match', '@hackbuild/ik', '@hackbuild/avatar-host']"
-        install="npm i @hackbuild/motion-match"
-        :code="HOW"
-        persist-key="mm-how"
-      />
+      <HbHow v-bind="how" persist-key="mm-how" />
     </template>
   </StageTool>
 </template>

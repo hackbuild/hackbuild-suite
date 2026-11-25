@@ -36,6 +36,7 @@ import { provideDepthMesh, registerRelief } from './register.ts'
 import type { ReliefPreview } from './preview3d.ts'
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
+import how from '@hackbuild/depth-mesh/how'
 
 registerRelief()
 provideDepthMesh()
@@ -357,17 +358,6 @@ watch(input, async (v) => {
 })
 
 
-const HOW = `import { depth } from "@hackbuild/vision";
-import { loadDepthMesh, photoRelief, toStl } from "@hackbuild/depth-mesh";
-import { DEPTH_MESH_WASM_BASE64 } from "@hackbuild/depth-mesh/inline";
-
-const map = await depth(hub, photo);           // stored with the design
-const dm = await loadDepthMesh({ base64: DEPTH_MESH_WASM_BASE64 });
-const r = await photoRelief(dm, pixels, {
-  source: "depth", depth: map, width: 30, base: 0.24, height: 2.4, smooth: 0.3,
-});
-download("relief.stl", toStl(r.mesh));`
-
 let docDone!: () => void
 const docReady = new Promise<void>((r) => { docDone = r })
 watch(() => route.query.doc, (id) => { if (typeof id === 'string' && id !== doc.doc.value?.id) void doc.open(id) })
@@ -460,12 +450,7 @@ onMounted(async () => {
         <HbExportPanel :formats="formats" :name="body.name" :readout="readout" :checks="checks" :busy="exportBusy" label="relief" @export="onExport" />
       </HbPanel>
 
-      <HbHow
-        :packages="['@hackbuild/depth-mesh', '@hackbuild/vision', '@hackbuild/models']"
-        install="npm i @hackbuild/depth-mesh @hackbuild/vision @hackbuild/models"
-        :code="HOW"
-        persist-key="relief-how"
-      />
+      <HbHow v-bind="how" persist-key="relief-how" />
     </div>
   </div>
 </template>

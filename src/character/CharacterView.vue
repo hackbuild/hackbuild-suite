@@ -45,6 +45,7 @@ import { BUILT_IN, cardSink, EXT, extOf, LENGTHS, loadPresets, personaOf, planOf
 import type { Ears } from './ears.ts'
 import { BODY_ACCEPT, PERSONA_ACCEPT, personaFrom, sizeOf, slotOf, TWIN_EMPTY, VOICE_ACCEPT, whereLine, type SlotKey, type TwinExt } from './twin.ts'
 import type { DropRoute } from '@virgilvox/hackbuild-ui/vanilla'
+import how from '@hackbuild/character/how'
 
 const POCKET_ID = 'pocket-tts'
 const memStore = () => import('../memory/store.ts')
@@ -254,11 +255,11 @@ const mb = (r?: ModelRecord) => (r?.sizeMB ? `${r.sizeMB >= 1024 ? `${(r.sizeMB 
 const tiers = computed<HbTier[]>(() => {
   const f = tierFault.value
   const t: HbTier[] = [
-    { key: 'none', label: 'no model', sub: 'scripted replies', size: 'none', cost: 'free, no download', privacy: 'nothing leaves this tab', note: f.none ?? 'answers from a script. the voice, memory and stage still work.', bar: 0.1 },
-    { key: 'tab', label: 'in this tab', sub: brainRec.value ? (brainRec.value.label ?? brainRec.value.id) : 'no chat model', size: mb(brainRec.value), cost: 'free, runs on your gpu', privacy: 'nothing leaves this tab', note: f.tab ?? 'holds the persona and the tags best of the local brains.', bar: 0.6, disabled: !brainRec.value },
+    { key: 'none', label: 'no model', sub: 'scripted replies', size: 'none', cost: 'free, no download', privacy: 'nothing leaves this tab', note: 'answers from a script. the voice, memory and stage still work.', error: f.none, bar: 0.1 },
+    { key: 'tab', label: 'in this tab', sub: brainRec.value ? (brainRec.value.label ?? brainRec.value.id) : 'no chat model', size: mb(brainRec.value), cost: 'free, runs on your gpu', privacy: 'nothing leaves this tab', note: 'holds the persona and the tags best of the local brains.', error: f.tab, bar: 0.6, disabled: !brainRec.value },
   ]
-  if (lightRec.value) t.push({ key: 'light', label: 'lighter', sub: lightRec.value.label ?? lightRec.value.id, size: mb(lightRec.value), cost: 'free, less gpu memory', privacy: 'nothing leaves this tab', note: f.light ?? 'loads faster. drifts from the persona and misses tags more often.', bar: 0.35 })
-  t.push({ key: 'remote', label: 'your endpoint', sub: 'any openai style server', size: 'api', cost: 'what your server charges', privacy: 'your words go to that server', note: f.remote ?? 'the key stays in this tab for this visit and is never saved.', bar: 0.9 })
+  if (lightRec.value) t.push({ key: 'light', label: 'lighter', sub: lightRec.value.label ?? lightRec.value.id, size: mb(lightRec.value), cost: 'free, less gpu memory', privacy: 'nothing leaves this tab', note: 'loads faster. drifts from the persona and misses tags more often.', error: f.light, bar: 0.35 })
+  t.push({ key: 'remote', label: 'your endpoint', sub: 'any openai style server', size: 'api', cost: 'what your server charges', privacy: 'your words go to that server', note: 'the key stays in this tab for this visit and is never saved.', error: f.remote, bar: 0.9 })
   return t
 })
 const canStart = computed(() => tier.value !== 'remote' || (keyOk.value || !remoteKey.value) && /^https?:\/\/\S+$/.test(remoteUrl.value))
@@ -771,25 +772,6 @@ async function cloneTwin(): Promise<void> {
   }
 }
 
-const HOW = `import { createConversation } from "@hackbuild/converse";
-import { createSpeaker } from "@hackbuild/speak";
-import { fillMacros } from "@hackbuild/character";
-import { AvatarStage } from "@hackbuild/avatar-host/three";
-
-const stage = new AvatarStage(host, { environment: "studio" });
-stage.showPlaceholder(); // the mannequin, made in code
-const speaker = createSpeaker({ ctx: new AudioContext(), engines: [pocket, browserVoice] });
-// one analyser: the mouth follows what the speaker plays
-stage.scene.onBeforeRender = () => stage.body?.lip.setLevel(speaker.level());
-const names = { char: card.data.name, user: "you" };
-const conv = createConversation({
-  engine, now: Date.now, speaker, memory: { recall },
-  system: fillMacros(card.data.system_prompt, names),
-  greeting: fillMacros(card.data.first_mes, names),
-});
-await conv.restore();
-await conv.send("what are you"); // each sentence is spoken once it is whole`
-
 onMounted(async () => {
   const q = route.query.doc
   if (typeof q === 'string') await doc.open(q)
@@ -1006,12 +988,7 @@ onBeforeUnmount(() => {
         </template>
       </HbTabs>
 
-      <HbHow
-        :packages="['@hackbuild/character', '@hackbuild/converse', '@hackbuild/speak', '@hackbuild/listen', '@hackbuild/avatar-host', '@hackbuild/lipsync', '@hackbuild/memory']"
-        install="npm i @hackbuild/character @hackbuild/converse @hackbuild/speak @hackbuild/listen @hackbuild/avatar-host"
-        :code="HOW"
-        persist-key="character-how"
-      />
+      <HbHow v-bind="how" persist-key="character-how" />
     </div>
 
     <HbContextMenu v-show="awake" v-model:open="menuOpen" :title="menuTitle" :items="menuItems" label="right click or long press the stage for things to say" @request="menuTitle = `say to ${name}`" @pick="menuPick">

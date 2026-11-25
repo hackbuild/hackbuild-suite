@@ -27,6 +27,7 @@ import { registerTranscript } from './register.ts'
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
 import { addTranscribeRuntimes, provideDsp } from './runtimes.ts'
+import how from '@hackbuild/transcribe/how'
 
 registerTranscript()
 provideDsp()
@@ -403,17 +404,6 @@ useStop(() => {
 })
 
 const fromFile = typeof location !== 'undefined' && location.protocol === 'file:'
-const HOW = `import { probe } from "@hackbuild/ai-env";
-import { createHub, createRegistry } from "@hackbuild/models";
-import { loadDsp, toSrt } from "@hackbuild/audio-dsp";
-import { attachTranscribe, transcribe, toSixteenK } from "@hackbuild/transcribe";
-
-const hub = createHub({ registry: createRegistry(), env: await probe() });
-attachTranscribe(hub);
-const dsp = await loadDsp({ url: dspWasmUrl });
-const transcript = await transcribe(hub, dsp, toSixteenK(pcm, sampleRate), { language: "en" });
-download("take.srt", toSrt(transcript));`
-
 watch(() => route.query.doc, (id) => { if (typeof id === 'string' && id !== doc.doc.value?.id) void doc.open(id) })
 onMounted(async () => {
   const q = route.query.doc
@@ -530,12 +520,7 @@ onBeforeUnmount(() => {
       <HbConsole :lines="lines" empty="nothing run yet." />
     </HbFold>
 
-    <HbHow
-      :packages="['@hackbuild/transcribe', '@hackbuild/audio-dsp', '@hackbuild/models', '@hackbuild/ai-env']"
-      install="npm i @hackbuild/transcribe @hackbuild/audio-dsp @hackbuild/models @hackbuild/ai-env"
-      :code="HOW"
-      persist-key="transcribe-how"
-    />
+    <HbHow v-bind="how" persist-key="transcribe-how" />
     </div>
   </div>
 </template>

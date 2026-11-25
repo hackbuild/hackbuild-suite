@@ -23,6 +23,7 @@ import type { Placed } from '../agents/props.ts'
 import type { Room } from '../agents/scene.ts'
 import { DRIVES_KIND, drivesKind, type DrivesBody } from './kind.ts'
 import type { Act, DriveSim, Need } from './sim.ts'
+import how from '@hackbuild/drives/how'
 
 if (!kinds.get(DRIVES_KIND)) registerKind(drivesKind)
 
@@ -297,23 +298,6 @@ watch(sim, (s) => {
   if (el && s) el.drives = { live, steps: (n: number) => { steps(n); read(); return sim.value?.hashHex }, hash: () => sim.value?.hashHex, step: () => sim.value?.step ?? 0 }
 })
 
-const HOW = `import { load, Drives, Chooser, Sleep, GoalBoost, seededRng } from "@hackbuild/drives";
-
-await load(); // the wasm core, inlined: works from file://
-const rng = seededRng(7);
-const drives = new Drives({ hunger: 1, rest: 0.9, play: 0.7, social: 0.8 });
-const chooser = new Chooser({ rng, options: ["idle", "eat", "rest", "play", "greet"] });
-const sleep = new Sleep({ rng });
-const goal = new GoalBoost(0.25);
-// each fixed step: grow the needs, score each act by what it would reduce
-drives.grow(step / 60, { hunger: 0.0035, play: 0.006, social: 0.0045 });
-drives.set({ rest: sleep.fatigue(hour) });
-const d = chooser.update(now, goal.apply(now, {
-  idle: 0.12,
-  eat: drives.rewardOf({ hunger: -0.5 }),
-  rest: drives.rewardOf({ rest: -0.35 }),
-}));
-log(d.why); // "eat: top switch after 105 ms, utility now 0.18"`
 </script>
 
 <template>
@@ -392,7 +376,7 @@ log(d.why); // "eat: top switch after 105 ms, utility now 0.18"`
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="sim ? '' : 'the core is starting.'" label="drives" @export="onExport" />
       </HbFold>
 
-      <HbHow :packages="['@hackbuild/drives']" install="npm i @hackbuild/drives" :code="HOW" persist-key="drives-how" />
+      <HbHow v-bind="how" persist-key="drives-how" />
     </template>
   </StageTool>
 </template>

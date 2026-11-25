@@ -163,6 +163,10 @@ const needsKey = computed(() => current.value?.provider === 'remote' || tier.val
 
 // Engine tiers, framed by cost and privacy (P-MODEL-7, P-MODEL-8).
 const tier = ref('script')
+const faultOf = (r: ModelRecord | undefined) => {
+  const st = r ? hub.states.value[r.id] : undefined
+  return st?.state === 'fault' ? `load failed: ${st.error ?? 'unknown'}` : undefined
+}
 const tiers = computed<HbTier[]>(() => {
   const d = defaultChat.value
   const nano = rec('gemini-nano')
@@ -171,11 +175,11 @@ const tiers = computed<HbTier[]>(() => {
     { key: 'script', label: 'no model', sub: 'scripted', size: '0 mb (computed)', cost: 'no download', privacy: 'nothing leaves the tab' },
     {
       key: 'tab', label: 'in this tab', sub: d ? d.label ?? d.id : 'no row fits', size: d?.sizeMB ? `${Math.round(d.sizeMB)} mb (${d.sizeSource})` : 'size unknown',
-      cost: 'one download, then offline', privacy: 'nothing leaves the tab', disabled: !d, reason: d ? undefined : 'no chat row fits this machine.',
+      cost: 'one download, then offline', privacy: 'nothing leaves the tab', disabled: !d, reason: d ? undefined : 'no chat row fits this machine.', error: faultOf(d),
     },
     {
       key: 'browser', label: 'browser built in', sub: nano?.label ?? 'built in model', size: 'browser managed, unknown', cost: 'the browser downloads it',
-      privacy: 'stays in the browser', disabled: !nano || !hasPrompt, reason: 'this browser has no prompt api.',
+      privacy: 'stays in the browser', disabled: !nano || !hasPrompt, reason: 'this browser has no prompt api.', error: faultOf(nano),
     },
     { key: 'endpoint', label: 'your endpoint', sub: 'openai style url', size: 'none', cost: 'your server', privacy: 'replies leave this tab' },
   ]

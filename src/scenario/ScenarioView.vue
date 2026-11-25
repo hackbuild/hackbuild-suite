@@ -24,6 +24,7 @@ import type { WorldView } from '../mover/bind.ts'
 import { SCENARIO_KIND, allScenarios, goldenOf, readScenario, scenarioKind, type Golden, type ScenarioBody, type ScenarioFile } from './kind.ts'
 import type { RunResult } from './run.ts'
 import type { ScenarioSim } from './sims.ts'
+import how from '@hackbuild/scenario/how'
 
 if (!kinds.get(SCENARIO_KIND)) registerKind(scenarioKind)
 
@@ -329,19 +330,6 @@ watch(() => tool.host.value, (el) => {
   if (el) (el as HTMLElement & { scenario?: unknown }).scenario = { live, body, result: () => result.value, diff: () => diff.value, pick, recordGolden, seed: tool.seed }
 }, { immediate: true })
 
-const HOW = `import { parseScenario, runScenarios, formatReport, reportPasses, diffRows, diffMessage } from "@hackbuild/scenario/browser";
-
-// a sim in this page: step(n) and trace(), the lockstep contract
-const sc = parseScenario(await file.text());
-const report = await runScenarios({
-  scenarios: [sc],
-  makeSim: (seed) => createSim(seed),
-  goldens: { [sc.name]: golden }, // a trace kept from an earlier run
-  onEvent: (e) => e.type === "step" && progress(e.step, e.total),
-});
-console.log(formatReport(report)); // fails first, in the check message form
-reportPasses(report); // false on a fail, a check not run, or a golden that differs
-diffMessage(report.traces[sc.name], golden); // "trace differs at row 33: x -1.945, expected -1.946"`
 </script>
 
 <template>
@@ -403,7 +391,7 @@ diffMessage(report.traces[sc.name], golden); // "trace differs at row 33: x -1.9
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="lib ? '' : 'the runner is starting.'" label="scenario" @export="onExport" />
       </HbFold>
 
-      <HbHow :packages="['@hackbuild/scenario']" install="npm i @hackbuild/scenario" :code="HOW" persist-key="scenario-how" />
+      <HbHow v-bind="how" persist-key="scenario-how" />
     </template>
   </StageTool>
 </template>

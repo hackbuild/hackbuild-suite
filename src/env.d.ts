@@ -5,3 +5,8 @@ declare module '*.vue' {
   const component: DefineComponent<object, object, unknown>
   export default component
 }
+declare module '@hackbuild/*/how' {
+  import type { HbHowDoc } from '@virgilvox/hackbuild-ui'
+  const doc: HbHowDoc
+  export default doc
+}

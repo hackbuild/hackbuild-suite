@@ -32,6 +32,7 @@ import {
 import { registerMasks } from './register.ts'
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
+import how from '@hackbuild/vision/how'
 
 registerMasks()
 
@@ -398,19 +399,6 @@ useHotkeys([
   { keys: 'delete', label: 'remove the instance', group: 'tool', run: () => { const i = sel.value; if (i) remove({ id: i.id, colour: '' }) } },
 ])
 
-const HOW = `import { probe } from "@hackbuild/ai-env";
-import { createHub, createRegistry } from "@hackbuild/models";
-import { loadTransformers } from "@hackbuild/devices";
-import { attachVision, segment, maskToRle, maskToPng } from "@hackbuild/vision";
-
-const hub = createHub({ registry: createRegistry(), env: await probe() });
-attachVision(hub, await loadTransformers());
-const [mask] = await segment(hub, image, {
-  points: [{ x: 320, y: 200, label: 1 }, { x: 300, y: 120, label: 0 }],
-}, { key: "image hash" });
-const json = JSON.stringify(maskToRle(mask));
-const png = await maskToPng(mask);`
-
 let docDone!: () => void
 const docReady = new Promise<void>((r) => { docDone = r })
 watch(() => route.query.doc, (id) => { if (typeof id === 'string' && id !== doc.doc.value?.id) { selId.value = null; void doc.open(id) } })
@@ -513,12 +501,7 @@ onMounted(async () => {
         <HbHistoryStrip :items="history" empty="save mask keeps the shown instances as one mask here." @restore="restoreSaved" @remove="removeSaved" />
       </HbPanel>
 
-      <HbHow
-        :packages="['@hackbuild/vision', '@hackbuild/models', '@hackbuild/devices', '@hackbuild/ai-env']"
-        install="npm i @hackbuild/vision @hackbuild/models @hackbuild/devices @hackbuild/ai-env"
-        :code="HOW"
-        persist-key="masks-how"
-      />
+      <HbHow v-bind="how" persist-key="masks-how" />
     </div>
   </div>
 </template>

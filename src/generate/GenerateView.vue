@@ -29,6 +29,7 @@ import {
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
 import { addGenerateRuntimes, clipTokenizer, stubTokenize } from './runtimes.ts'
+import how from '@hackbuild/imagegen/how'
 
 if (!kinds.get(GEN_KIND)) registerKind(genKind())
 
@@ -255,16 +256,6 @@ function idle(): void {
   else say(`webgpu ready, model not loaded. ${record.value.label} is ${sizeWord(record.value)}.`, 'info')
 }
 
-const HOW = `import { ortProvider, loadOrt } from "@hackbuild/devices";
-import { attachImagegen, loadImagegen } from "@hackbuild/imagegen";
-
-hub.provide("ort", ortProvider({ runtime: loadOrt(), store }).factory);
-attachImagegen(hub);
-const gen = await loadImagegen(hub, { id: "sd-turbo" });
-const stop = new AbortController();
-const img = await gen.generate(tokenize, { prompt: "a brass ferrule on a bench", seed: 7, signal: stop.signal });
-ctx.putImageData(new ImageData(img.rgba as Uint8ClampedArray<ArrayBuffer>, img.width, img.height), 0, 0);`
-
 let bootDone!: () => void
 const bootReady = new Promise<void>((r) => { bootDone = r })
 watch(() => route.query.doc, (id) => { if (typeof id === 'string' && id !== doc.doc.value?.id) void doc.open(id) })
@@ -370,12 +361,7 @@ onMounted(async () => {
         <p class="hb-hint">no safety checker runs on any of these. you are responsible for what you generate. read each licence before commercial use.</p>
       </HbPanel>
 
-      <HbHow
-        :packages="['@hackbuild/imagegen', '@hackbuild/models', '@hackbuild/devices', '@hackbuild/weights']"
-        install="npm i @hackbuild/imagegen @hackbuild/models @hackbuild/devices @hackbuild/weights"
-        :code="HOW"
-        persist-key="generate-how"
-      />
+      <HbHow v-bind="how" persist-key="generate-how" />
     </div>
   </div>
 </template>
