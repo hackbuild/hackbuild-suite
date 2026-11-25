@@ -4,7 +4,7 @@
 // and hands the result to <StageTool>, which draws it. three.js and the
 // motion packages load on mount, through the walking stage module.
 import { onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch, type Ref } from 'vue'
-import { useHotkeys, type HbContextItem, type Hotkey } from '@virgilvox/hackbuild-ui'
+import { useHotkeys, usePersisted, type HbContextItem, type Hotkey } from '@virgilvox/hackbuild-ui'
 import { rollSeed } from '@virgilvox/hackbuild-ui/vanilla'
 import { seededRng, type Rng } from '@hackbuild/organic'
 import { createRegistry, type Registry, type StorageLike } from '@hackbuild/tunables'
@@ -44,6 +44,10 @@ export interface StageToolOptions {
   say?: (sentence: string) => void
   /** Rewrites the key hints of the stage, as the tool's own keys read (P-KEY-6). */
   hints?: (base: KeyHint[]) => KeyHint[]
+  /** The pad's one action button on a phone (P-PHONE-10), such as grab or drop; none hides it. */
+  action?: { label: string; run: () => void }
+  /** Under 761 px the rack is a bottom sheet behind a panels button (P-PHONE-3); off, it stacks under the stage. */
+  sheet?: boolean
 }
 
 export interface StageMenu {
@@ -74,6 +78,8 @@ function safeStorage(): StorageLike | undefined {
 
 const sizeOf = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} mb` : `${Math.max(1, Math.round(n / 1024))} kb`)
 
+export const sizeText = sizeOf
+
 export function useStageTool(opts: StageToolOptions) {
   const fps = opts.fps ?? 30
   const pad = opts.pad ?? true
@@ -90,7 +96,19 @@ export function useStageTool(opts: StageToolOptions) {
   const view = ref<View>('front')
   const move = ref({ x: 0, y: 0 })
   const tune = ref(false)
-  const body = reactive({ name: 'mannequin', placeholder: true, line: opts.empty, failed: false, local: false })
+  const body = reactive({ name: 'mannequin', placeholder: true, line: opts.empty, failed: false, local: false, size: 0 })
+  /** The camera follows the body (f); off, it stays where it is. */
+  const follow = usePersisted(`suite-${opts.id}-follow`, true)
+  /** The rack sheet on a phone. */
+  const rackOpen = ref(false)
+  // the phone width where HbDrawer side auto is a bottom sheet
+  const mq = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null
+  const phone = ref(mq?.matches ?? false)
+  const onMq = () => {
+    phone.value = mq?.matches ?? false
+    if (!phone.value) rackOpen.value = false
+  }
+  mq?.addEventListener('change', onMq)
   const stats = reactive({ fps: '--' as number | string, draw: '--' })
   const cover = ref('loading the stage')
   const failed = ref(false)
@@ -144,6 +162,7 @@ export function useStageTool(opts: StageToolOptions) {
       return
     }
     body.line = `reading ${f.name}, ${sizeOf(f.size)}.`
+    body.size = f.size
     body.failed = false
     logEvent('note', `${opts.id}: reading ${f.name}`)
     if (!isMmdFile(f)) {
@@ -202,6 +221,7 @@ export function useStageTool(opts: StageToolOptions) {
   })
   watch(move, (v) => walk.value?.setMove(v))
   watch(view, (v) => walk.value?.view(v))
+  watch([follow, walk], () => walk.value?.stage.setFollow(follow.value), { immediate: true })
   watch(seed, () => { if (locked.value) restart() })
 
   // a glb, vrm, pmx or pmd dropped anywhere goes to this stage, not the import ring
@@ -215,6 +235,7 @@ export function useStageTool(opts: StageToolOptions) {
     { keys: 'l', label: 'loop on or off', group: 'stage', run: () => { transport.loop = !transport.loop } },
     { keys: 'r', label: 'restart with the same seed', group: 'stage', run: restart },
     { keys: 't', label: 'tune: the settings of this tool', group: 'stage', run: () => { tune.value = !tune.value } },
+    { keys: 'f', label: 'camera follows the body, or stays', group: 'stage', run: () => { follow.value = !follow.value } },
   ]
   useHotkeys(table)
   const base: KeyHint[] = [
@@ -223,12 +244,14 @@ export function useStageTool(opts: StageToolOptions) {
     { keys: 'r', label: 'restart' },
     { keys: '1 to 4', label: 'view' },
     { keys: 'wasd', label: 'walk' },
+    { keys: 'f', label: 'follow' },
     { keys: 't', label: 'tune' },
   ].filter((h) => pad || h.keys !== 'wasd')
   const hints = opts.hints ? opts.hints(base) : base
 
   onBeforeUnmount(() => {
     gone = true
+    mq?.removeEventListener('change', onMq)
     claimDrops(null)
     offReg()
     walk.value?.dispose()
@@ -236,7 +259,7 @@ export function useStageTool(opts: StageToolOptions) {
   })
 
   return {
-    id: opts.id, pad, menu: opts.menu, say: opts.say, reg, values, transport, seed, locked, view, move, tune, body, stats, cover, failed, host, walk, hints,
+    id: opts.id, pad, action: opts.action ?? null, menu: opts.menu, say: opts.say, reg, values, transport, seed, locked, view, move, tune, follow, rackOpen, phone, sheet: opts.sheet ?? false, body, stats, cover, failed, host, walk, hints,
     play, pause, toggle, seek, step, restart, showBody,
   }
 }

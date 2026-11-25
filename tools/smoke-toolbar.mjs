@@ -107,8 +107,15 @@ try {
   await chip('top'); await wait(600)
   const top = await cam()
   if (top.y < 0.8) fail(`the top chip did not view from above: ${JSON.stringify(top)}`)
-  const pressed = await page.evaluate(() => [...document.querySelectorAll('.hb-cams .hb-chip')].filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.textContent.trim()))
+  const pressed = await page.evaluate(() => [...document.querySelectorAll('.hb-cams .hb-chip')].filter((c) => c.textContent.trim() !== 'follow' && c.getAttribute('aria-pressed') === 'true').map((c) => c.textContent.trim()))
   if (pressed.length !== 1 || !pressed[0].startsWith('top')) fail(`the chips do not show one view on: ${pressed}`)
+  // follow: the chip turns the follow camera off through setFollow, and on again
+  const follow = () => page.evaluate(() => { [...document.querySelectorAll('.hb-cams .hb-chip')].find((c) => c.textContent.trim() === 'follow').click() })
+  const following = () => page.evaluate(() => document.querySelector('.hb-viewport-host').stageTool.walk.stage.follow.follow)
+  await follow(); await wait(100)
+  if ((await following()) !== false) fail('the follow chip did not turn the follow camera off')
+  await follow(); await wait(100)
+  if ((await following()) !== true) fail('the follow chip did not turn the follow camera on again')
   await chip('front'); await wait(300)
 
   // pad: press up for a second; the body walks
@@ -158,7 +165,7 @@ try {
 
   if (errors.length) fail('console errors')
   if (off.length) fail(`requests off file://: ${off.slice(0, 5).join(', ')}`)
-  console.log(`smoke-toolbar: ok. play moved time ${(t1 - t0).toFixed(2)} s in 0.8 s, pause held it, scrub and the period key moved it; seed 11 gave one spot twice and seed 12 another; side and top chips switched the view; the pad walked ${walked.toFixed(2)} m; a stand in glb (${GLB.length} bytes) dropped on the page landed on the stage; the drawer set speed 2.5 m/s and it survived a reload; 0 requests off file:// (measured)`)
+  console.log(`smoke-toolbar: ok. play moved time ${(t1 - t0).toFixed(2)} s in 0.8 s, pause held it, scrub and the period key moved it; seed 11 gave one spot twice and seed 12 another; side and top chips switched the view, the follow chip turned the follow camera off and on; the pad walked ${walked.toFixed(2)} m; a stand in glb (${GLB.length} bytes) dropped on the page landed on the stage; the drawer set speed 2.5 m/s and it survived a reload; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

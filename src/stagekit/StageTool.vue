@@ -7,10 +7,15 @@
 // drawer generated from the tool's tunables registry. A tool may add
 // toolbar items (tools, tools-end), stage corners (tl, br), hud figures
 // and a layer over the stage (over), such as a speech bubble. State comes from
-// useStageTool.
-import { computed, reactive } from 'vue'
+// useStageTool. The toolbar is one row on a phone: restart, body and tune
+// drop to icons, seed and the tool's items (tools-end too, on a phone)
+// fold behind the more button.
+// A tool may put the rack in a bottom sheet under 761 px, behind the
+// panels button (P-PHONE-3); otherwise it is the side column, stacked
+// under the stage on a phone.
+import { computed, reactive, useSlots } from 'vue'
 import {
-  HbButton, HbChip, HbContextMenu, HbDrawer, HbHudStat, HbPad, HbPanel, HbParamRow, HbSeed, HbStageCaption, HbToolbar,
+  HbButton, HbChip, HbContextMenu, HbDrawer, HbHudStat, HbIcon, HbPad, HbPanel, HbParamRow, HbSeed, HbStageCaption, HbToolbar,
   HbTransport, HbViewport, type HbContextItem, type HbContextRequest,
 } from '@virgilvox/hackbuild-ui'
 import { VIEWS } from '../stage/walk'
@@ -19,6 +24,8 @@ import type { StageTool } from './useStageTool'
 
 const props = defineProps<{ tool: StageTool; title: string }>()
 const t = props.tool
+const slots = useSlots()
+const sheet = computed(() => t.sheet && t.phone.value && !!slots.rack)
 
 const groups = computed(() => t.reg.groups().map((g) => ({ group: g.group, defs: g.keys.map((k) => t.reg.def(k)) })))
 const helpOf = (d: ReturnType<typeof t.reg.def>) =>
@@ -43,17 +50,23 @@ function picked(e: Event) {
 
 <template>
   <div class="hb-toolpage is-split is-stage">
-    <HbToolbar>
-      <HbSeed v-model="t.seed.value" v-model:locked="t.locked.value" />
-      <HbButton variant="secondary" aria-keyshortcuts="r" @click="t.restart()">restart</HbButton>
-      <HbButton as="label" variant="secondary">
-        body
+    <HbToolbar overflow>
+      <HbButton variant="secondary" aria-keyshortcuts="r" title="restart" @click="t.restart()"><HbIcon name="refresh" :size="14" /><span class="hb-bar-lbl">restart</span></HbButton>
+      <HbButton as="label" variant="secondary" title="body">
+        <HbIcon name="upload" :size="14" /><span class="hb-bar-lbl">body</span>
         <input type="file" :accept="BODY_ACCEPT" hidden @change="picked">
       </HbButton>
-      <slot name="tools" />
-      <span class="hb-spacer" />
-      <slot name="tools-end" />
-      <HbButton variant="secondary" aria-keyshortcuts="t" :aria-expanded="t.tune.value" @click="t.tune.value = true">tune</HbButton>
+      <HbButton v-if="sheet" variant="secondary" title="panels" :aria-expanded="t.rackOpen.value" data-rack-sheet @click="t.rackOpen.value = true"><HbIcon name="layer-group" :size="14" /><span class="hb-bar-lbl">panels</span></HbButton>
+      <template #more>
+        <HbSeed v-model="t.seed.value" v-model:locked="t.locked.value" />
+        <slot name="tools" />
+        <slot v-if="t.phone.value" name="tools-end" />
+      </template>
+      <template #end>
+        <span class="hb-spacer" />
+        <slot v-if="!t.phone.value" name="tools-end" />
+        <HbButton variant="secondary" aria-keyshortcuts="t" title="tune" :aria-expanded="t.tune.value" @click="t.tune.value = true"><HbIcon name="sliders" :size="14" /><span class="hb-bar-lbl">tune</span></HbButton>
+      </template>
     </HbToolbar>
 
     <HbViewport look="lit" aspect="16/9" :label="`${title} stage`" :cover-title="t.cover.value || undefined" :cover-error="t.failed.value">
@@ -86,6 +99,7 @@ function picked(e: Event) {
             hotkey-group="stage"
             @click="t.view.value = v"
           >{{ v }}</HbChip>
+          <HbChip v-model="t.follow.value" toggle title="camera follows the body (f)">follow</HbChip>
         </div>
       </template>
       <template #telemetry>
@@ -100,7 +114,7 @@ function picked(e: Event) {
       <template #caption>
         <HbStageCaption :line="t.body.line" :who="t.body.name" :max-chars="160" />
       </template>
-      <template v-if="t.pad" #pad><HbPad v-model="t.move.value" keys /></template>
+      <template v-if="t.pad" #pad><HbPad v-model="t.move.value" keys :action="t.action?.label ?? ''" @action="t.action?.run()" /></template>
       <template v-if="$slots.band" #b><slot name="band" /></template>
       <template v-if="$slots.inset" #bl><slot name="inset" /></template>
     </HbViewport>
@@ -121,10 +135,16 @@ function picked(e: Event) {
       @rate="(r) => (t.transport.rate = r)"
     />
 
-    <div class="is-side">
+    <div v-if="!sheet" class="is-side">
       <slot name="rack" />
     </div>
   </div>
+
+  <HbDrawer v-if="sheet" v-model="t.rackOpen.value" side="auto" :title="`${title} panels`">
+    <div class="hb-rail is-above-dock">
+      <slot name="rack" />
+    </div>
+  </HbDrawer>
 
   <HbDrawer v-model="t.tune.value" side="auto" :title="`tune ${title}`">
     <HbPanel v-for="g in groups" :key="g.group" :heading="g.group" sunk class="hb-instrument">
