@@ -38,6 +38,8 @@ for (const [f, s] of sizes) if (s > b['tool-chunk-gzip']) fails.push(`chunk ${f}
 if (single > b['single-raw']) fails.push(`single file ${single} B over ${b['single-raw']}`)
 
 console.log(`check-size: first load ${firstLoad} B gzip (${seen.size} files), ${sizes.length} lazy chunks, largest ${largest[0]} ${largest[1]} B gzip, single ${single} B raw (measured)`)
+const big = sizes.filter(([, s]) => s > 100_000).sort((x, y) => y[1] - x[1])
+if (big.length) console.log(`chunks over 100 kB gzip: ${big.map(([f, s]) => `${f} ${s} B`).join(', ')} (measured)`)
 if (process.argv.includes('--write-today')) {
   cfg.today = { note: cfg.today.note, 'first-load-gzip': firstLoad, 'largest-chunk-gzip': largest[1], 'single-raw': single }
   writeFileSync(budgetPath, JSON.stringify(cfg, null, 2) + '\n')
