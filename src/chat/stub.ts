@@ -20,6 +20,10 @@ export function stubReply(messages: readonly ChatMessage[], id = 'scripted'): st
   const last = [...messages].reverse().find((m) => m.role === 'user')?.content.trim() ?? ''
   const short = last.length > 60 ? `${last.slice(0, 57)}...` : last
   const turns = messages.filter((m) => m.role === 'user').length
+  // asked for json (the engine puts the schema in the prompt when the runtime takes none): json with a trailing comma, for the repair path
+  if (messages.some((m) => m.content.includes('Reply with one JSON object'))) {
+    return `<think>the reply must be json. no model is loaded, so the ${id} engine writes it from a script.</think>{"answer": "this answer comes from a script. you wrote: ${short.replace(/["\\]/g, '')}", "confidence": 0.5,}`
+  }
   return (
     `<think>the person wrote "${short}". this is turn ${turns}. no model is loaded, so the ${id} engine answers from a script.</think>` +
     `this answer comes from a script, not a model. you wrote: ${short}\n\npick a model in the engine bar to talk for real. the think fold above shows where reasoning goes.`

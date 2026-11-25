@@ -127,3 +127,15 @@ test('lines carry actions, the live reply, errors and stats', () => {
   const seg = contextSegments({ system: 'abcd', messages: s.messages }, '12345678')
   assert.deepEqual(seg.map((x) => x.tokens), [1, 3, 2])
 })
+
+test('the json verdict reads clean, repaired and missing replies against the schema', async () => {
+  const { DEFAULT_SCHEMA, parseSchema, verdictOf } = await import('../../src/chat/schema.ts')
+  const { schema } = parseSchema(DEFAULT_SCHEMA)
+  assert.equal(verdictOf('{"answer": "a"}', schema).how, 'clean')
+  const r = verdictOf('{"answer": "a", "confidence": 0.5,}', schema)
+  assert.deepEqual([r.ok, r.how], [true, 'repaired'])
+  const m = verdictOf('here: {"confidence": "high"} done', schema)
+  assert.deepEqual([m.ok, m.missing, m.wrong], [false, ['answer'], ['confidence']])
+  assert.equal(verdictOf('no json at all', schema).how, 'none')
+  assert.ok('error' in parseSchema('{nope'))
+})

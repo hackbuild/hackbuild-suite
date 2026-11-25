@@ -125,6 +125,24 @@ try {
   if (!listed) fail('the conversation list does not show both chats')
   await page.keyboard.press('Escape')
 
+  // json schema toggle: the stub answers json with a trailing comma; the verdict card says it was repaired and matches
+  if (!(await clickText('.hb-chat-hd button', 'json off'))) fail('no json toggle in the chat header')
+  await page.waitForSelector('[data-json-schema]', { visible: true, timeout: 3000 }).catch(() => fail('the json toggle opened no schema box'))
+  await page.evaluate(() => document.querySelector('[data-json-toggle] input, [data-json-toggle] [role="switch"]')?.click())
+  await page.waitForFunction(() => [...document.querySelectorAll('.hb-chat-hd button')].some((b) => b.textContent.trim() === 'json on'), { timeout: 2000 }).catch(() => fail('the switch did not turn json on'))
+  await page.keyboard.press('Escape')
+  await page.focus('.hb-composer textarea')
+  await page.keyboard.type('give me json')
+  await page.keyboard.press('Enter')
+  await settled(5).catch(() => fail('the json turn did not finish'))
+  await page.waitForFunction(() => {
+    const t = [...document.querySelectorAll('.hb-chat-log .hb-msg')].at(-1)?.querySelector('.hb-tool')
+    return t?.querySelector('.hb-tool-name')?.textContent === 'json schema' && t.classList.contains('is-ok') && t.querySelector('.hb-tool-args')?.textContent.includes('repaired')
+  }, { timeout: 5000 }).catch(async () => fail(`no json verdict card on the reply: ${(await turns()).at(-1)?.text}`))
+  await page.evaluate(() => [...document.querySelectorAll('.hb-chat-log .hb-msg')].at(-1).querySelector('.hb-tool-row').click())
+  const verdict = await page.waitForFunction(() => ([...document.querySelectorAll('.hb-chat-log .hb-msg')].at(-1).querySelector('.hb-tool').textContent.match(/json after repair, matches the schema\./) ?? [false])[0], { timeout: 2000 })
+    .then((h) => h.jsonValue()).catch(() => fail('the verdict card does not say the json was repaired and matches'))
+
   // touch pointer: Enter adds a line, the button sends
   const phone = await browser.newPage()
   watch(phone)
@@ -168,7 +186,7 @@ try {
 
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-chat: ok. "/" focuses the composer, a stub reply streams with its think text in the fold, redo answers again, delete removes a turn, ctrl+z and ctrl+shift+z undo and redo it, ${saved} exports 3 messages and imports back as a second chat, enter on a touch pointer adds a line, dictation on the stub recognizer showed "${partial}" then the final in the composer and did not send, 0 requests off file:// (measured)`)
+  console.log(`smoke-chat: ok. "/" focuses the composer, a stub reply streams with its think text in the fold, redo answers again, delete removes a turn, ctrl+z and ctrl+shift+z undo and redo it, ${saved} exports 3 messages and imports back as a second chat, the json toggle reads the reply back ("${verdict}"), enter on a touch pointer adds a line, dictation on the stub recognizer showed "${partial}" then the final in the composer and did not send, 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

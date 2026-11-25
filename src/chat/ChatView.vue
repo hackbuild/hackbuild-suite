@@ -6,7 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbMicButton, HbRecallTrace, HbTierCards, useHotkeys,
+  HbChat, HbContextMeter, HbConversationList, HbCustomModelForm, HbDrawer, HbEngineBar, HbMicButton, HbParamRow, HbRecallTrace, HbTextarea, HbTierCards, useHotkeys,
   type HbChatLine, type HbEngineState, type HbRecallHit, type HbTier,
 } from '@virgilvox/hackbuild-ui'
 import { createConversation, type ChatSession, type Conversation, type ConverseEngine } from '@hackbuild/converse'
@@ -25,6 +25,7 @@ import { rememberLine, traceHits } from '../memory/lines.ts'
 import { useWide } from '../shell/wide.ts'
 import type { MicState } from '@virgilvox/hackbuild-ui/vanilla'
 import { startDictation, type Dictator } from './dictation.ts'
+import { DEFAULT_SCHEMA, parseSchema, verdictCard, verdictOf, type Verdict } from './schema.ts'
 
 // the memory store loads with the first turn that needs it
 const memStore = () => import('../memory/store.ts')
@@ -37,7 +38,17 @@ const doc = useDocument<ChatSession>(CHAT_KIND)
 const scripted = stubChat()
 const engine = shallowRef<ChatEngine>(scripted)
 // the conversation keeps one engine; this one forwards to whichever is current
-const proxy: ConverseEngine = { stream: (m, o) => engine.value.stream(m, o) }
+// with the json toggle on, the reply is asked for as json matching the schema
+const jsonOn = ref(false)
+const jsonOpen = ref(false)
+const schemaText = ref(DEFAULT_SCHEMA)
+const schemaRead = computed(() => parseSchema(schemaText.value))
+const schemaNow = computed(() => (jsonOn.value && 'schema' in schemaRead.value ? schemaRead.value.schema : null))
+const proxy: ConverseEngine = { stream: (m, o) => engine.value.stream(m, schemaNow.value ? { ...o, schema: schemaNow.value } : o) }
+/** The schema of the turn in flight, read back when it ends. */
+let jsonTurn: Record<string, unknown> | null = null
+/** Verdicts by reply id, for this visit; kept out of the session so they never go back to the model as tool calls. */
+const verdicts = shallowRef(new Map<string, Verdict>())
 
 const session = shallowRef<ChatSession | null>(null)
 const tick = ref(0)
@@ -78,12 +89,23 @@ async function attach(id: string): Promise<void> {
     else if (e.type === 'think') live.value = { id: e.id, think: e.text, text: live.value?.id === e.id ? live.value.text : '' }
     else if (e.type === 'busy') {
       busy.value = e.busy
+      if (e.busy) jsonTurn = schemaNow.value
+      else if (jsonTurn) { const sc = jsonTurn; jsonTurn = null; void judge(sc) }
       if (!e.busy) live.value = null
       tick.value++
     } else if (e.type === 'error') logEvent('fail', `reply stopped: ${e.message.error ?? 'the engine closed'}`)
   })
   conv = c
   await c.restore()
+}
+
+/** The verdict on the last reply against the schema it was asked for, shown on the reply as a tool call card. */
+async function judge(schema: Record<string, unknown>): Promise<void> {
+  const m = [...(conv?.session.messages ?? [])].reverse().find((x) => x.role === 'assistant')
+  if (!m || m.error !== undefined) return
+  const v = verdictOf(m.content, schema)
+  verdicts.value = new Map(verdicts.value).set(m.id, v)
+  logEvent(v.ok ? 'note' : 'warn', `json schema: ${v.note}`)
 }
 
 async function openDoc(id?: string): Promise<void> {
@@ -214,12 +236,17 @@ const lines = computed<HbChatLine[]>(() => {
   const last = s.messages[s.messages.length - 1]
   const liveId = busy.value && last?.role === 'assistant' ? last.id : null
   const l = live.value?.id === liveId ? live.value : null
-  return toLines(s, {
+  const out = toLines(s, {
     live: liveId,
     remembered: remembered.value,
     pending: engine.value === scripted ? 'the script answers' : 'waiting on the first word',
     ...(l ? { text: l.text, think: l.think } : {}),
   })
+  for (const line of out) {
+    const v = verdicts.value.get(String(line.id))
+    if (v) line.tools = [...(line.tools ?? []), verdictCard(v)]
+  }
+  return out
 })
 const idAt = (i: number) => String(lines.value[i]?.id ?? '')
 const segments = computed(() => (void tick.value, session.value ? contextSegments(session.value, draft.value) : []))
@@ -424,6 +451,7 @@ onBeforeUnmount(() => {
         <button v-if="!wide" type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="listOpen = true">chats</button>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :disabled="!lines.length" @click="exportChat('md')">markdown</button>
         <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :aria-pressed="memOn" @click="memOn = !memOn">{{ memOn ? 'memory on' : 'memory off' }}</button>
+        <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" :aria-pressed="jsonOn" data-json-open @click="jsonOpen = true">{{ jsonOn ? 'json on' : 'json off' }}</button>
       </template>
       <template #empty>
         <div v-if="!lines.length" class="hb-chat-empty">
@@ -456,6 +484,11 @@ onBeforeUnmount(() => {
         <p v-if="micState !== 'unsupported'" class="hb-hint" data-dictation-privacy>dictation uses the browser recognizer. it may send your audio to the browser maker's service.</p>
       </template>
     </HbChat>
+    <HbDrawer v-model="jsonOpen" side="right" size="sm" label="json schema">
+      <HbParamRow label="reply as json" type="switch" :model-value="jsonOn" help="asks for json that matches the schema below." data-json-toggle @update:model-value="jsonOn = !!$event" />
+      <HbTextarea v-model="schemaText" :rows="10" :invalid="'error' in schemaRead" aria-label="json schema" spellcheck="false" data-json-schema />
+      <p class="hb-hint">{{ 'error' in schemaRead ? schemaRead.error : 'a runtime that takes schemas is held to it; any other gets the schema in the prompt. the reply is read back, repaired if it needs it, and checked against the top level.' }}</p>
+    </HbDrawer>
     <HbDrawer v-model="traceOpen" side="right" size="sm" label="memory used">
       <HbRecallTrace :hits="trace?.hits ?? []" :query="traceQuery" :how="trace?.how ?? ''" who="chat" :names="{ rel: 'relevance', rec: 'recency', imp: 'importance' }" />
       <button type="button" class="hb-btn hb-btn-2 hb-btn-sm" @click="openMemory">open in memory</button>
