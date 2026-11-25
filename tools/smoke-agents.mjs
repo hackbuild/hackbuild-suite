@@ -13,6 +13,10 @@
 //   and a tapped goal; the body walks round it to the goal with no step
 //   inside the wall; a goal tapped on the wall says so; the world is saved,
 //   and after a reload the wall is back where it stood.
+//   scenario: the built in mover scenario runs to a pass; paused, the step
+//   button lets one chunk through; a golden kept and a new seed give a
+//   failing verdict and differing rows; a dropped scenario json runs and
+//   passes; the report exports.
 // Any request off file:// or console error fails the run.
 //   npm run build:single && node tools/smoke-agents.mjs senses|drives|cameras|mover
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs'
@@ -22,7 +26,7 @@ import { pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
 
 const mode = process.argv[2]
-if (!['senses', 'drives', 'cameras', 'mover'].includes(mode)) throw new Error('usage: smoke-agents.mjs senses|drives|cameras|mover')
+if (!['senses', 'drives', 'cameras', 'mover', 'scenario'].includes(mode)) throw new Error('usage: smoke-agents.mjs senses|drives|cameras|mover|scenario')
 const name = `smoke-${mode}`
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const file = resolve('dist/single/index.html')
@@ -80,7 +84,50 @@ try {
     return got
   }
   const chip = (sel, text) => page.evaluate((s, t) => [...document.querySelectorAll(`${s} button`)].find((b) => b.textContent.trim().replace(/\d$/, '') === t)?.click(), sel, text)
-  if (mode === 'cameras') {
+  if (mode === 'scenario') {
+    const res = () => h((s) => { const r = s.result(); return r ? { pass: r.pass, hash: r.hash, diff: r.diff, text: r.text, name: s.live && s.body.picked } : null })
+    const done = async (what, ms = 20000) => {
+      for (let i = 0; i < ms / 100; i++) { const r = await res(); if (r) return r; await wait(100) }
+      fail(`${what}: no result; state ${await h((s) => s.live.state)} at step ${await h((s) => s.live.step)}; caption ${await caption()}`)
+    }
+    const a = await done('the built in scenario did not finish')
+    const tag = await page.$eval('[data-pane="verdict"]', (e) => e.textContent)
+    if (!a.pass || !/pass: 3 of 3 checks/.test(tag)) fail(`the built in scenario did not pass: ${tag}\n${a.text}`)
+    // paused, a restart holds at step 0 and the step button lets one chunk through
+    await page.click('.hb-transport button[aria-label="pause"]')
+    await page.evaluate(() => [...document.querySelectorAll('button[aria-keyshortcuts="r"]')].find((b) => b.textContent.trim() === 'restart')?.click())
+    await wait(500)
+    const held = await h((s) => s.live.step)
+    await page.click('.hb-transport button[aria-label="step on"]')
+    await wait(400)
+    const stepped = await h((s) => s.live.step)
+    if (held !== 0 || stepped !== 30) fail(`paused, the run went to step ${held}, then ${stepped} after a step`)
+    await page.click('.hb-transport button[aria-label="play"]')
+    const again = await done('the replay did not finish')
+    if (again.hash !== a.hash) fail(`the same seed gave two hashes: ${a.hash} and ${again.hash}`)
+    await page.click('[data-golden]')
+    await wait(200)
+    await h((s) => { s.seed.value = 8 })
+    await wait(300)
+    const b = await done('the run at seed 8 did not finish')
+    const rows = await page.$$eval('[data-diff-rows] tbody tr', (r) => r.length)
+    const said = await page.$eval('[data-diff]', (e) => e.textContent)
+    if (b.pass || !/^trace differs at row \d+: /.test(b.diff) || rows < 1 || !/rows differ from golden, seed 7/.test(said)) fail(`seed 8 against the golden: pass ${b.pass}, ${b.diff}, ${rows} rows shown, "${said}"`)
+    // drop a scenario json on the window
+    const dropped = { name: 'dropped walk', sim: 'mover', seed: 3, seconds: 6, actions: [{ at: 0, js: 'h.goal(1.5, 1.5)' }], probes: [{ every: 0.5, js: 'h.gap()' }], checks: [{ what: 'gap at the end', js: 't.probes[t.probes.length - 1][1]', unit: 'm', legal: { max: 0.5 }, constraint: 'set by the arrival radius, inferred' }] }
+    await page.evaluate((text) => {
+      const dt = new DataTransfer()
+      dt.items.add(new File([text], 'walk.json', { type: 'application/json' }))
+      for (const type of ['dragenter', 'dragover', 'drop']) window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }))
+    }, JSON.stringify(dropped))
+    await wait(400)
+    if ((await h((s) => s.body.picked)) !== 'dropped walk') fail(`the dropped scenario was not picked: ${await caption()}`)
+    const c = await done('the dropped scenario did not finish')
+    if (!c.pass) fail(`the dropped scenario did not pass: ${c.text}`)
+    const report = readFileSync(await exportAs(page, 'report', '.txt'), 'utf8')
+    if (!report.startsWith('scenario report ') || !report.includes('dropped walk (seed 3): checks pass')) fail(`the report is not whole: ${report.slice(0, 200)}`)
+    detail = `mover round a wall passed 3 of 3 at seed 7, hash ${a.hash} twice; paused it held at 0 and stepped to ${stepped}; seed 8 "${b.diff}", ${rows} rows shown; the dropped scenario passed; report ${report.trim().split('\n').length} lines`
+  } else if (mode === 'cameras') {
     const pos = () => h((c) => ({ ...c.live, ...c.rig() }))
     const seen = []
     for (const r of ['follow', 'orbit', 'first person', 'group']) {

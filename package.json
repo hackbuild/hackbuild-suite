@@ -45,7 +45,8 @@
     "smoke:senses": "node tools/smoke-agents.mjs senses",
     "smoke:drives": "node tools/smoke-agents.mjs drives",
     "smoke:cameras": "node tools/smoke-agents.mjs cameras",
-    "smoke:mover": "node tools/smoke-agents.mjs mover"
+    "smoke:mover": "node tools/smoke-agents.mjs mover",
+    "smoke:scenario": "node tools/smoke-agents.mjs scenario"
   },
   "devDependencies": {
     "@types/three": "0.186.0",

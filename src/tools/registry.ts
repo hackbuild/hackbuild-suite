@@ -26,5 +26,5 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'drives', group: 'agents', title: 'drives', job: 'watch needs rise and choices get made', phase: 5, packages: ['drives'], load: () => import('../drives/DrivesView.vue') }),
   defineTool({ id: 'cameras', group: 'agents', title: 'cameras', job: 'try every camera rig on a moving target', phase: 5, packages: ['cameras'], load: () => import('../cameras/CamerasView.vue') }),
   defineTool({ id: 'mover', group: 'agents', title: 'mover', job: 'steer a body through a world with collisions', phase: 5, packages: ['mover'], load: () => import('../mover/MoverView.vue') }),
-  defineTool({ id: 'scenario', group: 'agents', title: 'scenario', job: 'scenario for embodied agents', phase: 5, packages: ['scenario'], load: pending }),
+  defineTool({ id: 'scenario', group: 'agents', title: 'scenario', job: 'run a seeded scenario and get a verdict', phase: 5, packages: ['scenario', 'drives', 'mover'], load: () => import('../scenario/ScenarioView.vue') }),
 ]
