@@ -4,7 +4,9 @@
 // the stage with camera chips, telemetry, key hints, the caption and the
 // pad (a tool may hide it), the stage menu that sends sentences when the
 // tool has one, the tool's own camera chips in place of the views; a tool's own band of verbs and inset in the stage and its own strip under it; the transport; the rack in the side column; the tune
-// drawer generated from the tool's tunables registry. State comes from
+// drawer generated from the tool's tunables registry. A tool may add
+// toolbar items (tools, tools-end), stage corners (tl, br), hud figures
+// and a layer over the stage (over), such as a speech bubble. State comes from
 // useStageTool.
 import { computed, reactive } from 'vue'
 import {
@@ -48,7 +50,9 @@ function picked(e: Event) {
         body
         <input type="file" :accept="BODY_ACCEPT" hidden @change="picked">
       </HbButton>
+      <slot name="tools" />
       <span class="hb-spacer" />
+      <slot name="tools-end" />
       <HbButton variant="secondary" aria-keyshortcuts="t" :aria-expanded="t.tune.value" @click="t.tune.value = true">tune</HbButton>
     </HbToolbar>
 
@@ -66,6 +70,9 @@ function picked(e: Event) {
         <div :ref="(el) => (t.host.value = el as HTMLElement | null)" class="hb-viewport-host" />
       </HbContextMenu>
       <div v-else :ref="(el) => (t.host.value = el as HTMLElement | null)" class="hb-viewport-host" />
+      <slot name="over" />
+      <template v-if="$slots.tl" #tl><slot name="tl" /></template>
+      <template v-if="$slots.br" #br><slot name="br" /></template>
       <template #tr>
         <slot v-if="$slots.cams" name="cams" />
         <div v-else class="hb-cams" role="group" aria-label="camera">
@@ -85,6 +92,7 @@ function picked(e: Event) {
         <HbHudStat label="fps" :value="t.stats.fps" :digits="0" />
         <HbHudStat label="seed" :value="t.seed.value" :digits="0" />
         <HbHudStat label="t" :value="t.transport.time" :digits="2" unit="s" />
+        <slot name="hud" />
       </template>
       <template #hint>
         <span class="hb-hudnote">{{ t.hints.map((h) => `${h.keys} ${h.label}`).join(', ') }}</span>
