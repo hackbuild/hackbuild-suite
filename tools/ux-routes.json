@@ -73,6 +73,7 @@
     "layout": "stage-rack"
   },
   "dog-simulator-public.html": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "rackTabs": [3, 7]
   }
 }

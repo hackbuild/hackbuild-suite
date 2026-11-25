@@ -30,6 +30,7 @@ test('verdicts follow the template numbers', () => {
   assert.equal(phone.subject.pass, false)
   assert.equal(judge({ ...m, rack: { widths: [380, 460], tabs: 3, controls: 4 } }, 1440).rack.pass, false)
   assert.equal(judge({ ...m, rack: { widths: [380, 380], tabs: 6, controls: 4 } }, 1440).rack.pass, false)
+  assert.equal(judge({ ...m, rack: { widths: [380, 380], tabs: 7, controls: 4 } }, 1440, 'stage-rack', { rackTabs: [3, 7] }).rack.pass, true)
   assert.equal(judge({ ...m, rack: { widths: [380], tabs: 4, controls: 21 } }, 1440).rack.pass, false)
   assert.equal(judge({ ...m, rack: null }, 1440, 'gate').rack.pass, null)
   assert.equal(judge({ ...m, subject: null }, 1440, 'home').subject.value, 'no yard tile')

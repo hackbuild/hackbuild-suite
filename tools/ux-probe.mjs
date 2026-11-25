@@ -34,7 +34,7 @@ export const LIMITS = { bar: 52, controls: 15, subjectShare: 0.6, phoneSubjectTo
  * Turns raw probe numbers into verdicts: { pass, value } each, pass null when
  * a check does not apply (the rack on a phone, or on a gate or home layout).
  */
-export function judge(m, width, layout = 'stage-rack') {
+export function judge(m, width, layout = 'stage-rack', cfg = {}) {
   const wide = width >= 1000
   const v = {}
   v.modal = m.modal ? { pass: false, value: `${m.modal.label} (${m.modal.dismissed})` } : { pass: true, value: 'none' }
@@ -54,7 +54,7 @@ export function judge(m, width, layout = 'stage-rack') {
   else {
     const ws = m.rack.widths.map(Math.round)
     const spread = Math.max(...ws) - Math.min(...ws)
-    const [lo, hi] = LIMITS.rackTabs
+    const [lo, hi] = cfg.rackTabs ?? LIMITS.rackTabs // an original's own tab count may override (hackle has 7)
     const width = spread ? `${Math.min(...ws)} to ${Math.max(...ws)} px` : `${ws[0]} px`
     v.rack = {
       pass: Math.abs(ws[0] - LIMITS.rack) <= 1 && spread <= 1 && m.rack.tabs >= lo && m.rack.tabs <= hi && m.rack.controls <= LIMITS.rackControls,

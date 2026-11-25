@@ -103,7 +103,7 @@ try {
         const modal = await dismissModal(page, o.target)
         const m = await o.target.evaluate(pageScript(layout))
         m.modal = modal
-        Object.assign(r, { detectors: m.detectors, checks: judge(m, width, layout), measured: m, errors: o.errors, blocked: o.blocked.length })
+        Object.assign(r, { detectors: m.detectors, checks: judge(m, width, layout, layouts[route] ?? {}), measured: m, errors: o.errors, blocked: o.blocked.length })
         if (setup) {
           const l = { route, width, layout, state: 'loaded', shot: `${name}-${slug(route)}-loaded-${width}.png` }
           rows.push(l)
@@ -113,7 +113,7 @@ try {
           await o.shot(join(out, l.shot))
           const ml = await o.target.evaluate(pageScript(layout))
           ml.modal = null
-          Object.assign(l, { detectors: ml.detectors, checks: judge(ml, width, layout), measured: ml, errors: o.errors, blocked: o.blocked.length })
+          Object.assign(l, { detectors: ml.detectors, checks: judge(ml, width, layout, layouts[route] ?? {}), measured: ml, errors: o.errors, blocked: o.blocked.length })
         }
       } catch (e) {
         for (const x of rows) if (!x.checks) {
