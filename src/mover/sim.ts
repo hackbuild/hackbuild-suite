@@ -1,11 +1,11 @@
 // The mover run: one capsule body in a `World`, a `Steerer` walking the
 // planned waypoints to a goal, or the keys and the pad driving it straight.
 // Framework free and three free, so node runs the same steps as the tool.
-import { Steerer, World, type Actor, type AgentState, type Footprint, type SteerOut } from '@hackbuild/mover'
-import { BODY_H, BODY_R, MOVER_COPY, collidersOf, footprintsOf, inside, planPath, type Spot, type SteerRead, type WorldItem } from './kind.ts'
+import { Steerer, World, planPath, type Actor, type AgentState, type Footprint, type SteerOut } from '@hackbuild/mover'
+import { BODY_H, BODY_R, MOVER_COPY, collidersOf, footprintsOf, inside, type Spot, type SteerRead, type WorldItem } from './kind.ts'
 
-/** Arrival radius of a waypoint on the way, meters (proposed). */
-const PASS = 0.3
+/** Clearance the planner keeps from every collider past the body radius, meters (the package default). */
+const MARGIN = 0.12
 /** The body eases to the wanted velocity with this time constant, seconds (the library page's 0.15, inferred). */
 const EASE = 0.15
 
@@ -21,7 +21,6 @@ export class MoverSim {
   fps: Footprint[] = []
   items: WorldItem[] = []
   path: Spot[] = []
-  leg = 0
   goal: Spot | null = null
   actor: Actor
   me: AgentState
@@ -58,14 +57,23 @@ export class MoverSim {
   /** A goal: the path round the things, or the copy that says why there is none. */
   setGoal(x: number, z: number, quiet = false): string | null {
     if (inside(this.items, x, z)) return MOVER_COPY.inWall
-    const p = planPath(this.items, { x: this.actor.pos.x, z: this.actor.pos.z }, { x, z })
-    if (!p) return MOVER_COPY.noWay
+    const p = planPath(this.world, { x: this.actor.pos.x, z: this.actor.pos.z }, { x, z }, { radius: BODY_R, height: BODY_H, margin: MARGIN })
+    if (!p.ok) return p.reason === 'goal-blocked' ? MOVER_COPY.inWall : MOVER_COPY.noWay
     this.goal = { x, z }
-    this.path = p
-    this.leg = 0
-    this.steer.setGoal(p[0]!.x, p[0]!.z)
-    if (!quiet) this.log('goal', `goal at ${x.toFixed(2)}, ${z.toFixed(2)}: ${p.length} waypoint${p.length === 1 ? '' : 's'}`)
+    this.path = p.waypoints
+    this.steer.setPath(p.waypoints)
+    if (!quiet) this.log('goal', `goal at ${x.toFixed(2)}, ${z.toFixed(2)}: ${p.waypoints.length} waypoint${p.waypoints.length === 1 ? '' : 's'}`)
     return null
+  }
+
+  /** The points still to walk, the goal last. */
+  get left(): Spot[] {
+    return this.goal ? this.path.slice(Math.max(0, this.path.length - 1 - this.steer.waypointsLeft)) : []
+  }
+
+  /** Index of the point walked to now. */
+  get leg(): number {
+    return this.path.length - this.left.length
   }
 
   clearGoal() {
@@ -88,12 +96,7 @@ export class MoverSim {
       const out = this.steer.update(this.t, this.me, [this.me], this.fps)
       this.last = out
       if (out.sideWaypoint) this.log('stall', `stalled: a side step to ${out.sideWaypoint.x.toFixed(2)}, ${out.sideWaypoint.z.toFixed(2)}`)
-      const wp = this.path[this.leg]!
-      const near = Math.hypot(wp.x - a.pos.x, wp.z - a.pos.z) < PASS
-      if (this.leg < this.path.length - 1 && (near || out.mode === 'arrived')) {
-        this.leg++
-        this.steer.setGoal(this.path[this.leg]!.x, this.path[this.leg]!.z)
-      } else if (this.leg === this.path.length - 1 && out.mode === 'arrived') {
+      if (out.mode === 'arrived') {
         this.log('arrived', `arrived at ${a.pos.x.toFixed(2)}, ${a.pos.z.toFixed(2)}`)
         this.clearGoal()
       }

@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { seededRng } from '@hackbuild/organic'
-import { STEP_UP } from '@hackbuild/mover'
-import { checkMover, collidersOf, footprintsOf, inside, moverKind, newItem, newMoverBody, planPath, seededWorld, stepOver, traceCsv } from '../../src/mover/kind.ts'
+import { STEP_UP, World, planPath } from '@hackbuild/mover'
+import { checkMover, collidersOf, footprintsOf, inside, moverKind, newItem, newMoverBody, seededWorld, stepOver, traceCsv } from '../../src/mover/kind.ts'
 import { MoverSim } from '../../src/mover/sim.ts'
 import { Walker, camerasKind, checkCameras, newCamerasBody, seededLoop } from '../../src/cameras/kind.ts'
 
@@ -44,7 +44,7 @@ test('things become colliders and footprints; a low box is stepped onto', () => 
 
 test('the body walks round a wall to a goal behind it, and the keys take over', () => {
   const items = [newItem([], 'wall', 0, 1.5, 0, { w: 3, d: 0.2, h: 1.2 })]
-  assert.equal(planPath(items, { x: 0, z: 0 }, { x: 0, z: 1.5 }), null)
+  assert.equal(planPath(new World(collidersOf(items)), { x: 0, z: 0 }, { x: 0, z: 1.5 }, { radius: 0.3 }).reason, 'goal-blocked')
   const s = new MoverSim(items, { x: 0, z: 0 })
   assert.match(s.setGoal(0, 1.5), /inside a wall/)
   assert.equal(s.setGoal(0.1, 3.2), null)

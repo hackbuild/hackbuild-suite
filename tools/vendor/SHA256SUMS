@@ -1,5 +1,4 @@
 e49dbe694c81bfd939e61f24b3008c049a6c1aa863a01263f07b2206cd8e12aa  hackbuild-ui-0.9.3-23b6969.tgz
-a7d813897372c5e1473956f3f9d99497ea75836d6333e7f891e88a179f9d14ea  hackbuild-mover-0.1.0-053dcf5.tgz
 7e7c059b9084a13e1ab9996aca42d29636f6c61a15130a568cf9e4f8afa2e50c  hackbuild-ai-env-0.1.0-1d5b864.tgz
 db36b7777d2b2f5a2f693a121180541081fe98fe061d06dd58e58bde74bb5a09  hackbuild-audio-dsp-0.1.0-1d5b864.tgz
 72bec54aee2163ae5ab9629b00fe3e0bfad71f6a0220fe524bb520e56b7cd3db  hackbuild-avatar-0.1.0-6ef5b9a.tgz
@@ -33,3 +32,4 @@ c9c784b3d19220997b595997af59ceb56c6f078ef6475beb7cefee6486cc4b87  hackbuild-rig-
 6c03fe96b9d83865eee62c48d6fdcc3506ac2979e31f13337ec345de0cb9976e  hackbuild-tunables-0.1.0-60e4fff.tgz
 6e89fea9e8c2c6dcef195b0221cd4a55ffa2c9efcc5f7cc32419af56122baa8f  hackbuild-vision-0.1.0-1d5b864.tgz
 39cceb3d3453a2a41c9a2f44f15dc2bd3058351a204e941bac1f0bcddd80b30e  hackbuild-weights-0.1.0-1d5b864.tgz
+430bc0342dd7bd04de67a1f73e87681695d9b7961f37135e3601cd6cce982bd8  hackbuild-mover-0.2.0-60e4fff.tgz

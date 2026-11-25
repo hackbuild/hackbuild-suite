@@ -25,6 +25,7 @@ import {
 } from './kind.ts'
 import type { MoverSim } from './sim.ts'
 import type { WorldView } from './bind.ts'
+import how from '@hackbuild/mover/how'
 
 if (!kinds.get(MOVER_KIND)) registerKind(moverKind)
 
@@ -148,7 +149,7 @@ function frame(dt: number) {
   }
   const root = w.stage.body?.avatar.root
   w.place(s.actor.pos.x, s.actor.pos.z, s.heading() ?? root?.rotation.y ?? 0)
-  view.value?.goal(s.goal, { x: s.actor.pos.x, z: s.actor.pos.z }, s.path.slice(s.leg))
+  view.value?.goal(s.goal, { x: s.actor.pos.x, z: s.actor.pos.z }, s.left)
   read()
 }
 
@@ -364,20 +365,6 @@ watch(view, (v) => {
   }
 })
 
-const HOW = `import { World, Steerer, box, wallBox, cyl, nearest } from "@hackbuild/mover";
-
-const world = new World([box(0, 0, 0, 12, 12, 0.5), wallBox(0, 1.5, 2.4, 0.2, 0, 1.2)]);
-const steer = new Steerer("body", { speed: 1.4 });
-const body = { pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, radius: 0.28, height: 1.7, grounded: true };
-const wall = { id: "wall 1", parts: [{ ax: -1.1, az: 1.5, bx: 1.1, bz: 1.5, r: 0.14 }] };
-steer.setGoal(waypoint.x, waypoint.z); // the next waypoint of a path round the walls
-function step(t, dt) {
-  const me = { id: "body", x: body.pos.x, z: body.pos.z, vx: body.vel.x, vz: body.vel.z, radius: 0.28, moving: true };
-  const out = steer.update(t, me, [me], [wall]); // out.mode, out.why
-  body.vel.x = out.vx; body.vel.z = out.vz;
-  world.step(body, dt); // walls push sideways, low boxes are stepped onto
-  world.endFrame();
-}`
 </script>
 
 <template>
@@ -431,7 +418,7 @@ function step(t, dt) {
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="sim ? '' : 'the stage is starting.'" label="mover" @export="onExport" />
       </HbFold>
 
-      <HbHow :packages="['@hackbuild/mover', '@hackbuild/avatar-host']" install="npm i @hackbuild/mover" :code="HOW" persist-key="mover-how" />
+      <HbHow v-bind="how" persist-key="mover-how" />
     </template>
   </StageTool>
 </template>
