@@ -26,10 +26,10 @@ acc3de719805d12f5ec55f7f50a37f773d0659f5876c6defad3e341a1248dad5  hackbuild-moti
 6e89fea9e8c2c6dcef195b0221cd4a55ffa2c9efcc5f7cc32419af56122baa8f  hackbuild-vision-0.1.0-1d5b864.tgz
 39cceb3d3453a2a41c9a2f44f15dc2bd3058351a204e941bac1f0bcddd80b30e  hackbuild-weights-0.1.0-1d5b864.tgz
 430bc0342dd7bd04de67a1f73e87681695d9b7961f37135e3601cd6cce982bd8  hackbuild-mover-0.2.0-60e4fff.tgz
-b4566e6743ced11fc7ccc93030056947eb04fb106eac96770a85ec23ab03ed19  hackbuild-agent-0.1.0-1d5b864.tgz
+228a383aae24b2c0130658e8aa585bb102bed15dc3d0d3cdc1d86fa5b0a5dfd2  hackbuild-agent-0.1.2-31dd944.tgz
 a4fda4e8479b3fcb68453d6c5df05f1ae9db145044e7333fe6bdbaa53b479f51  hackbuild-structured-0.1.0-1d5b864.tgz
 417f21b6218cdb76d4be26f5ddb74044362c22d6d5669c64907c9e5fafe24d44  hackbuild-avatar-0.1.2-16bd854.tgz
-5f97cbf458cd303f3528124a97d8bc237383c0e46a4ac560a9bebf0f42d1e848  hackbuild-avatar-host-0.1.2-16bd854.tgz
+c4c5b1bd2c01346ebecbb6b452023ff388327255c7e56cb03238e8d1f04f0135  hackbuild-avatar-host-0.1.3-5cb49ff.tgz
 de845a8e9703110b192cab3c542e847f6e8e73c717b8323cc33dc812826be288  hackbuild-rig-0.1.1-16bd854.tgz
 d5838b4d6f555cc8fe396de4f0b9e8f8d0eee23357d3fcf385635a543c564690  hackbuild-environment-0.1.1-16bd854.tgz
 70c4d78e50aca66befbcbe7f0581d3c18f1cfa2ee489eef7a87c242698601266  hackbuild-lipsync-0.1.1-16bd854.tgz
