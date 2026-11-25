@@ -151,7 +151,7 @@ async function probe(layout) {
   // subject: marker, else the candidate with the most unoccluded area. A
   // subject holding more than 3 controls is a panel, not a subject, marker or not.
   // Unoccluded: an N by N grid of hit tests over the clipped rect; a verb row
-  // on it counts as subject, and an ancestor hit (a pointer-events: none
+  // or an inset (data-ux="inset", like an eye view card) on it counts as subject, and an ancestor hit (a pointer-events: none
   // canvas) means nothing covers it.
   const seenShare = (el, N) => {
     const r = rectOf(el)
@@ -161,7 +161,7 @@ async function probe(layout) {
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
         const hit = document.elementFromPoint(c.left + ((i + 0.5) * (c.right - c.left)) / N, c.top + ((j + 0.5) * (c.bottom - c.top)) / N)
-        if (hit && (el.contains(hit) || hit.contains(el) || hit.closest('[data-ux~="verbs"]'))) seen++
+        if (hit && (el.contains(hit) || hit.contains(el) || hit.closest('[data-ux~="verbs"],[data-ux~="inset"]'))) seen++
       }
     }
     return seen / (N * N)

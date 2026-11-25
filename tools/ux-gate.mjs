@@ -23,6 +23,7 @@
 //   data-ux="subject"  the frame, canvas, room or conversation that fills
 //   data-ux="rack"     the 380 px tab column (a bottom sheet on a phone)
 //   data-ux="verbs"    the action row on the subject
+//   data-ux="inset"    a card on the subject (an eye view); counts as subject
 //   data-ux="detail"   a detail pane, where internal words are allowed
 // Without markers the gate guesses: bar is the topmost full width header or
 // [role=banner]; subject is the largest visible canvas, video, img, iframe,
