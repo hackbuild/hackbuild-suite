@@ -41,9 +41,18 @@ try {
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
   const cdp = await page.createCDPSession()
   await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }, { name: 'any-pointer', value: 'coarse' }] })
+  // Ready is more than the cover gone: the avatar view adopts the body
+  // once its lazy inspect chunk lands, and that seeks the transport to 0;
+  // the first frames also stall on shader compiles. Wait for the rig panel
+  // to read the body and for the fps stat to show a measured rate.
   const ready = async () => {
     await page.waitForFunction(() => document.querySelector('.hb-viewport-host')?.stageTool && !document.querySelector('.hb-vp-cover'), { timeout: 15000 })
       .catch(async () => fail(`the stage did not start: ${await page.evaluate(() => document.querySelector('.hb-vp-cover')?.textContent ?? 'no cover')}`))
+    await page.waitForFunction(() => {
+      const hints = [...document.querySelectorAll('.hb-hint')].map((h) => h.textContent.trim())
+      const fps = [...document.querySelectorAll('.hb-viewport b')].map((b) => b.textContent.trim())
+      return !hints.includes('the stage is starting.') && fps.length && Number.isFinite(Number(fps[0]))
+    }, { timeout: 15000 }).catch(() => fail('the avatar view did not read the body, or the stage drew no frames'))
   }
   await page.goto(url, { waitUntil: 'load' })
   await ready()
