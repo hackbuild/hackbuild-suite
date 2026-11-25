@@ -76,9 +76,9 @@ try {
     .catch(async () => fail(`the glb did not land: ${await st(() => document.querySelector('.hb-viewport-host').stageTool.body.line)}`))
 
   // the rig tree lists the bones
-  await page.waitForFunction(() => /rightUpperArm/.test(document.querySelector('[data-pane="rig"] pre')?.textContent ?? ''), { timeout: 5000 })
+  await page.waitForFunction(() => /rightUpperArm/.test(document.querySelector('[data-pane="rig"] .hb-tree')?.textContent ?? ''), { timeout: 5000 })
     .catch(() => fail('the rig tree does not list the bones of the glb'))
-  const tree = await page.$eval('[data-pane="rig"] pre', (e) => e.textContent)
+  const tree = await page.$$eval('[data-pane="rig"] .hb-tree-item', (es) => es.map((e) => e.querySelector('.hb-tree-row')?.textContent ?? '').join('\n'))
   const listed = ['hips', 'spine', 'head', 'leftFoot', 'rightHand'].filter((b) => tree.includes(b))
   if (listed.length !== 5) fail(`the rig tree misses bones: ${tree}`)
   const bonesLine = await page.$eval('[data-pane="rig"] .hb-hint', (e) => e.textContent)

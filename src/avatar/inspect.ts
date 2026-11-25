@@ -4,6 +4,7 @@
 // of the route chunk.
 import { Quaternion, type Mesh, type Object3D } from 'three'
 import type { Body } from '@hackbuild/avatar-host/three'
+import type { HbTreeNode } from '@virgilvox/hackbuild-ui'
 import { checkRedistribution, type VrmMetaLike } from '@hackbuild/avatar'
 import { sampleClip, sampleFace, type Clip } from '@hackbuild/presence'
 import { applyPose, restStanceFromThree } from '@hackbuild/presence/three'
@@ -28,8 +29,8 @@ export interface Inspection {
   mapped: number
   /** The bones line: mapped of all, the missing ones and what that costs. */
   bonesLine: string
-  /** The node tree, two spaces a level, the human bone after a node that maps. */
-  tree: string
+  /** The node tree for HbTree, the human bone as the quiet words of a node that maps. */
+  tree: HbTreeNode[]
   nodes: number
   morphs: string[]
   expressions: string[]
@@ -46,19 +47,22 @@ export function inspect(body: Body): Inspection {
   const human = new Map<Object3D, string>()
   for (const [k, o] of Object.entries(a.bones)) if (o) human.set(o, k)
 
-  const lines: string[] = []
   let nodes = 0
-  const walk = (o: Object3D, depth: number) => {
-    if ((o as Mesh).isMesh) return
+  let shown = 0
+  const walk = (o: Object3D, path: string): HbTreeNode | null => {
+    if ((o as Mesh).isMesh) return null
     nodes++
-    if (lines.length < TREE_CAP) {
-      const h = human.get(o)
-      lines.push(`${'  '.repeat(depth)}${o.name || o.type.toLowerCase()}${h && h !== o.name ? `  [${h}]` : ''}`)
-    }
-    for (const c of o.children) walk(c, depth + 1)
+    const keep = shown < TREE_CAP
+    if (keep) shown++
+    const kids = o.children.map((c, i) => walk(c, `${path}.${i}`))
+    if (!keep) return null
+    const h = human.get(o)
+    const children = kids.filter((k): k is HbTreeNode => !!k)
+    return { id: path, label: o.name || o.type.toLowerCase(), sub: h && h !== o.name ? h : undefined, children: children.length ? children : undefined }
   }
-  walk(a.root, 0)
-  if (nodes > TREE_CAP) lines.push(`and ${nodes - TREE_CAP} more nodes.`)
+  const top = walk(a.root, '0')
+  const tree = top ? [top] : []
+  if (nodes > shown) tree.push({ id: 'more', label: `and ${nodes - shown} more nodes.` })
 
   const morphs = new Set<string>()
   a.root.traverse((o) => {
@@ -100,7 +104,7 @@ export function inspect(body: Body): Inspection {
     names: [...body.names],
     mapped,
     bonesLine,
-    tree: lines.join('\n'),
+    tree,
     nodes,
     morphs: [...morphs].sort(),
     expressions: body.caps.expressions,

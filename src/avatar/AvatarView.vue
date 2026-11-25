@@ -9,7 +9,8 @@
 // press that names where it comes from.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  HbButton, HbChipGroup, HbExportPanel, HbFold, HbHow, HbInput, HbKv, HbParamRow, HbSeg, HbToggleRow,
+  HbButton, HbChipGroup, HbExportPanel, HbFold, HbHow, HbInput, HbKv, HbParamRow, HbSeg, HbToggleRow, HbTree,
+  type HbTreeNode,
   type HbExportFormat, type HbExportReadout, type HbExportRequest,
 } from '@virgilvox/hackbuild-ui'
 import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
@@ -23,6 +24,7 @@ import { logEvent } from '../shell/shell'
 import { AVATAR_KIND, POSES_CAP, avatarKind, type AvatarBody, type GazeModeName } from './kind.ts'
 import { CLIP_EXT, POSE_EXT, clipFile, clipSeconds, poseClip, poseFile, readClip, readPose, type ClipData } from './pose.ts'
 import type { Driver, Inspection } from './inspect.ts'
+import how from '@hackbuild/avatar-host/how'
 
 if (!kinds.get(AVATAR_KIND)) registerKind(avatarKind)
 
@@ -50,6 +52,9 @@ const saved = computed(() => doc.body.value)
 
 const body = shallowRef<Body | null>(null)
 const info = shallowRef<Inspection | null>(null)
+// every branch starts open, as the flat list was; the tree scrolls in its cap
+const treeOpen = ref<string[]>([])
+const openIds = (ns: HbTreeNode[]): string[] => ns.flatMap((n) => (n.children ? [n.id, ...openIds(n.children)] : []))
 const extra = shallowRef<ClipData[]>([])
 const clip = ref<string | null>(null)
 const morphs = reactive<Record<string, number>>({})
@@ -71,6 +76,7 @@ function adopt(b: Body) {
   if (!mod) return
   body.value = b
   info.value = mod.inspect(b)
+  treeOpen.value = openIds(info.value.tree)
   driver = mod.drive(b, () => tool.transport.time)
   extra.value = []
   for (const k of Object.keys(morphs)) delete morphs[k]
@@ -363,16 +369,6 @@ onBeforeUnmount(() => {
   driver = null
 })
 
-const HOW = `import { AvatarStage } from "@hackbuild/avatar-host/three";
-import { sampleClip } from "@hackbuild/presence";
-
-const stage = new AvatarStage(el, { environment: "studio" });
-stage.on("loaded", ({ body, caps }) => {
-  console.log(caps.bones, "bones,", caps.expressions.length, "expressions");
-  body.setExpression("happy");
-  body.play(caps.clips[0]);
-});
-await stage.show(droppedFiles); // a glb or vrm; it stays in the tab`
 </script>
 
 <template>
@@ -392,7 +388,7 @@ await stage.show(droppedFiles); // a glb or vrm; it stays in the tab`
       <HbFold v-model="open.rig" :num="2" summary="rig" persist-key="avatar-rig">
         <div class="hb-instrument" data-pane="rig">
           <p class="hb-hint">{{ info?.bonesLine }}</p>
-          <pre>{{ info?.tree }}</pre>
+          <HbTree v-model:expanded="treeOpen" :nodes="info?.tree ?? []" label="rig" />
         </div>
       </HbFold>
 
@@ -477,12 +473,7 @@ await stage.show(droppedFiles); // a glb or vrm; it stays in the tab`
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="exportBusy" label="avatar" @export="onExport" @copy="onCopy" />
       </HbFold>
 
-      <HbHow
-        :packages="['@hackbuild/avatar-host', '@hackbuild/avatar', '@hackbuild/presence', '@hackbuild/rig', '@hackbuild/environment']"
-        install="npm i @hackbuild/avatar-host @hackbuild/avatar @hackbuild/presence @hackbuild/rig @hackbuild/environment three"
-        :code="HOW"
-        persist-key="avatar-how"
-      />
+      <HbHow v-bind="how" persist-key="avatar-how" />
     </template>
   </StageTool>
 </template>
