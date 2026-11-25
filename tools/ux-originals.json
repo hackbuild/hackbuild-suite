@@ -6,7 +6,8 @@
   "#/chat/chat": {
     "original": "~/Downloads/chatbot-forge (3).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/chat/chatbot-forge-empty-1440.png",
-    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/chat/chatbot-forge-empty-390.png"
+    "note": "390 is clevis with its rail closed; chatbot-forge pins its sidebar over the chat below 860 px with no close",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-390.png"
   },
   "#/chat/memory": {
     "original": "~/Downloads/clevis.html",
@@ -22,10 +23,13 @@
   "#/image/vision": {
     "original": "~/Downloads/arbor (10).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-eyes-detector-1440.png",
-    "note": "arbor eyes tab; no 390 shot of it"
+    "click": [
+      "eyes"
+    ],
+    "note": "arbor eyes tab"
   },
   "#/image/masks": {
-    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam.html",
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam (6).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-390.png"
   },
@@ -35,7 +39,7 @@
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-welcome-390.png"
   },
   "#/image/generate": {
-    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/grommet-sd-turbo/grommet.html",
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/grommet-sd-turbo/grommet (1).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-390.png"
   },
@@ -65,7 +69,11 @@
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/character/gimbal-initial-390.png"
   },
   "#/motion/gait": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "click": [
+      "body"
+    ],
+    "note": "hackle body tab"
   },
   "#/motion/lipsync": {
     "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/sonic/sonic-vrm-console.html",
@@ -76,24 +84,43 @@
     "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/dolly/DOLLY-How-to-Give-a-Tour (3).html"
   },
   "#/motion/motion-net": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "click": [
+      "body"
+    ],
+    "note": "hackle body tab"
   },
   "#/agents/senses": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "click": [
+      "sense"
+    ],
+    "note": "hackle sense tab"
   },
   "#/agents/drives": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "click": [
+      "brain"
+    ],
+    "note": "hackle brain tab"
   },
   "#/agents/cameras": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "note": "hackle yard, the first screen"
   },
   "#/agents/mover": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "note": "hackle yard, the first screen"
   },
   "#/agents/scenario": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "click": [
+      "tune"
+    ],
+    "note": "hackle tune tab"
   },
   "dog-simulator-public.html": {
-    "original": "~/Downloads/hackle (10).html"
+    "original": "~/Downloads/hackle (10).html",
+    "note": "hackle yard, the first screen"
   }
 }

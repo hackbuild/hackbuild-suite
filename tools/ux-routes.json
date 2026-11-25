@@ -1,0 +1,78 @@
+{
+  "#/": {
+    "layout": "home"
+  },
+  "#/chat/chat": {
+    "layout": "conversation",
+    "setup": "(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'say hi'); if (!b) throw new Error('no say hi button'); b.click() })()"
+  },
+  "#/chat/memory": {
+    "layout": "conversation"
+  },
+  "#/voice/transcribe": {
+    "layout": "drop-first"
+  },
+  "#/voice/speak": {
+    "layout": "form-frame"
+  },
+  "#/image/vision": {
+    "layout": "canvas-rail",
+    "setup": "(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'sample'); if (!b) throw new Error('no sample button'); b.click() })()"
+  },
+  "#/image/masks": {
+    "layout": "canvas-rail",
+    "setup": "(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'sample'); if (!b) throw new Error('no sample button'); b.click() })()"
+  },
+  "#/image/relief": {
+    "layout": "canvas-rail",
+    "setup": "(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === 'sample'); if (!b) throw new Error('no sample button'); b.click() })()"
+  },
+  "#/image/generate": {
+    "layout": "form-frame"
+  },
+  "#/character": {
+    "layout": "gate"
+  },
+  "#/rooms": {
+    "layout": "gate"
+  },
+  "#/motion/avatar": {
+    "layout": "stage-rack"
+  },
+  "#/motion/retarget": {
+    "layout": "stage-rack"
+  },
+  "#/motion/ik": {
+    "layout": "stage-rack"
+  },
+  "#/motion/gait": {
+    "layout": "stage-rack"
+  },
+  "#/motion/lipsync": {
+    "layout": "stage-rack"
+  },
+  "#/motion/motion-match": {
+    "layout": "stage-rack"
+  },
+  "#/motion/motion-net": {
+    "layout": "stage-rack"
+  },
+  "#/agents/senses": {
+    "layout": "stage-rack"
+  },
+  "#/agents/drives": {
+    "layout": "stage-rack"
+  },
+  "#/agents/cameras": {
+    "layout": "stage-rack"
+  },
+  "#/agents/mover": {
+    "layout": "stage-rack"
+  },
+  "#/agents/scenario": {
+    "layout": "stage-rack"
+  },
+  "dog-simulator-public.html": {
+    "layout": "stage-rack"
+  }
+}

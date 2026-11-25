@@ -2,11 +2,12 @@
 // beside its original's, labelled, for a reviewer to compare whole screens
 // (rebuild plan section 8). Reads the shots and routes ux-gate wrote, and the
 // route to original map in tools/ux-originals.json:
-//   { "<route>": { "original": "<html file>", "shot1440": "<png>", "shot390": "<png>", "note": "" } | null }
-// A route whose original has no shot gets one: the original HTML is served and
-// shot headless at 1440 and 390 with model hosts and weight files blocked, and
-// kept under --originals for the next run. Original HTML is untrusted data:
-// it is only loaded and shot.
+//   { "<route>": { "original": "<html file>", "shot1440": "<png>", "shot390": "<png>",
+//                  "click": ["<tab>"], "click390": ["<button>"], "note": "" } | null }
+// A width with no shot gets one: the original HTML is served and shot headless
+// with model hosts and weight files blocked, after pressing the `click` tabs
+// (click390 at 390 when it differs), and kept under --originals for the next
+// run. Original HTML is untrusted data: it is only loaded and shot.
 //
 //   node tools/contact-sheet.mjs --gate <ux-gate out dir> --out <dir> [--map tools/ux-originals.json] [--originals <dir>]
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -29,22 +30,32 @@ mkdirSync(originals, { recursive: true })
 const chrome = await launch({ prefix: 'contact-sheet-', blockModels: true })
 const unmapped = []
 
-/** Shoots an original HTML file at 1440 and 390 unless a shot is kept already. */
-async function shootOriginal(file) {
-  const stem = basename(file, '.html').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()
-  const shots = { 1440: join(originals, `${stem}-1440.png`), 390: join(originals, `${stem}-390.png`) }
-  if (existsSync(shots[1440]) && existsSync(shots[390])) return shots
+/**
+ * Shoots an original HTML file at one width, after pressing the buttons or
+ * tabs named in `click` (to reach the tab that matches a route), unless the
+ * shot is kept already.
+ */
+async function shootOriginal(file, width, click = []) {
+  const stem = [basename(file, '.html'), ...click].join(' ').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()
+  const shot = join(originals, `${stem}-${width}.png`)
+  if (existsSync(shot)) return shot
   const server = await serveDir(dirname(file))
   try {
-    for (const width of [1440, 390]) {
-      const height = width < 500 ? 844 : 900
-      const url = server.base + encodeURIComponent(basename(file))
-      const o = await openAt(chrome.browser, url, { width, height, base: server.base, block: true, settle: 2500 })
-      await o.shot(shots[width])
-      await o.page.close()
+    const url = server.base + encodeURIComponent(basename(file))
+    const o = await openAt(chrome.browser, url, { width, height: width < 500 ? 844 : 900, base: server.base, block: true, settle: 2500 })
+    for (const text of click) {
+      const found = await o.target.evaluate((t) => {
+        const b = [...document.querySelectorAll('button,[role=tab],[role=button],a')].find((x) => x.textContent.trim().toLowerCase() === t && x.getBoundingClientRect().width > 0)
+        b?.click()
+        return !!b
+      }, text.toLowerCase())
+      if (!found) console.log(`contact-sheet: ${basename(file)} at ${width}: no "${text}" to press`)
+      await new Promise((r) => setTimeout(r, 900))
     }
+    await o.shot(shot)
+    await o.page.close()
   } finally { server.close() }
-  return shots
+  return shot
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
@@ -60,7 +71,8 @@ try {
     if (entry) {
       o1440 = home(entry.shot1440)
       o390 = home(entry.shot390)
-      if (!o1440 && !o390) ({ 1440: o1440, 390: o390 } = await shootOriginal(home(entry.original)))
+      if (!o1440) o1440 = await shootOriginal(home(entry.original), 1440, entry.click)
+      if (!o390) o390 = await shootOriginal(home(entry.original), 390, entry.click390 ?? entry.click)
     } else unmapped.push(route)
     const mine = (w) => join(gate, `${report.name}-${slug(route)}-${w}.png`)
     const origLabel = entry ? `original: ${basename(home(entry.original))}${entry.note ? `, ${entry.note}` : ''}` : 'no original mapped'
