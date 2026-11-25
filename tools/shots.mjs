@@ -51,6 +51,8 @@ const SMALL = `(() => {
     if (!r.width || !r.height || s.visibility === 'hidden') continue
     if (s.display === 'inline') continue // a link inside a sentence: exempt under wcag 2.5.8
     if (el.getAttribute('aria-hidden') === 'true' && el.tabIndex < 0) continue // a hidden file input a button opens: not a target
+    const lab = el.tagName === 'INPUT' && el.closest('label') // a checkbox or radio whose label is the target
+    if (lab) { const lr = lab.getBoundingClientRect(); if (lr.width >= 44 && lr.height >= 44) continue }
     if (r.width < 44 || r.height < 44) bad.push((el.textContent || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 30) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height))
   }
   return bad
