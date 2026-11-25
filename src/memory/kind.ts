@@ -3,6 +3,7 @@
 // and carries a copy of its export (no vectors), so undo, workspace export
 // and a move to another browser carry the memory too. Framework free.
 import type { ExportData } from '@hackbuild/memory'
+import type { SealLock } from '@hackbuild/memory/seal'
 import type { DocKind } from '../workspace/kinds.ts'
 
 export const MEMORY_KIND = 'memory.store'
@@ -13,6 +14,10 @@ export interface MemoryBody {
   /** The memory store id: `hackbuild-memory:<store>` in IndexedDB. */
   store: string
   data: ExportData
+  /** A sealed store's lock record. Its export is then in `sealed`, and `data` is empty. */
+  lock?: SealLock
+  /** The export sealed with the store's key, base64, bound to the store id. */
+  sealed?: string
 }
 
 export const emptyData = (id: string): ExportData => ({ format: 'hackbuild-memory', version: 1, id, items: [], core: [] })

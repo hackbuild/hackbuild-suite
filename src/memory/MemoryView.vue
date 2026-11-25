@@ -17,7 +17,9 @@ import { logEvent, overlay, useComposer } from '../shell/shell.ts'
 import { docs, kinds, registerKind, useDocument, ws } from '../workspace/state'
 import { emptyData, MEMORY_KIND, memoryKind, newStore, readExport, type MemoryBody } from './kind.ts'
 import { ADD_KINDS, PINNED, pinCount, pinIndex, toEntries, traceEntries, traceHits } from './lines.ts'
-import { bump, EMBED_ID, lastUsed, memory, rev } from './store.ts'
+import { bump, EMBED_ID, knowLock, lastUsed, lockOf, memory, openExport, rev, sealExport, SealedStore } from './store.ts'
+import SealBox from './SealBox.vue'
+import type { ExportData } from '@hackbuild/memory'
 import how from '@hackbuild/memory/how'
 
 if (!kinds.get(MEMORY_KIND)) registerKind(memoryKind)
@@ -35,6 +37,17 @@ const weights = ref<Record<string, number> | null>(null)
 const storage = shallowRef<{ used: number | null; quota: number | null; persisted: boolean | null } | null>(null)
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+/** The store is sealed and its password was not given on this visit. */
+const locked = ref(false)
+
+/** The body for the store's export: plain, or sealed when the store has a lock. */
+async function bodyFor(store: string, data: ExportData): Promise<MemoryBody> {
+  const lock = await lockOf(store)
+  if (!lock) return { store, data }
+  return { store, data: emptyData(store), lock, sealed: await sealExport(store, data) }
+}
+/** The export a body holds, opened when sealed. */
+const heldOf = (b: MemoryBody): Promise<ExportData> => (b.sealed ? openExport<ExportData>(b.store, b.sealed) : Promise.resolve(b.data))
 
 async function refresh(): Promise<void> {
   const m = mem.value
@@ -50,7 +63,8 @@ async function commit(line: string): Promise<void> {
   const m = mem.value
   if (!m || !doc.doc.value) return
   const store = doc.doc.value.body.store
-  doc.edit(() => ({ store, data: m.export() }))
+  const next = await bodyFor(store, m.export())
+  doc.edit(() => next)
   bump()
   logEvent('note', line)
   await refresh()
@@ -60,19 +74,27 @@ async function commit(line: string): Promise<void> {
 async function attach(): Promise<void> {
   const d = doc.doc.value
   if (!d) return
+  if (d.body.lock) knowLock(d.body.store, d.body.lock)
   try {
     const m = await memory(d.body.store)
     mem.value = m
     failed.value = ''
+    locked.value = false
     const data = m.export()
-    const held = d.body.data
+    const held = await heldOf(d.body)
     if (!data.items.length && !data.core.length && (held.items.length || held.core.length)) await m.import(held)
-    else if (!same(data, held)) {
-      ws.change({ ...d, body: { store: d.body.store, data } })
+    else if (!same(data, held) || (!!(await lockOf(d.body.store)) !== !!d.body.sealed)) {
+      ws.change({ ...d, body: await bodyFor(d.body.store, data) })
       await ws.flush()
       await doc.open(d.id)
     }
   } catch (err) {
+    if (err instanceof SealedStore) {
+      mem.value = null
+      locked.value = true
+      all.value = []
+      return
+    }
     failed.value = `the memory core did not load: ${err instanceof Error ? err.message : String(err)}. the list still shows. search and add are off until you reload.`
     all.value = toEntries(d.body.data.items, d.body.data.core)
     return
@@ -85,8 +107,10 @@ watch(
   () => doc.doc.value?.body,
   async (b) => {
     const m = mem.value
-    if (!b || !m || doc.doc.value?.body.store !== b.store || same(m.export(), b.data)) return
-    await m.import(b.data)
+    if (!b || !m || doc.doc.value?.body.store !== b.store) return
+    const held = await heldOf(b)
+    if (same(m.export(), held)) return
+    await m.import(held)
     bump()
     await refresh()
   },
@@ -124,6 +148,7 @@ const pins = computed(() => (void all.value, mem.value?.core.lines ?? []))
 const mode = computed(() => (mem.value?.status.mode === 'hybrid' ? 'hybrid keyword and vector' : 'keyword only'))
 const modeLine = computed(() => {
   if (failed.value) return failed.value
+  if (locked.value) return 'this memory is sealed. give its password below.'
   if (!mem.value) return 'opening this memory.'
   if (mem.value.status.mode === 'keyword') return 'no embedder loaded. search matches words only. load the 23 mb embedder for meaning.'
   return hub.STUB ? 'stub embedder: hash vectors, nothing downloaded. it matches shared words, not meaning.' : 'embedder loaded: search matches meaning and words.'
@@ -210,6 +235,11 @@ const pickDoc = computed({
   get: () => doc.doc.value?.id ?? '',
   set: (id: string) => void doc.open(id).then(attach),
 })
+async function sealed(): Promise<void> {
+  await doc.open(doc.doc.value?.id)
+  await attach()
+}
+
 async function newMemory(): Promise<void> {
   const d = await doc.create('new memory')
   const store = newStore()
@@ -268,6 +298,9 @@ onMounted(async () => {
       <HbButton variant="ghost" size="sm" :disabled="!doc.canRedo.value" @click="doc.redo()">redo</HbButton>
     </HbToolbar>
     <HbCallout variant="info">{{ modeLine }} pinned: {{ pinCount(pins) }}, kept in every prompt.</HbCallout>
+    <HbPanel v-if="doc.doc.value" heading="seal">
+      <SealBox :store="doc.doc.value.body.store" id="mem-seal" @sealed="sealed" @opened="attach" />
+    </HbPanel>
 
     <HbMemoryPanel
       v-model:query="query"

@@ -4,7 +4,8 @@
 // loaded: a transformers.js feature extraction pipeline, or under ?stub a
 // hash embedder that downloads nothing. Without it recall is keyword only.
 import { shallowRef } from 'vue'
-import type { Core, Embedder, Memory, Recall, RecallTrace } from '@hackbuild/memory'
+import type { Core, Embedder, Memory, MemorySink, Recall, RecallTrace } from '@hackbuild/memory'
+import type { SealKey, SealLock } from '@hackbuild/memory/seal'
 import { core, coreState, provide } from '../cores.ts'
 import * as hub from '../models/hub.ts'
 import { CHAT_STORE } from './kind.ts'
@@ -57,6 +58,127 @@ async function currentEmbedder(l: Lib): Promise<Embedder | null> {
   }
 }
 
+// Sealed stores (design 2.5b): item text, metadata, vectors and kv are
+// sealed with a key from the password. The lock record sits plain in the
+// store's own kv under LOCK_KV, so any tool that opens the store knows it
+// is sealed, and in the character file (Profile.lock) and the memory
+// document, so it travels with them. The key is derived once and cached
+// for the page's life. There is no recovery.
+export const LOCK_KV = 'suite:lock'
+const sealLib = () => import('@hackbuild/memory/seal')
+const locks = new Map<string, SealLock>()
+/** Stores read as plain on this visit, so a chat turn does not reopen the database. */
+const plain = new Set<string>()
+/** Thrown by memory() for a sealed store whose password was not given on this visit. */
+export class SealedStore extends Error {
+  constructor(readonly store: string, readonly lock: SealLock) {
+    super('this memory is sealed. give its password to open it.')
+  }
+}
+/** Bumps when a store is sealed or opened with its password. */
+export const sealRev = shallowRef(0)
+
+async function innerSink(l: Lib, store: string): Promise<MemorySink | null> {
+  try {
+    return await l.indexedDbSink(store)
+  } catch {
+    return null
+  }
+}
+
+/** The lock of a store: given on this visit, else read from its kv. */
+export async function lockOf(store: string): Promise<SealLock | null> {
+  if (locks.has(store)) return locks.get(store)!
+  if (plain.has(store)) return null
+  const inner = await innerSink(await memLib(), store)
+  if (!inner) return null
+  try {
+    const lock = await inner.getKv<SealLock>(LOCK_KV)
+    if (lock) locks.set(store, lock)
+    else plain.add(store)
+    return lock ?? null
+  } finally {
+    inner.close()
+  }
+}
+
+/** 'plain', 'sealed' (no key on this visit) or 'open' (sealed, key held). */
+export async function sealState(store: string): Promise<'plain' | 'sealed' | 'open'> {
+  const lock = await lockOf(store)
+  if (!lock) return 'plain'
+  return (await sealLib()).cachedKey(lock) ? 'open' : 'sealed'
+}
+
+/** Know a store's lock from a file that carries it (a character, a memory document). */
+export function knowLock(store: string, lock: SealLock): void {
+  if (!locks.has(store)) locks.set(store, lock)
+}
+
+/** Open a sealed store with its password. Throws "wrong password." and names no more. */
+export async function unlockStore(store: string, password: string): Promise<SealKey> {
+  const lock = await lockOf(store)
+  if (!lock) throw new Error('this memory is not sealed.')
+  const s = await sealLib()
+  try {
+    const key = await s.deriveKey(password, lock)
+    drop(store)
+    sealRev.value += 1
+    return key
+  } catch (e) {
+    if (e instanceof s.SealError && e.code === 'wrong-password') throw new Error('wrong password. there is no recovery.')
+    throw e
+  }
+}
+
+/** Seal a plain store in place: its export moves under a new lock. Returns the lock to keep in the character file. */
+export async function sealStore(store: string, password: string): Promise<SealLock> {
+  if (!password) throw new Error('type a password to seal with.')
+  if (await lockOf(store)) throw new Error('this memory is sealed already.')
+  const l = await memLib()
+  const s = await sealLib()
+  const was = await memory(store)
+  const data = was.export()
+  const { lock } = await s.makeLock(password)
+  await was.sink.clear()
+  drop(store)
+  const inner = await innerSink(l, store)
+  if (inner) {
+    await inner.putKv(LOCK_KV, lock)
+    inner.close()
+  }
+  locks.set(store, lock)
+  plain.delete(store)
+  const m = await memory(store)
+  await m.import(data)
+  sealRev.value += 1
+  bump()
+  return lock
+}
+
+/** A store's export sealed for a document body, bound to the store id. */
+export async function sealExport(store: string, data: unknown): Promise<string> {
+  const lock = await lockOf(store)
+  const s = await sealLib()
+  const key = lock && s.cachedKey(lock)
+  if (!key) throw new SealedStore(store, lock!)
+  return s.toBase64(await s.seal(key, data, `store:${store}`))
+}
+
+/** Open a sealed export from a document body. */
+export async function openExport<T>(store: string, sealed: string): Promise<T> {
+  const lock = await lockOf(store)
+  const s = await sealLib()
+  const key = lock && s.cachedKey(lock)
+  if (!key) throw new SealedStore(store, lock!)
+  return s.open<T>(key, s.fromBase64(sealed), `store:${store}`)
+}
+
+function drop(store: string): void {
+  const had = open_.get(store)
+  if (had) void had.mem.then((m) => m.close(), () => {})
+  open_.delete(store)
+}
+
 const open_ = new Map<string, { embed: string; mem: Promise<Memory> }>()
 /** Bumps on every change through this module, so views read again. */
 export const rev = shallowRef(0)
@@ -71,7 +193,15 @@ export async function memory(store: string): Promise<Memory> {
   const had = open_.get(store)
   if (had && had.embed === key) return had.mem
   if (had) void had.mem.then((m) => m.close(), () => {})
-  const mem = core<Core>('memory').then((c) => l.open(store, { core: c, embed: e }))
+  const lock = await lockOf(store)
+  let sink: MemorySink | undefined
+  if (lock) {
+    const key = (await sealLib()).cachedKey(lock)
+    if (!key) throw new SealedStore(store, lock)
+    const inner = (await innerSink(l, store)) ?? l.memorySink()
+    sink = (await sealLib()).sealedSink(inner, key)
+  }
+  const mem = core<Core>('memory').then((c) => l.open(store, { core: c, embed: e, ...(sink ? { sink } : {}) }))
   open_.set(store, { embed: key, mem })
   mem.catch(() => open_.delete(store))
   return mem
@@ -83,6 +213,8 @@ const recalls = new Map<string, Recall>()
 
 /** Recall for a chat turn; the recall is kept so its trace can be shown later. */
 export async function recallFor(text: string, skipSaid: string[] = []): Promise<{ id: string; text: string }[]> {
+  // a sealed memory with no password on this visit recalls nothing
+  if ((await sealState(CHAT_STORE)) === 'sealed') return []
   const m = await memory(CHAT_STORE)
   if (!m.size) return []
   const r = await m.recall(text, { k: CHAT_K, skipSaid })

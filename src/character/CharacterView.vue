@@ -38,7 +38,9 @@ import { blobRef } from '../workspace/workspace.ts'
 import { addChatRuntimes } from '../chat/runtimes.ts'
 import { stubChat } from '../chat/stub.ts'
 import { addSpeakRuntimes, SYSTEM_ID } from '../speak/runtimes.ts'
-import { EMBED_ID } from '../memory/store.ts'
+import { CHAT_STORE } from '../memory/kind.ts'
+import { EMBED_ID, knowLock } from '../memory/store.ts'
+import SealBox from '../memory/SealBox.vue'
 import { characterKind, CHARACTER_KIND, CHIPS, greetingOf, profileFor, systemOf, newCard } from './kind.ts'
 import type { CharacterStage } from './stage.ts'
 import { BUILT_IN, cardSink, EXT, extOf, LENGTHS, loadPresets, personaOf, planOf, REGISTERS, savePresets, setExt, withPersona, type Length, type Plan, type Register, type TierKey } from './sheet.ts'
@@ -171,6 +173,8 @@ async function startVoice(): Promise<void> {
 
 // Memory: the embed row for hybrid recall; without it recall is keyword only.
 const memOn = computed(() => profileFor(card.value).memory.enabled)
+// A sealed memory's lock rides in the character file (Profile.lock).
+watch(() => profileFor(card.value).lock, (lock) => { if (lock) knowLock(CHAT_STORE, lock) }, { immediate: true })
 let memDead = false
 async function startMemory(): Promise<void> {
   set('memory', { state: 'loading', model: EMBED_ID, note: 'loading the memory model' })
@@ -951,6 +955,7 @@ onBeforeUnmount(() => {
           <div v-else-if="value === 'memory'" class="hb-stack">
             <HbToggleRow v-model="memOnModel" label="recall into each prompt" description="notes from the memory tool join the prompt." />
             <p class="hb-hint">{{ memOn ? `the last prompt carried ${lastTurn?.recalled ?? 0} notes. the notes live in the memory tool.` : 'memory is off: nothing is recalled.' }}</p>
+            <SealBox :store="CHAT_STORE" id="char-seal" @sealed="(lock) => editProfile((p) => { p.lock = lock })" />
           </div>
           <div v-else-if="value === 'moves'" class="hb-stack">
             <div class="hb-acts">
