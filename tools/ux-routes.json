@@ -74,6 +74,7 @@
   },
   "dog-simulator-public.html": {
     "layout": "stage-rack",
-    "rackTabs": [3, 7]
+    "rackTabs": [3, 7],
+    "entry": "setup"
   }
 }

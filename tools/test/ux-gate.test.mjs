@@ -38,3 +38,11 @@ test('verdicts follow the template numbers', () => {
   assert.equal(slug('#/chat/chat'), 'chat-chat')
   assert.equal(slug('#/'), 'home')
 })
+
+test('a declared setup panel is judged, not failed', () => {
+  const base = { viewport: { width: 1440, height: 900 }, bar: { height: 52, count: 1 }, controls: [], disabled: [], pink: ['throw'], subject: { share: 0.7, top: 52 }, rack: { widths: [380], tabs: 7, controls: 4 }, hscroll: 0, overlaps: [], words: [], modal: { label: 'setup', dismissed: 'closed by escape' } }
+  const ok = { label: 'setup', pinks: ['start, 30 mb'], controls: 9, pinkVisible: true, hscroll: false }
+  assert.equal(judge({ ...base, setup: ok }, 1440, 'stage-rack', { entry: 'setup' }).modal.pass, true)
+  assert.equal(judge({ ...base, setup: { ...ok, pinks: [] } }, 1440, 'stage-rack', { entry: 'setup' }).modal.pass, false)
+  assert.equal(judge({ ...base, setup: ok }, 1440).modal.pass, false)
+})

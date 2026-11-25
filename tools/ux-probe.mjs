@@ -37,7 +37,12 @@ export const LIMITS = { bar: 52, controls: 15, subjectShare: 0.6, phoneSubjectTo
 export function judge(m, width, layout = 'stage-rack', cfg = {}) {
   const wide = width >= 1000
   const v = {}
-  v.modal = m.modal ? { pass: false, value: `${m.modal.label} (${m.modal.dismissed})` } : { pass: true, value: 'none' }
+  if (cfg.entry === 'setup' && m.setup) {
+    // a declared setup panel is allowed on entry and judged as a screen of its own
+    const s = m.setup
+    v.modal = { pass: s.pinks.length === 1 && s.controls <= LIMITS.controls && s.pinkVisible && !s.hscroll,
+      value: `setup panel: ${s.pinks.length} pink, ${s.controls} controls, start ${s.pinkVisible ? 'in view' : 'below the fold'}${s.hscroll ? ', sideways scroll' : ''}` }
+  } else v.modal = m.modal ? { pass: false, value: `${m.modal.label} (${m.modal.dismissed})` } : { pass: true, value: 'none' }
   v.bar = !m.bar
     ? { pass: false, value: 'no bar' }
     : { pass: m.bar.height <= LIMITS.bar && m.bars === 1, value: `${Math.round(m.bar.height)} px, ${m.bars} bar${m.bars === 1 ? '' : 's'}` }
@@ -102,6 +107,32 @@ function modalProbe(close) {
     btn?.click()
   }
   return label(m.querySelector('h1,h2,h3,[class*="title"]') ?? m)
+}
+
+/** Judges a declared setup panel (data-ux="setup"): one pink, at most 15
+ * controls outside its data-ux="detail" list, the pink above the fold, no
+ * sideways scroll inside it. Returns null when the route shows none. */
+function setupProbe() {
+  const { H, rectOf, label, shown } = helpers()
+  const panel = document.querySelector('[data-ux~="setup"]')
+  if (!panel || !shown(panel)) return null
+  const root = getComputedStyle(document.documentElement)
+  const tmp = document.createElement('i')
+  tmp.style.color = root.getPropertyValue('--hb-pink').trim() ? 'var(--hb-pink)' : 'var(--pink)'
+  document.body.append(tmp)
+  const pinkRgb = getComputedStyle(tmp).color
+  tmp.remove()
+  const ctl = [...panel.querySelectorAll('button,input:not([type=hidden]),select,textarea,[role=button]')].filter(shown)
+  const pinks = ctl.filter((el) => el.matches('button,[role=button]') && getComputedStyle(el).backgroundColor === pinkRgb)
+  const outside = ctl.filter((el) => !el.closest('[data-ux~="detail"]'))
+  const r = pinks[0] ? rectOf(pinks[0]) : null
+  return {
+    label: label(panel.querySelector('h1,h2,h3,[class*="title"]') ?? panel),
+    pinks: pinks.map(label),
+    controls: outside.length,
+    pinkVisible: !!r && r.top >= 0 && r.bottom <= H,
+    hscroll: panel.scrollWidth - panel.clientWidth > 1,
+  }
 }
 
 /** Measures the screen. Clicks each rack tab last and clicks the first again. */
@@ -296,4 +327,10 @@ export const pageScript = (layout) => `(async () => {
 export const modalScript = (close) => `(() => {
   ${inline}
   return (${modalProbe.toString()})(${close})
+})()`
+
+/** Judges a declared setup panel; returns null when there is none. */
+export const setupScript = `(() => {
+  ${inline}
+  return (${setupProbe.toString()})()
 })()`

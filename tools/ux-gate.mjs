@@ -31,7 +31,10 @@
 // aside or *rack* class element on the right. Each result says which
 // detector fired, so a reader knows how far to trust it.
 //
-// A visible entry modal is its own failure; the gate then closes it (Escape,
+// A route with "entry": "setup" may open on one panel marked data-ux="setup",
+// judged on its own (one pink, at most 15 controls outside its data-ux="detail"
+// list, the pink above the fold, no sideways scroll), then dismissed as below.
+// Otherwise a visible entry modal is its own failure; the gate then closes it (Escape,
 // else its close button) and measures the screen under it. Subject area
 // counts only where hit tests reach the subject (overlays occlude it).
 // Markers are checked, not trusted: a subject with more than 3 controls is
@@ -51,7 +54,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { launch, openAt, serveDir } from './browse.mjs'
-import { CHECKS, LAYOUTS, judge, modalScript, pageScript, slug } from './ux-probe.mjs'
+import { CHECKS, LAYOUTS, judge, modalScript, pageScript, setupScript, slug } from './ux-probe.mjs'
 
 const argv = process.argv
 const arg = (k, d) => { const i = argv.indexOf(`--${k}`); return i > 0 ? argv[i + 1] : d }
@@ -100,9 +103,11 @@ try {
         const o = await openAt(chrome.browser, server.base + route, { width, height, base: server.base, block: true, settle: 600 })
         page = o.page
         await o.shot(join(out, r.shot)) // the first view as a visitor meets it, modal and all
+        const setupPanel = await o.target.evaluate(setupScript)
         const modal = await dismissModal(page, o.target)
         const m = await o.target.evaluate(pageScript(layout))
         m.modal = modal
+        m.setup = setupPanel
         Object.assign(r, { detectors: m.detectors, checks: judge(m, width, layout, layouts[route] ?? {}), measured: m, errors: o.errors, blocked: o.blocked.length })
         if (setup) {
           const l = { route, width, layout, state: 'loaded', shot: `${name}-${slug(route)}-loaded-${width}.png` }
