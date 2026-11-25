@@ -1,9 +1,5 @@
 import { defineTool, type ToolDef } from './define'
 
-// Every tool starts as the pending view and swaps its load() for its own
-// view in the item that builds it (BUILD-STATUS.md).
-const pending = () => import('../views/PendingTool.vue')
-
 export const TOOLS: ToolDef[] = [
   defineTool({ id: 'chat', group: 'chat', title: 'chat', job: 'talk to a model running in this tab', phase: 2, packages: ['models', 'weights', 'chat', 'converse'], load: () => import('../chat/ChatView.vue') }),
   defineTool({ id: 'memory', group: 'chat', title: 'memory', job: 'see, edit and forget what a character remembers', phase: 2, packages: ['memory', 'models'], load: () => import('../memory/MemoryView.vue') }),
@@ -14,7 +10,7 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'relief', group: 'image', title: 'relief', job: 'turn a photo into a printable relief', phase: 3, packages: ['vision', 'depth-mesh'], load: () => import('../relief/ReliefView.vue') }),
   defineTool({ id: 'generate', group: 'image', title: 'generate', job: 'make images from a prompt', phase: 3, packages: ['imagegen', 'models'], load: () => import('../generate/GenerateView.vue') }),
   defineTool({ id: 'character', group: 'character', title: 'character', job: 'talk with a character that sees, speaks and remembers', phase: 4, packages: ['character', 'converse', 'speak', 'avatar-host', 'memory'], load: () => import('../character/CharacterView.vue') }),
-  defineTool({ id: 'room', group: 'rooms', title: 'room', job: 'watch an agent live in a room and inspect its mind', phase: 4, packages: ['agent', 'act', 'senses', 'drives'], load: pending }),
+  defineTool({ id: 'room', group: 'rooms', title: 'room', job: 'watch an agent live in a room and inspect its mind', phase: 4, packages: ['agent', 'chat', 'senses', 'memory', 'avatar-host'], load: () => import('../room/RoomView.vue') }),
   defineTool({ id: 'avatar', group: 'motion', title: 'avatar', job: 'load any character file and inspect it', phase: 5, packages: ['avatar', 'avatar-host', 'tunables'], load: () => import('../avatar/AvatarView.vue') }),
   defineTool({ id: 'retarget', group: 'motion', title: 'retarget', job: 'put a bvh or vmd clip on your character', phase: 5, packages: ['retarget', 'rig', 'avatar-host'], load: () => import('../retarget/RetargetView.vue') }),
   defineTool({ id: 'ik', group: 'motion', title: 'ik', job: 'pose limbs by dragging targets', phase: 5, packages: ['ik', 'avatar-host'], load: () => import('../ik/IkView.vue') }),

@@ -26,7 +26,7 @@ export const router = createRouter({
     ...groupRoutes,
     // Lab pages are layout checks, not tools: they stay out of the nav and
     // the palette and draw their own shell (meta.bare).
-    // A group single file carries it only in rooms, where the room tools will land.
+    // A group single file carries it only in rooms, beside the room tool.
     ...(__GROUP__ && __GROUP__ !== 'rooms' ? [] : [{ path: '/lab/phone-stage', name: 'lab-phone-stage', component: () => import('./lab/PhoneStageView.vue'), meta: { bare: true } }]),
     { path: '/:rest(.*)*', name: 'missing', component: () => import('./views/MissingView.vue') },
   ],
