@@ -5,7 +5,10 @@ import {
   BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, Plane, Raycaster, SphereGeometry, Vector2, Vector3,
   type Camera, type Object3D,
 } from 'three'
-import { propDef, type Placed } from './props.ts'
+import { propDef, type Placed, type PropDef } from './props.ts'
+
+/** What a placed thing is made of; the props list by default, a tool may size its own (mover). */
+export type DefOf = (t: Placed) => PropDef | undefined
 
 export class Room {
   readonly group = new Group()
@@ -14,7 +17,10 @@ export class Room {
   private floor = new Plane(new Vector3(0, 1, 0), 0)
   private hit = new Vector3()
 
-  constructor(parent: Object3D, things: readonly Placed[]) {
+  private defOf: DefOf
+
+  constructor(parent: Object3D, things: readonly Placed[], defOf: DefOf = (t) => propDef(t.label)) {
+    this.defOf = defOf
     this.group.name = 'agents room'
     parent.add(this.group)
     this.set(things)
@@ -30,18 +36,29 @@ export class Room {
       this.meshes.delete(label)
     }
     for (const t of things) {
-      const d = propDef(t.label)
+      const d = this.defOf(t)
       if (!d) continue
+      const shape = `${d.shape} ${d.w} ${d.h} ${d.d} ${d.color}`
       let m = this.meshes.get(t.label)
+      if (m && m.userData.shape !== shape) {
+        // resized in place: a new mesh for the new size
+        this.group.remove(m)
+        m.geometry.dispose()
+        ;(m.material as MeshStandardMaterial).dispose()
+        this.meshes.delete(t.label)
+        m = undefined
+      }
       if (!m) {
         const g = d.shape === 'ball' ? new SphereGeometry(d.w / 2, 20, 14) : d.shape === 'cyl' ? new CylinderGeometry(d.w / 2, d.w / 2, d.h, 20) : new BoxGeometry(d.w, d.h, d.d)
         m = new Mesh(g, new MeshStandardMaterial({ color: d.color, roughness: 0.7 }))
         m.name = t.label
         m.userData.label = t.label
+        m.userData.shape = shape
         this.group.add(m)
         this.meshes.set(t.label, m)
       }
       m.position.set(t.x, d.h / 2, t.z)
+      m.rotation.y = t.turn ?? 0
       m.updateMatrixWorld(true)
     }
   }

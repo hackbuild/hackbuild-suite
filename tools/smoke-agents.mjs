@@ -6,8 +6,15 @@
 //   drives: with the transport paused, a restart and 1500 steps twice give
 //   the same trace hash; the needs change over the run; an injected event
 //   lands; the run exports as csv and as a trace whose hash matches.
+//   cameras: each rig chip switches the rig and moves the camera; a drag
+//   on the stage turns the orbit; split draws two viewports and says why
+//   it cannot with no second target; a shake kicks and decays to rest.
+//   mover: on a cleared world a wall placed by tap stands between the body
+//   and a tapped goal; the body walks round it to the goal with no step
+//   inside the wall; a goal tapped on the wall says so; the world is saved,
+//   and after a reload the wall is back where it stood.
 // Any request off file:// or console error fails the run.
-//   npm run build:single && node tools/smoke-agents.mjs senses|drives
+//   npm run build:single && node tools/smoke-agents.mjs senses|drives|cameras|mover
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -15,7 +22,7 @@ import { pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
 
 const mode = process.argv[2]
-if (mode !== 'senses' && mode !== 'drives') throw new Error('usage: smoke-agents.mjs senses|drives')
+if (!['senses', 'drives', 'cameras', 'mover'].includes(mode)) throw new Error('usage: smoke-agents.mjs senses|drives|cameras|mover')
 const name = `smoke-${mode}`
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const file = resolve('dist/single/index.html')
@@ -57,7 +64,129 @@ try {
   }
 
   let detail = ''
-  if (mode === 'senses') {
+  const caption = () => page.$eval('.hb-viewport', (e) => e.textContent)
+  // the stage menu (P-ROOM-2): a right click over a thing, then an item by its words
+  const menuPick = async (pt, item) => {
+    await page.mouse.click(pt.x, pt.y, { button: 'right' })
+    await wait(250)
+    const got = await page.evaluate((t) => {
+      const m = document.querySelector('.hb-ctx:not([hidden])')
+      const b = m && [...m.querySelectorAll('button')].find((x) => x.textContent.trim() === t)
+      b?.click()
+      return m ? { title: m.querySelector('.hb-ctx-title')?.textContent ?? '', items: [...m.querySelectorAll('button')].map((x) => x.textContent.trim()) } : null
+    }, item)
+    if (!got || !got.items.includes(item)) fail(`the stage menu did not open with ${item}: ${JSON.stringify(got)}`)
+    await wait(250)
+    return got
+  }
+  const chip = (sel, text) => page.evaluate((s, t) => [...document.querySelectorAll(`${s} button`)].find((b) => b.textContent.trim().replace(/\d$/, '') === t)?.click(), sel, text)
+  if (mode === 'cameras') {
+    const pos = () => h((c) => ({ ...c.live, ...c.rig() }))
+    const seen = []
+    for (const r of ['follow', 'orbit', 'first person', 'group']) {
+      await chip('[data-rigs]', r)
+      await wait(700)
+      const p = await pos()
+      if (p.rig !== r || p.drawn !== 1) fail(`the ${r} chip gave rig ${p.rig}, ${p.drawn} viewports`)
+      if (seen.some((q) => Math.hypot(q.x - p.x, q.y - p.y, q.z - p.z) < 0.3)) fail(`the ${r} camera stands where another rig put it: ${JSON.stringify(p)} after ${JSON.stringify(seen)}`)
+      seen.push(p)
+    }
+    if (!(seen[2].y > 1 && seen[2].y < 2)) fail(`first person is not at eye height: ${seen[2].y}`)
+    // touch orbit: a drag across the stage turns it
+    await chip('[data-rigs]', 'orbit')
+    await wait(300)
+    const y0 = await h((c) => c.rig().yaw)
+    const box = await page.$eval('.hb-viewport-host', (e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width * 0.3, y: r.y + r.height * 0.3, w: r.width } })
+    await page.touchscreen.touchStart(box.x, box.y)
+    for (let i = 1; i <= 6; i++) { await page.touchscreen.touchMove(box.x + i * 15, box.y); await wait(16) }
+    await page.touchscreen.touchEnd()
+    const y1 = await h((c) => c.rig().yaw)
+    if (!(Math.abs(y1 - y0) > 0.2)) fail(`a drag did not turn the orbit: yaw ${y0} then ${y1}`)
+    // split with two targets, then without
+    await page.click('[data-split]')
+    await wait(500)
+    const sp = await pos()
+    if (!sp.split || sp.drawn !== 2) fail(`split drew ${sp.drawn} viewports`)
+    await page.click('[data-second]')
+    await wait(400)
+    await page.click('[data-split]')
+    await wait(400)
+    const one = await pos()
+    if (one.split || one.drawn !== 1 || !(await caption()).includes('no second target. split view needs two.')) fail(`split with one target: ${one.drawn} viewports, caption ${await caption()}`)
+    await page.click('[data-second]')
+    // shake: a kick, then the amplitude decays to rest
+    await page.click('[data-shake]')
+    await wait(60)
+    const a0 = await h((c) => c.rig().amp)
+    let a1 = a0
+    for (let i = 0; i < 40 && a1 > 0; i++) { await wait(100); a1 = await h((c) => c.rig().amp) }
+    if (!(a0 > 0.05) || a1 !== 0) fail(`the shake did not kick and decay: ${a0} then ${a1}`)
+    detail = `four rigs at four camera spots, first person at ${seen[2].y.toFixed(2)} m; a drag turned the orbit by ${(y1 - y0).toFixed(2)} rad; split drew 2 viewports, 1 with no second target; shake ${a0.toFixed(3)} m decayed to 0`
+  } else if (mode === 'mover') {
+    const st = () => h((m) => m.state())
+    const tap = async (x, z) => {
+      const p = await h((m, a, b) => m.screenOf(a, b), x, z)
+      const ok = await page.evaluate((a, b) => !!document.elementFromPoint(a, b)?.closest('.hb-viewport-host'), p.x, p.y)
+      if (!ok) fail(`the floor at ${x}, ${z} is not on the stage at ${p.x}, ${p.y}: ${await page.evaluate((a, b) => { const e = document.elementFromPoint(a, b); return (e?.className ?? 'none') + ' ' + JSON.stringify(document.querySelector('.hb-viewport-host').getBoundingClientRect()) }, p.x, p.y)}`)
+      await page.touchscreen.tap(p.x, p.y)
+      await wait(200)
+    }
+    await page.evaluate(() => [...document.querySelectorAll('[data-pane="world"] button')].find((b) => b.textContent.trim() === 'clear')?.click())
+    // the view eases out to the whole room first; a touch anywhere shows the pad on a phone
+    const tb = await page.$eval('[data-place]', (e) => { const r = e.getBoundingClientRect(); return { x: r.right - 4, y: r.top + 4 } })
+    await page.touchscreen.tap(tb.x, tb.y)
+    await wait(2500)
+    // a direction where the wall and the goal both show on open stage, clear of the pad and the overlays
+    const onStage = async (x, z) => {
+      const p = await h((m, a, b) => m.screenOf(a, b), x, z)
+      return page.evaluate((a, b) => !!document.elementFromPoint(a, b)?.closest('.hb-viewport-host'), p.x, p.y)
+    }
+    let dir = null
+    for (const [dx, dz] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+      const pts = [[0, 1.4], [0.1, 2.6], [0.5, 1.4], [-0.5, 1.4]].map(([l, d]) => [dx * d + dz * l, dz * d + dx * l])
+      if ((await Promise.all(pts.map(([x, z]) => onStage(x, z)))).every(Boolean)) { dir = [dx, dz]; break }
+    }
+    if (!dir) fail(`no direction from the body shows both the wall and the goal on the stage: camera ${await h((m) => m.camera())}, ${JSON.stringify(await h((m) => [m.screenOf(0, 2.6), m.screenOf(0, -2.6), m.screenOf(2.6, 0), m.screenOf(-2.6, 0)]))}`)
+    const [dx, dz] = dir
+    const at = (l, d) => [dx * d + dz * l, dz * d + dx * l]
+    if (dx) await page.click('[data-along]')
+    await chip('[data-place]', 'wall')
+    await tap(...at(0, 1.4))
+    const items = await h((m) => JSON.parse(JSON.stringify(m.world.items)))
+    const wall = items.find((t) => t.kind === 'wall')
+    const want = at(0, 1.4)
+    if (items.length !== 1 || !wall || Math.abs(wall.x - want[0]) > 0.25 || Math.abs(wall.z - want[1]) > 0.25) fail(`the tap did not place a wall at ${want}: ${JSON.stringify(items)}`)
+    const ew = wall.turn ? wall.d : wall.w
+    const ed = wall.turn ? wall.w : wall.d
+    await chip('[data-place]', 'goal')
+    await tap(wall.x, wall.z)
+    if (!(await caption()).includes('the goal is inside a wall. click open floor.')) fail(`a goal on the wall did not say so: ${await caption()}`)
+    const goal = at(0.1, 2.6)
+    await tap(...goal)
+    const s0 = await st()
+    if (s0.waypoint === 'none') fail(`the goal was not taken: ${await caption()}`)
+    for (let i = 0; i < 200; i++) { if ((await h((m) => m.live.arrived)) > 0) break; await wait(100) }
+    const end = await st()
+    if (Math.hypot(end.x - goal[0], end.z - goal[1]) > 0.5) fail(`the body did not reach the goal: it stands at ${end.x}, ${end.z}; ${end.mode}, ${end.why}`)
+    const trace = await h((m) => m.trace())
+    const inWall = trace.filter(([x, z]) => Math.abs(x - wall.x) < ew / 2 + 0.2 && Math.abs(z - wall.z) < ed / 2 + 0.2)
+    if (inWall.length) fail(`${inWall.length} steps went through the wall, first ${inWall[0]}`)
+    await page.click('[data-save]')
+    await wait(400)
+    if (!(await caption()).includes('world saved: 1 thing.')) fail(`save did not say so: ${await caption()}`)
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForFunction(() => document.querySelector('.hb-viewport-host')?.mover, { timeout: 20000 })
+    await wait(600)
+    const back = await h((m) => JSON.parse(JSON.stringify(m.world.items)))
+    if (back.length !== 1 || back[0].label !== wall.label || back[0].x !== wall.x || back[0].z !== wall.z) fail(`the reload did not bring the world back: ${JSON.stringify(back)}`)
+    await page.evaluate(() => document.querySelector('.hb-viewport').scrollIntoView({ block: 'start' }))
+    await wait(2500)
+    const wp = await h((m, a, b) => m.screenOf(a, b), back[0].x, back[0].z)
+    await menuPick(wp, 'turn it')
+    const turned = await h((m) => m.world.items[0].turn)
+    if (turned === back[0].turn) fail('"turn it" from the stage menu did not turn the wall')
+    detail = `the body walked round ${wall.label} to the goal in ${trace.length} steps, none inside the wall; ends ${Math.hypot(end.x - goal[0], end.z - goal[1]).toFixed(2)} m from the goal; the world came back after a reload; the stage menu turned the wall`
+  } else if (mode === 'senses') {
     // the top view puts the floor in front of and behind the agent on screen
     await page.evaluate(() => [...document.querySelectorAll('.hb-cams button')].find((b) => b.textContent.trim().startsWith('top'))?.click())
     await wait(300)
@@ -102,7 +231,11 @@ try {
     if (!feed.includes('see') || !feed.includes('lost')) fail(`the sense feed has no see and lost tags: ${feed.join(',')}`)
     const csv = readFileSync(await exportAs(page, 'sense feed', '.csv'), 'utf8').trim().split('\n')
     if (csv[0] !== 't,kind,text' || csv.length < 3) fail(`the feed csv is not whole: ${csv.slice(0, 2)}`)
-    detail = `in view "${seen}", then seen earlier "${earlier}"; feed ${feed.length} events, csv ${csv.length - 1} rows`
+    const bp = await h((s) => { const b = s.opts.things.find((t) => t.label === 'ball'); return s.screenOf(b.x, b.z) })
+    const menu = await menuPick(bp, 'where is it?')
+    const said = await h((s) => s.live.feed.filter((e) => e.kind === 'say').map((e) => e.text))
+    if (menu.title !== 'ball' || !said.some((l) => l.startsWith('"where is the ball":'))) fail(`the menu sentence did not reach the feed: ${JSON.stringify(menu)} ${JSON.stringify(said)}`)
+    detail = `in view "${seen}", then seen earlier "${earlier}"; feed ${feed.length} events, csv ${csv.length - 1} rows; the menu said ${said[0]}`
   } else {
     await page.click('.hb-transport button[aria-label="pause"]')
     await wait(200)

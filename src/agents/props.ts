@@ -40,6 +40,8 @@ export interface Placed {
   label: string
   x: number
   z: number
+  /** Turn about the vertical, radians; none for the room props. */
+  turn?: number
 }
 
 /** Size a sighting reads: the largest side, meters. */

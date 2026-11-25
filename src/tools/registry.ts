@@ -24,7 +24,7 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'motion-net', group: 'motion', title: 'motion-net', job: 'run the neural quadruped gait', phase: 5, packages: ['motion-net', 'weights', 'gait'], load: () => import('../motionnet/MotionNetView.vue') }),
   defineTool({ id: 'senses', group: 'agents', title: 'senses', job: 'see what an agent can perceive', phase: 5, packages: ['senses'], load: () => import('../senses/SensesView.vue') }),
   defineTool({ id: 'drives', group: 'agents', title: 'drives', job: 'watch needs rise and choices get made', phase: 5, packages: ['drives'], load: () => import('../drives/DrivesView.vue') }),
-  ...['cameras', 'mover', 'scenario'].map((id) =>
-    defineTool({ id, group: 'agents', title: id, job: `${id} for embodied agents`, phase: 5, packages: [id], load: pending }),
-  ),
+  defineTool({ id: 'cameras', group: 'agents', title: 'cameras', job: 'try every camera rig on a moving target', phase: 5, packages: ['cameras'], load: () => import('../cameras/CamerasView.vue') }),
+  defineTool({ id: 'mover', group: 'agents', title: 'mover', job: 'steer a body through a world with collisions', phase: 5, packages: ['mover'], load: () => import('../mover/MoverView.vue') }),
+  defineTool({ id: 'scenario', group: 'agents', title: 'scenario', job: 'scenario for embodied agents', phase: 5, packages: ['scenario'], load: pending }),
 ]

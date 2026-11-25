@@ -43,7 +43,9 @@
     "smoke:motionmatch": "node tools/smoke-locomotion.mjs motionmatch",
     "smoke:motionnet": "node tools/smoke-motionnet.mjs",
     "smoke:senses": "node tools/smoke-agents.mjs senses",
-    "smoke:drives": "node tools/smoke-agents.mjs drives"
+    "smoke:drives": "node tools/smoke-agents.mjs drives",
+    "smoke:cameras": "node tools/smoke-agents.mjs cameras",
+    "smoke:mover": "node tools/smoke-agents.mjs mover"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
