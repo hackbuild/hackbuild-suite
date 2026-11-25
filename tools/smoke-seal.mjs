@@ -138,6 +138,14 @@ try {
   await has(page, 'there is no recovery').catch(() => fail('the export panel does not say there is no recovery'))
   await fill(page, '#ws-seal-pw', PW)
   await fill(page, '#ws-seal-pw2', PW)
+  // the export drawer sits inside the viewport at 1024 once its 0.25 s slide (vendor css) ends
+  const edge = await page.evaluate(async () => {
+    const p = document.querySelector('.hb-export').closest('.hb-drawer-panel')
+    await Promise.all(p.getAnimations().map((a) => a.finished))
+    const d = p.getBoundingClientRect()
+    return { left: Math.round(d.left), right: Math.round(d.right), width: innerWidth }
+  })
+  if (edge.left < 0 || edge.right > edge.width) fail(`the export drawer runs off the page: ${edge.left} to ${edge.right} of ${edge.width} px`)
   if (shots) await page.screenshot({ path: join(shots, 'export-sealed-1024.png') })
   await click(page, '.hb-export button', 'export .hbsuite.zip')
   const zipPath = await waitFile('.hbsuite.zip')
