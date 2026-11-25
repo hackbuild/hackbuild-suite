@@ -453,6 +453,7 @@ onBeforeUnmount(() => {
       </template>
       <template #above>
         <HbContextMeter :segments="segments" :budget="budget" @new="newChat" @trim="trim" />
+        <p v-if="micState !== 'unsupported'" class="hb-hint" data-dictation-privacy>dictation uses the browser recognizer. it may send your audio to the browser maker's service.</p>
       </template>
     </HbChat>
     <HbDrawer v-model="traceOpen" side="right" size="sm" label="memory used">

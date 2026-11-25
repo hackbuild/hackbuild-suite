@@ -146,6 +146,8 @@ try {
   await phone.$eval('.hb-composer textarea', (e) => { e.value = ''; e.dispatchEvent(new Event('input', { bubbles: true })) })
   await phone.focus('.hb-composer textarea')
   await phone.keyboard.type('note:')
+  const privacy = await phone.$eval('[data-dictation-privacy]', (e) => (e.offsetParent ? e.textContent : '')).catch(() => '')
+  if (!/browser maker/.test(privacy)) fail('no visible privacy line by the dictation mic')
   await phone.$eval('.hb-composer .hb-mic-btn', (b) => b.click())
   const box = () => phone.$eval('.hb-composer textarea', (e) => e.value)
   await phone.waitForFunction(() => /^note: what is( on)?$/.test(document.querySelector('.hb-composer textarea').value), { timeout: 5000 })
