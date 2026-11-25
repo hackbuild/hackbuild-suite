@@ -11,3 +11,6 @@ if (__SINGLE__) await import('@virgilvox/hackbuild-ui/fonts-inline.css')
 else await import('@virgilvox/hackbuild-ui/fonts-local.css')
 
 createApp(App).use(router).mount('#app')
+
+// Hosted only: the isolation worker for wasm threads (design 5 item 10).
+if (!__SINGLE__) void import('./shell/isolation').then((m) => m.startIsolation())

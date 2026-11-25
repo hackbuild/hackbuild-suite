@@ -27,6 +27,8 @@ import { registerTranscript } from './register.ts'
 import SendTo from '../shell/SendTo.vue'
 import type { SendOffer } from '../workspace/sendto'
 import { addTranscribeRuntimes, provideDsp } from './runtimes.ts'
+import { threadsOffWhy } from '../shell/isolation.ts'
+import { wasmThreads } from '@hackbuild/devices'
 import how from '@hackbuild/transcribe/how'
 
 registerTranscript()
@@ -61,10 +63,11 @@ const picked = ref<string | null>(null)
 const preset = computed(() => {
   const e = hub.env.value
   if (!e) return { id: 'whisper-base.en', why: 'checking this machine.' }
-  if (e.threads <= 1) return { id: 'whisper-tiny.en', why: 'no threads on this host. whisper runs on one core and will be slow. tiny is selected.' }
+  const n = wasmThreads(e)
+  if (n <= 1) return { id: 'whisper-tiny.en', why: `threads: off here, ${threadsOffWhy() ?? 'this machine has one core'}. whisper runs on one core and will be slow. tiny is selected.` }
   return e.webgpu
     ? { id: defaultTranscribeId(true), why: 'webgpu adapter found, so large-v3-turbo, as the earlier tool chose.' }
-    : { id: defaultTranscribeId(false), why: 'no webgpu adapter, so base.en on cpu, as the earlier tool chose.' }
+    : { id: defaultTranscribeId(false), why: `no webgpu adapter, so base.en on ${n} wasm threads, as the earlier tool chose.` }
 })
 const rec = computed<ModelRecord | undefined>(() => asrRecords.value.find((r) => r.id === (picked.value ?? preset.value.id)) ?? asrRecords.value[0])
 const modelId = computed({ get: () => rec.value?.id ?? '', set: (v: string) => { picked.value = v } })

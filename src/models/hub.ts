@@ -12,7 +12,7 @@ import {
   CATALOG, HubError, PRESETS, SLOTS, budgetFor, createHub, createRegistry, fitOf, presetTotal, suggestDefaults,
   type Capability, type Factory, type FitResult, type HubStatus, type ModelRecord, type Slot,
 } from '@hackbuild/models'
-import { humanError, loadTransformers, tjsProvider } from '@hackbuild/devices'
+import { humanError, loadTransformers, tjsProvider, wasmThreads } from '@hackbuild/devices'
 import type {
   HbCap, HbCustomEntry, HbModelStatus, HbRackPreset, HbRackSlot, HbRackSlotState, HbReasonRow, HbResident,
   HbStorage, HbStoredWeight,
@@ -21,6 +21,7 @@ import { customId, type CustomCheck, type CustomMode, type CustomValues } from '
 import { createEngine } from '@hackbuild/chat'
 import { transformersDriver, type TextGenerationLike, type TransformersModule } from '@hackbuild/chat/transformers'
 import { jobs, logEvent } from '../shell/shell.ts'
+import { threadsOffWhy } from '../shell/isolation.ts'
 
 const MB = 1024 * 1024
 export const STUB = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stub')
@@ -153,7 +154,9 @@ export const machine = computed(() => {
   const parts = [e.webgpu ? 'webgpu' : 'no webgpu adapter']
   if (e.adapter) parts.push(`${e.adapter.vendor} ${e.adapter.architecture}`.trim())
   if (e.f16) parts.push('shader-f16')
-  parts.push(`${e.threads} wasm thread${e.threads === 1 ? '' : 's'}`)
+  const n = wasmThreads(e)
+  const off = threadsOffWhy()
+  parts.push(n > 1 ? `${n} wasm threads, cross origin isolated` : `threads: off here, ${off ?? 'this machine has one core'}`)
   parts.push(e.deviceMemoryGB ? `${e.deviceMemoryGB} gb memory or more` : 'memory unknown')
   return parts.join(', ')
 })

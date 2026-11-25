@@ -1,10 +1,13 @@
 // Shared settings (design 2.3): one schema, rendered by HbSettingsForm,
 // kept in the workspace database. Each tool adds its own section in the
 // item that builds it.
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defaultsOf, type SettingDef, type SettingLevel, type SettingValues } from '@virgilvox/hackbuild-ui/vanilla'
 import type { HbSettingsSection } from '@virgilvox/hackbuild-ui'
 import { kvGet, kvPut } from '../workspace/db'
+import { bindIsolationSwitch } from './isolation'
+
+const single = typeof __SINGLE__ !== 'undefined' && __SINGLE__
 
 export const SECTIONS: HbSettingsSection[] = [
   { key: 'suite', label: 'suite', note: 'how the shell looks and behaves.' },
@@ -17,6 +20,7 @@ export const SCHEMA: SettingDef[] = [
   { section: 'suite', key: 'level', type: 'seg', label: 'disclosure', why: 'guided hides sampling, device and model ladder controls. raising it changes nothing until you change a control.', default: 'guided', options: ['guided', 'standard', 'expert'] },
   { section: 'suite', key: 'view', type: 'seg', label: 'default view', why: 'where a tool with a stage and a chat opens.', default: 'split', options: ['stage', 'split', 'chat'] },
   { section: 'suite', key: 'reducedMotion', type: 'switch', label: 'reduce motion', why: 'stages stop idle motion and draw on change only. on by itself when the system asks for it.', default: false },
+  ...(single ? [] : [{ section: 'suite', key: 'isolation', type: 'switch', label: 'wasm threads', why: 'a service worker adds the cross origin isolation headers this host leaves out, so wasm runs on several threads. it never caches weights. changing it reloads the page once.', default: true } satisfies SettingDef]),
   { section: 'suite', key: 'keyHints', type: 'switch', label: 'key hints', why: 'prints the key beside buttons that have one.', default: true },
   { section: 'brain', key: 'temperature', type: 'range', label: 'temperature', why: 'higher picks less likely words. above 1 drifts.', default: 0.7, min: 0, max: 2, step: 0.05, applies: 'next reply', level: 'standard' },
   { section: 'brain', key: 'topP', type: 'range', label: 'top p', why: 'keeps only the likeliest words that add up to this share.', default: 0.9, min: 0.05, max: 1, step: 0.05, applies: 'next reply', level: 'standard' },
@@ -46,4 +50,5 @@ export async function loadSettings(): Promise<void> {
     /* storage blocked: the defaults hold for this visit */
   }
   watch(settings, (v) => kvPut(KEY, { ...v }).catch(() => undefined), { deep: true })
+  bindIsolationSwitch(computed(() => settings.value.isolation))
 }

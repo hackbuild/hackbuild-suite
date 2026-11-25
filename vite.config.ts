@@ -45,6 +45,10 @@ export default defineConfig(({ mode }) => {
   const single = mode === 'single' || !!group
   return {
     base: './',
+    // public/ holds the isolation service worker (design 5 item 10), for the
+    // hosted build only, at the root so its scope covers the page. The single
+    // file builds never carry it: file:// has no service workers.
+    publicDir: single ? false : 'public',
     plugins: single ? [unusedWasmUrl, ...(group ? [onlyGroup(group)] : []), vue(), viteSingleFile({ removeViteModuleLoader: true })] : [vue()],
     // a library's fold, packages/<name>/how.ts in its tarball (design D8);
     // the exports map leaves it out, so it resolves by path
