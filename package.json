@@ -35,7 +35,8 @@
     "smoke:character": "node tools/smoke-character.mjs",
     "smoke:twin": "node tools/smoke-twin.mjs",
     "smoke:toolbar": "node tools/smoke-toolbar.mjs",
-    "smoke:avatar": "node tools/smoke-avatar.mjs"
+    "smoke:avatar": "node tools/smoke-avatar.mjs",
+    "smoke:retarget": "node tools/smoke-retarget.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",

@@ -16,7 +16,8 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'character', group: 'character', title: 'character', job: 'talk with a character that sees, speaks and remembers', phase: 4, packages: ['character', 'converse', 'speak', 'avatar-host', 'memory'], load: () => import('../character/CharacterView.vue') }),
   defineTool({ id: 'room', group: 'rooms', title: 'room', job: 'watch an agent live in a room and inspect its mind', phase: 4, packages: ['agent', 'act', 'senses', 'drives'], load: pending }),
   defineTool({ id: 'avatar', group: 'motion', title: 'avatar', job: 'load any character file and inspect it', phase: 5, packages: ['avatar', 'avatar-host', 'tunables'], load: () => import('../avatar/AvatarView.vue') }),
-  ...['retarget', 'ik', 'gait', 'lipsync', 'motion-match', 'motion-net'].map((id) =>
+  defineTool({ id: 'retarget', group: 'motion', title: 'retarget', job: 'put a bvh or vmd clip on your character', phase: 5, packages: ['retarget', 'rig', 'avatar-host'], load: () => import('../retarget/RetargetView.vue') }),
+  ...['ik', 'gait', 'lipsync', 'motion-match', 'motion-net'].map((id) =>
     defineTool({ id, group: 'motion', title: id, job: `${id} for 3d characters`, phase: 5, packages: [id], load: pending }),
   ),
   ...['senses', 'drives', 'cameras', 'mover', 'scenario'].map((id) =>
