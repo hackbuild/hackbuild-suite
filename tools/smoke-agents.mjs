@@ -249,6 +249,9 @@ try {
       const b = await h((s) => JSON.parse(JSON.stringify(s.opts.things.find((t) => t.label === 'ball'))))
       if (!(Math.hypot(b.x - x, b.z - z) < 0.25)) fail(`the tap at ${p.x}, ${p.y} (over ${await page.evaluate((a, b) => { const e = document.elementFromPoint(a, b); return e ? e.className + ' ' + e.tagName : 'none' }, p.x, p.y)}) did not move the ball to ${x}, ${z}: it stands at ${b.x}, ${b.z}; picked ${await h((s) => s.picked.value)}; caption ${await page.$eval('.hb-viewport', (e) => e.textContent.slice(0, 300))}`)
     }
+    // since the compact inset (ui 0.9.5) the inset covers the stage's top left at 390: fold it to its header
+    await page.evaluate(() => { const t = document.querySelector('.hb-inset-toggle'); if (t && t.getAttribute('aria-expanded') !== 'false') t.click() })
+    await wait(300)
     // turn the agent to face screen right with the pad, so its front and back are clear of the overlays
     const pad = await page.$eval('.hb-pad-base', (e) => { const x = e.getBoundingClientRect(); return { x: x.x + x.width / 2, y: x.y + x.height / 2, w: x.width } })
     await page.touchscreen.touchStart(pad.x, pad.y)
@@ -259,7 +262,7 @@ try {
     const a = await h((s) => s.agent())
     const fx = Math.sin(a.yaw)
     const fz = Math.cos(a.yaw)
-    const spots = (ds) => ds.flatMap((d) => [0, 0.25, -0.25, 0.5].map((l) => [a.x + fx * d - fz * l, a.z + fz * d + fx * l]))
+    const spots = (ds) => ds.flatMap((d) => [0, 0.25, -0.25, 0.5, -0.5].map((l) => [a.x + fx * d - fz * l, a.z + fz * d + fx * l]))
     // open floor that shows on the stage, clear of the overlay frame
     const shown = async (cands) => {
       for (const c of cands) {
@@ -269,8 +272,8 @@ try {
       }
       return null
     }
-    const front = await shown(spots([1.1, 1.25, 1]))
-    const back = await shown(spots([-1.1, -1.25, -0.9]))
+    const front = await shown(spots([1.1, 1.25, 1, 1.4]))
+    const back = await shown(spots([-1.1, -1.25, -0.9, -1.4]))
     if (!front || !back) fail(`no open floor in front of or behind the agent: ${JSON.stringify(things)}`)
     await tapFloor(front)
     const line = /^ball \((ahead|\d+ deg (left|right)), \d+\.\d m\)$/
