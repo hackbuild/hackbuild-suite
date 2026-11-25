@@ -7,7 +7,8 @@ import { usePersisted, type HbRackPreset, type HbRackSlot } from '@virgilvox/hac
 import type { ChatEngine } from '@hackbuild/chat'
 import { PRESETS, presetTotal } from '@hackbuild/models'
 import * as hub from '../models/hub.ts'
-import type { Brain } from './brain.ts'
+import { PARAMS, type Brain, type Decide, type Params } from './brain.ts'
+import type { RoomBody } from './kind.ts'
 
 /** The organs of the room, in the rack's order, each with its job. */
 export const ORGANS: { slot: string; role: string }[] = [
@@ -25,6 +26,15 @@ export const brain = usePersisted<Brain>('suite-room-brain', 'reflex only')
 export const picks = usePersisted<Record<string, string>>('suite-room-picks', {})
 export const persona = usePersisted('suite-room-persona', PERSONA)
 export const name = usePersisted('suite-room-name', 'ada')
+export const decide = usePersisted<Decide>('suite-room-decide', 'the model')
+export const params = usePersisted<Params>('suite-room-params', { ...PARAMS })
+/** Free text added to the end of the prompt (P-PERSONA-6). */
+export const extra = usePersisted('suite-room-extra', '')
+export const voiceEngine = usePersisted('suite-room-voice', 'web-speech')
+export const voicePreset = usePersisted('suite-room-preset', 'narrator-female')
+export const voiceRate = usePersisted('suite-room-rate', 1)
+/** A room document opened from a drop or the workspace; the stage applies it on its next restart. */
+export const opened = shallowRef<{ id: string; body: RoomBody } | null>(null)
 export const endpoint = ref('')
 export const endpointModel = ref('')
 export const endpointKey = ref('')

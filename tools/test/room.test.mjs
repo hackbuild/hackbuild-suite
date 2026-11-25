@@ -4,7 +4,9 @@ import { seededRng } from '@hackbuild/drives'
 import { scripted } from '@hackbuild/chat'
 import { seededLayout } from '../../src/agents/props.ts'
 import { ROOM_THINGS, World } from '../../src/room/world.ts'
-import { Mind, roomReflex, roomScripted } from '../../src/room/brain.ts'
+import { Mind, eventLine, roomReflex, roomScripted } from '../../src/room/brain.ts'
+import { checkRoom, exportName, logCsv, newRoomBody } from '../../src/room/kind.ts'
+import { BODY_ACCEPT, isBodyFile, isMmdFile } from '../../src/stagekit/body.ts'
 
 const make = (seed = 7) => {
   const rng = seededRng(seed)
@@ -75,4 +77,46 @@ test('the chain steps down: a failing brain, then reflexes, each drop named', as
   const q = await quiet.turn('what are you holding')
   assert.equal(q.tier, 'scripted')
   assert.ok(lines.some((l) => /the brain is still loading\. the scripted planner took over\./.test(l)))
+})
+
+test('who decides: reflexes first skips the model, with hints puts the reflex step in the prompt', async () => {
+  const { world, lines } = make()
+  let calls = 0
+  let seen = ''
+  const model = scripted({ replies: (req) => { calls++; seen = req.messages.at(-1).content; return '{"think":"ok","say":"","do":[["walk_to","you"]],"done":true}' } })
+  const base = { world, persona: () => 'test', model: () => model, loading: () => false, seen: () => [], log: (k, t) => lines.push(`${k} ${t}`) }
+  const first = new Mind({ ...base, decide: () => 'reflexes first' })
+  const run = first.turn('come here')
+  for (let i = 0; i < 400; i++) { world.tick(0.05); await new Promise((r) => setTimeout(r, 0)) }
+  assert.equal((await run).tier, 'reflex')
+  assert.equal(calls, 0)
+  world.stop()
+  const hints = new Mind({ ...base, decide: () => 'with hints', params: () => ({ steps: 3, hits: 0, tokens: 100, temperature: 0 }), extra: () => 'always polite.' })
+  assert.match(hints.system(), /always polite\./)
+  const t2 = hints.turn('come here')
+  for (let i = 0; i < 400; i++) { world.tick(0.05); await new Promise((r) => setTimeout(r, 0)) }
+  assert.equal((await t2).tier, 'model')
+  assert.match(seen, /hint: the reflexes would do walk_to you/)
+})
+
+test('an injected event reaches the reflexes as something happened', () => {
+  const { world } = make()
+  const r = roomReflex(world).parse(eventLine('a ball rolls in.'))
+  assert.deepEqual(r.steps.map((s) => s.tool), ['say', 'explore'])
+})
+
+test('the room document checks its body, and exports carry the seed', () => {
+  const b = newRoomBody()
+  assert.equal(checkRoom(b), null)
+  assert.match(checkRoom({ ...b, seed: 'x' }), /seed/)
+  assert.match(checkRoom({ ...b, cast: [{ ...b.cast[0], decide: 'nobody' }] }), /who decides/)
+  assert.equal(exportName('Ada Lovelace', 42), 'room-ada-lovelace-seed-42')
+  assert.equal(logCsv([{ t: 1.234, agent: 'ada', kind: 'me', text: 'hi, "you"' }]), 't,agent,kind,text\n1.23,ada,me,"hi, ""you"""\n')
+})
+
+test('body drops take pmx and pmd beside glb and vrm', () => {
+  for (const n of ['a.glb', 'b.VRM', 'c.pmx', 'd.pmd']) assert.ok(isBodyFile({ name: n }), n)
+  assert.ok(isMmdFile({ name: 'x.PMX' }))
+  assert.ok(!isBodyFile({ name: 'x.fbx.txt' }))
+  assert.match(BODY_ACCEPT, /\.pmx,\.pmd/)
 })

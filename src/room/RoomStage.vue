@@ -12,12 +12,24 @@
 // fast and slow feeds apart (P-ROOM-6, P-TRACE-6, P-TRACE-9). Eyes: sense
 // controls with the cost note, depth card, readout and captions
 // (P-ROOM-15). Memory: the shared panel; "remember that ..." teaches.
+// Body: drop or pick a model (a pmx or pmd is flagged local), the
+// mannequin, hands, clips and the body api (P-ROOM-8). Brain: who decides,
+// the three tiers with a live switch, parameters that say when they apply,
+// the free run interval and the persona addition (P-ROOM-7, P-MODEL-18,
+// P-SET-5, P-PERSONA-6). Voice: engine with its trade, the clone slot,
+// bellows presets and the mouth canvas (P-VOUT-1, P-VOUT-9, P-VOUT-13).
+// Under the stage: inject an event (P-ROOM-13) and the exports, each named
+// with the seed (P-ROOM-16, P-SAVE-10). Keys: wasd drive, space pause, .
+// step, f follow (P-ROOM-14).
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbFold, HbGauges, HbHudStat, HbInset, HbKv, HbList,
-  HbMemoryPanel, HbMicButton, HbNameHud, HbPanel, HbParamRow, HbPill, HbSeg, HbSelect, HbSparkRows, HbSwitch, HbTable, HbTabs,
-  usePersisted, type HbCausalEvent, type HbChoiceOption, type HbEventRow, type HbGaugeRow, type HbMemoryEntry, type HbSparkRow, type HudState,
+  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbExportPanel, HbField, HbFold, HbGauges, HbHudStat, HbInput, HbInset, HbKv, HbList,
+  HbMemoryPanel, HbMicButton, HbNameHud, HbPanel, HbParamRow, HbPill, HbRadio, HbSeg, HbSelect, HbSparkRows, HbSwitch, HbTable, HbTabs, HbTextarea,
+  usePersisted, type HbCausalEvent, type HbChoiceOption, type HbEventRow, type HbExportFormat, type HbExportReadout, type HbExportRequest, type HbGaugeRow,
+  type HbMemoryEntry, type HbSparkRow, type HudState,
 } from '@virgilvox/hackbuild-ui'
+import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
+import { BELLOWS_VOICES } from '@hackbuild/speak'
 import { Vector2, Vector3 } from 'three'
 import type { Rng } from '@hackbuild/organic'
 import type { Memory } from '@hackbuild/memory'
@@ -31,9 +43,16 @@ import type { SenseCore } from '../senses/core.ts'
 import type { SenseRig } from '../senses/bind.ts'
 import { rememberLine, toEntries, traceEntries, ADD_KINDS } from '../memory/lines.ts'
 import * as hub from '../models/hub.ts'
-import { BRAINS, BRAIN_NOTES, Mind } from './brain.ts'
+import { BRAINS, BRAIN_NOTES, DECIDES, DECIDE_NOTES, Mind, eventLine } from './brain.ts'
 import { DRIVES, FURNITURE, ROOM_THINGS, World, type LogKind } from './world.ts'
 import * as room from './state.ts'
+import { exportName, logCsv, newCast, type RoomBody } from './kind.ts'
+import { BELLOWS_ID, ENGINE_LABELS, POCKET_ID, RoomVoice, VOICE_ENGINES, drawMouth, engineTrade } from './voice.ts'
+import { BODY_ACCEPT } from '../stagekit/body'
+import { exportDoc, type UseDocument } from '../workspace/state'
+import { logEvent } from '../shell/shell'
+
+const props = defineProps<{ doc: UseDocument<RoomBody> }>()
 
 const TABS = ['talk', 'mind', 'eyes', 'memory', 'body', 'brain', 'voice']
 const KINDS: LogKind[] = ['you', 'me', 'act', 'fail', 'eye', 'note', 'think']
@@ -59,6 +78,7 @@ const tool = useStageTool({
     { keys: 'wasd', label: 'drive' },
     { keys: 'space', label: 'pause' },
     { keys: '.', label: 'step' },
+    { keys: 'f', label: 'follow' },
     { keys: 'right click', label: 'a thing for things to say' },
   ],
 })
@@ -73,6 +93,13 @@ const feed = usePersisted<Feed>('suite-room-feed', 'three clearances')
 const insetMode = usePersisted<InsetMode>('suite-room-inset', 'what it sees')
 const insetOpen = ref(true)
 const depthSource = ref('own render')
+const follow = usePersisted('suite-room-follow', true)
+const event = ref('')
+const voiceLine = ref('')
+const voiceFail = ref(false)
+const cloneLine = ref('')
+const mouthCv = shallowRef<HTMLCanvasElement | null>(null)
+const depthLine = ref('')
 const open = reactive({ state: true, drives: true, view: true, plan: true, prompt: false, fast: true, slow: true })
 
 const world = shallowRef<World | null>(null)
@@ -95,6 +122,7 @@ const live = reactive({
 const bubble = reactive({ text: '', show: false, x: 0, y: 0 })
 const hud = ref<HudState>('idle')
 let nextId = 1
+let pending: RoomBody | null = null
 let acc = 0
 let idle = 0
 let sparkAt = 0
@@ -135,12 +163,43 @@ function said(text: string) {
   bubble.show = true
   tool.body.line = text
   hud.value = 'talking'
-  if (speakOn.value && typeof speechSynthesis !== 'undefined') {
-    const u = new SpeechSynthesisUtterance(text)
-    u.onend = () => { hud.value = 'idle' }
-    speechSynthesis.speak(u)
-  } else setTimeout(() => { if (hud.value === 'talking') hud.value = 'idle' }, 1500 + text.length * 60)
+  if (speakOn.value) void speak(text)
+  else setTimeout(() => { if (hud.value === 'talking') hud.value = 'idle' }, 1500 + text.length * 60)
 }
+
+// ------------------------------------------------------------- voice
+
+const voice = new RoomVoice({
+  status: (t, f) => { voiceLine.value = t; voiceFail.value = !!f },
+  speaking: (on) => { hud.value = on ? 'talking' : 'idle' },
+})
+const paintMouth = () => { if (mouthCv.value) drawMouth(mouthCv.value, voice.phoneme, voice.level, { ink: tone('--hb-ink') || '#111', accent: tone('--hb-pink') || '#e0457b', paper: tone('--hb-paper') || '#fff' }) }
+// the resting mouth as the tab opens, before any frame draws it
+watch([tab, mouthCv], () => { if (tab.value === 'voice') void nextTick(paintMouth) })
+const voiceCfg = () => ({ preset: room.voicePreset.value, rate: room.voiceRate.value })
+async function speak(text: string) {
+  if (!(await voice.use(room.voiceEngine.value, voiceCfg()))) { hud.value = 'idle'; return }
+  await voice.say(text)
+}
+async function testLine() {
+  speakOn.value = true
+  said(`i am ${room.name.value}. this is my voice.`)
+}
+async function cloneFrom(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = ''
+  if (!f) return
+  try {
+    if (room.voiceEngine.value !== POCKET_ID) room.voiceEngine.value = POCKET_ID
+    await voice.use(POCKET_ID, voiceCfg())
+    cloneLine.value = await voice.clone(f)
+    await voice.use(POCKET_ID, voiceCfg())
+  } catch (x) {
+    cloneLine.value = `no clone: ${x instanceof Error ? x.message : String(x)}`
+  }
+}
+watch([room.voiceEngine, room.voicePreset, room.voiceRate], () => { if (speakOn.value) void voice.use(room.voiceEngine.value, voiceCfg()) })
 
 // ------------------------------------------------------------- memory
 
@@ -224,7 +283,14 @@ function begin(rng: Rng) {
     if (!w || !bind) return
     mind.value?.stop()
     const layout = seededLayout(rng, ROOM_THINGS)
+    // an opened document puts each thing back where it stood
+    const kept = pending?.seed === tool.seed.value ? pending.layout : []
+    for (const k of kept) {
+      const t = layout.find((x) => x.label === k.label)
+      if (t) Object.assign(t, { x: k.x, z: k.z })
+    }
     const wd = new World(layout, rng, { log, said })
+    for (const k of kept) if (k.on) { const t = wd.thing(k.label); if (t) t.on = k.on }
     world.value = wd
     mind.value = new Mind({
       world: wd,
@@ -235,6 +301,9 @@ function begin(rng: Rng) {
       recall,
       stub: hub.STUB ? { fail: failQ.split(',').includes('brain') } : null,
       wantsModel: () => room.brain.value !== 'reflex only',
+      decide: () => room.decide.value,
+      params: () => room.params.value,
+      extra: () => room.extra.value,
       log,
     })
     live.tools = mind.value.registry.describe().split('\n').map((l) => l.replace(/^- /, ''))
@@ -292,6 +361,7 @@ function frame(dt: number, t: number) {
   syncMeshes()
   r.pose(wd.pose, fov.value)
   placeBubble()
+  if (tab.value === 'voice') paintMouth()
   // free run: an own idea from the drives once the body has idled long enough
   idle = wd.busy || md.running ? 0 : idle + dt
   if (run.value === 'free run' && idle >= every.value) {
@@ -316,7 +386,54 @@ function frame(dt: number, t: number) {
   c.sense(t, wd.pose, () => true, p.pixels, floor.value)
   if (p.fixation?.label) c.look(t, p.fixation.label)
   read(t)
+  if (depthSource.value === 'depth model' && t - depthAt >= 1) { depthAt = t; void modelDepth() }
 }
+
+// ------------------------------------------------------------- depth model
+
+let depthAt = 0
+let depthBusy = false
+const depthId = computed(() => room.picks.value.depth ?? room.slots.value.find((s) => s.slot === 'depth')?.options[0]?.value ?? null)
+const depthState = computed(() => (depthId.value ? hub.states.value[depthId.value]?.state ?? 'none' : 'none'))
+/** The depth model on the eye image, through the hub; until it is in, depth is the eye's own render. */
+async function modelDepth() {
+  const id = depthId.value
+  const r = rig.value
+  if (depthBusy || !id || !r || depthState.value !== 'loaded') return
+  // the eye image: the inset when it shows, else a frame drawn for the model alone
+  let cv = insetOpen.value ? inset.value : null
+  if (!cv) {
+    cv = document.createElement('canvas')
+    cv.width = 192
+    cv.height = 108
+    r.drawInset(cv, 'what it sees', tone('--hb-pink') || '#e0457b')
+  }
+  depthBusy = true
+  const t0 = performance.now()
+  try {
+    const [{ depth }] = await Promise.all([import('@hackbuild/vision')])
+    const m = await depth(hub.hub(), cv, { model: id })
+    const mid = m.data[Math.floor(m.height / 2) * m.width + Math.floor(m.width / 2)] ?? 0
+    depthLine.value = `model depth ahead ${mid.toFixed(2)} of ${m.range[1].toFixed(2)} (relative), ${m.width} by ${m.height}, ${Math.round(performance.now() - t0)} ms (measured)`
+  } catch (e) {
+    depthLine.value = `the depth model failed: ${e instanceof Error ? e.message : String(e)}. depth comes from the eye's own render.`
+    depthSource.value = 'own render'
+  } finally {
+    depthBusy = false
+  }
+}
+// the first reading as soon as the model is in, even while the stage loop is paused off screen
+watch(depthState, (st) => { if (st === 'loaded' && depthSource.value === 'depth model') void modelDepth() })
+watch(depthSource, async (v) => {
+  if (v !== 'depth model') { depthLine.value = ''; return }
+  const { addVisionRuntimes } = await import('../vision/runtimes.ts')
+  await addVisionRuntimes()
+  const id = depthId.value
+  if (!id) { depthLine.value = 'no depth model in the rack. depth comes from the eye\'s own render.'; depthSource.value = 'own render'; return }
+  depthLine.value = `loading ${id}. until it is in, depth comes from the eye's own render.`
+  if (depthState.value !== 'loaded') await hub.load(id)
+  else void modelDepth()
+})
 
 /** The panes from the world, the mind and the senses after a pass. */
 function read(t: number) {
@@ -495,6 +612,140 @@ async function loadBrain() {
   await hub.load(id)
 }
 
+// ------------------------------------------------------------- inject
+
+const injected: { t: number; text: string }[] = []
+/** An event into the room (P-ROOM-13): logged, a nudge to curiosity, then a turn on what happened. */
+function inject() {
+  const text = event.value.trim()
+  const md = mind.value
+  const wd = world.value
+  if (!text || !md || !wd) return
+  event.value = ''
+  injected.push({ t: tool.transport.time, text })
+  log('note', `event: ${text}`)
+  wd.drives.curiosity = Math.min(1, wd.drives.curiosity + 0.3)
+  idle = 0
+  void decide(md, eventLine(text))
+}
+
+// ------------------------------------------------------------- body
+
+const clips = ref<string[]>([])
+watch(() => [tool.body.name, tool.walk.value], () => { clips.value = [...(tool.walk.value?.stage.body?.caps.clips ?? [])] }, { immediate: true })
+function pickBody(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  input.value = ''
+  if (files.length) void tool.showBody(files)
+}
+function mannequin() {
+  const w = tool.walk.value
+  if (!w) return
+  w.stage.showPlaceholder()
+  tool.body.local = false
+  const wd = world.value
+  if (wd) w.place(wd.pose.x, wd.pose.z, wd.pose.yaw)
+}
+function playClip(name: string) {
+  const b = tool.walk.value?.stage.body
+  if (b && b.play(name) < 0) log('fail', `${name} is not a clip of this body.`)
+  else log('act', `playing ${name}`)
+}
+
+// ------------------------------------------------------------- follow
+
+/** The camera follows the body, or stays where it is (f). */
+let followStep: ((...a: never[]) => boolean) | null = null
+function applyFollow() {
+  const f = tool.walk.value?.stage.follow as unknown as { step: (...a: never[]) => boolean } | undefined
+  if (!f) return
+  followStep ??= f.step.bind(f)
+  const orig = followStep
+  f.step = (...a: never[]) => (follow.value ? orig(...a) : false)
+}
+watch([follow, () => tool.walk.value], applyFollow)
+
+// ------------------------------------------------------------- document
+
+/** The room as a document body: layout, cast, seed, tunables, memory by reference. */
+function roomBody(): RoomBody {
+  const wd = world.value
+  return {
+    seed: tool.seed.value,
+    layout: (wd?.things ?? []).map((t) => ({ label: t.label, x: +t.x.toFixed(3), z: +t.z.toFixed(3), on: t.on ?? null })),
+    cast: [{
+      ...newCast(room.name.value, room.persona.value),
+      extra: room.extra.value, brain: room.brain.value, decide: room.decide.value, params: { ...room.params.value },
+      body: tool.body.placeholder ? null : { name: tool.body.name, local: tool.body.local },
+      voice: { engine: room.voiceEngine.value, preset: room.voicePreset.value, rate: room.voiceRate.value },
+    }],
+    tunables: { ...tool.values },
+    run: run.value,
+    memory: { store: 'room', items: memItems.value.length },
+  }
+}
+let applying = false
+let saveT: ReturnType<typeof setTimeout> | null = null
+function save() {
+  if (applying || !props.doc.doc.value) return
+  if (saveT) clearTimeout(saveT)
+  saveT = setTimeout(() => {
+    saveT = null
+    const b = roomBody()
+    if (JSON.stringify(b) !== JSON.stringify(props.doc.body.value)) props.doc.edit(() => b)
+  }, 400)
+}
+watch([() => tool.seed.value, () => ({ ...tool.values }), run, () => tool.body.name, room.name, room.persona, room.extra, room.brain, room.decide, room.params, room.voiceEngine, room.voicePreset, room.voiceRate, () => memItems.value.length], save, { deep: true })
+
+/** An opened document: its seed, tunables and run, and its layout on the restart. */
+function applyDoc(b: RoomBody) {
+  applying = true
+  for (const [k, v] of Object.entries(b.tunables)) if (tool.reg.has(k)) tool.reg.set(k, v)
+  run.value = b.run
+  pending = b
+  tool.locked.value = true
+  const same = tool.seed.value === b.seed
+  tool.seed.value = b.seed
+  if (same) tool.restart()
+  void nextTick(() => { applying = false })
+}
+watch(room.opened, (o) => { if (o && loaded) applyDoc(o.body) })
+
+// ------------------------------------------------------------- export
+
+const fileName = computed(() => exportName(room.name.value, tool.seed.value))
+const formats: HbExportFormat[] = [
+  { key: 'doc', label: 'room', ext: '.hbroom.json', note: 'layout, cast, seed, tunables and the memory by reference. a dropped body is kept by name only.' },
+  { key: 'csv', label: 'log', ext: '.csv', note: 'the tagged log, one row a line.' },
+  { key: 'trace', label: 'trace', ext: '.trace.json', note: 'the seed, the brain, the events, every log line, the cost and each step down.' },
+]
+const readout = computed<HbExportReadout[]>(() => [
+  { label: 'seed', value: String(tool.seed.value) },
+  { label: 'log lines', value: String(live.log.length) },
+  { label: 'events', value: String(injected.length) },
+])
+async function onExport(req: HbExportRequest) {
+  const fname = req.filename || fileName.value
+  if (req.format === 'doc') {
+    if (saveT) { clearTimeout(saveT); saveT = null }
+    if (props.doc.doc.value) {
+      props.doc.edit(() => roomBody())
+      await exportDoc(props.doc.doc.value.id, { filename: fname })
+    }
+    return
+  }
+  if (req.format === 'csv') saveFile(`${fname}.csv`, logCsv(live.log), 'text/csv')
+  else {
+    const md = mind.value
+    saveFile(`${fname}.trace.json`, JSON.stringify({
+      format: 'hackbuild.room-trace', version: 1, seed: tool.seed.value, agent: room.name.value, brain: room.brain.value, decide: room.decide.value,
+      params: room.params.value, run: run.value, events: injected, log: live.log, cost: md?.cost ?? null, drops: md?.drops ?? [],
+    }), 'application/json')
+  }
+  logEvent('note', `room: exported ${fname} as ${req.format}`)
+}
+
 // ------------------------------------------------------------- start
 
 onMounted(async () => {
@@ -504,11 +755,13 @@ onMounted(async () => {
     bind = m
   })()
   await loaded
-  tool.restart()
+  if (room.opened.value) applyDoc(room.opened.value.body)
+  else tool.restart()
 })
 onBeforeUnmount(() => {
   mind.value?.stop()
   micStop()
+  voice.dispose()
   rig.value?.dispose()
   core.value?.dispose()
   rig.value = null
@@ -521,7 +774,10 @@ watch(rig, (r) => {
   const w = tool.walk.value
   if (el && r && w && bind) {
     const sc = bind.screenOf
-    el.room = { live, bubble, world: () => world.value, mind: () => mind.value, send, screenOf: (x: number, z: number) => sc(x, z, w.stage.camera, w.stage.renderer.domElement) }
+    el.room = {
+      live, bubble, world: () => world.value, mind: () => mind.value, send, screenOf: (x: number, z: number) => sc(x, z, w.stage.camera, w.stage.renderer.domElement),
+      voice, run, injected, follow, roomBody, ears: () => ears, every: () => every.value,
+    }
   }
 })
 
@@ -531,6 +787,7 @@ const memShown = computed(() => (memFound.value ?? memItems.value).filter((e) =>
 const memKinds = computed(() => [...new Set([...ADD_KINDS, ...memItems.value.map((e) => e.kind)])])
 const tierWord = computed(() => ({ model: 'the brain', scripted: 'the scripted planner', reflex: 'reflexes', none: 'nothing', '': 'no turn yet' })[live.tier] ?? live.tier)
 const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind === 'warn'))
+const setParam = (k: keyof typeof room.params.value, v: unknown) => { room.params.value = { ...room.params.value, [k]: Number(v) } }
 </script>
 
 <template>
@@ -557,6 +814,7 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
       <div class="hb-cams" role="group" aria-label="stage tools">
         <HbChip v-model="stageMap" toggle>map</HbChip>
         <HbChip v-model="grippers" toggle>grippers</HbChip>
+        <HbChip v-model="follow" toggle hotkey="f" hotkey-label="camera follows the body" hotkey-group="stage">follow</HbChip>
       </div>
     </template>
     <template #over>
@@ -564,6 +822,15 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
     </template>
     <template #br>
       <HbInset v-if="stageMap" title="map" aux="own depth" ratio="1 / 1"><canvas ref="mini" data-map="mini" /></HbInset>
+    </template>
+    <template #under>
+      <div class="hb-stack" data-under>
+        <div class="hb-acts" data-inject>
+          <HbInput v-model="event" :placeholder="`inject an event, such as a ball rolls in`" aria-label="inject an event into the room" autocomplete="off" @keydown.enter="inject" />
+          <HbButton variant="secondary" :disabled="!event.trim()" @click="inject">inject</HbButton>
+        </div>
+        <HbExportPanel :formats="formats" :name="fileName" :readout="readout" :busy="world ? '' : 'the room is starting.'" label="room" @export="onExport" />
+      </div>
     </template>
     <template #inset>
       <HbInset v-model:mode="insetMode" v-model:open="insetOpen" :modes="[...INSETS]" :title="insetMode === 'what it sees' ? 'eye' : insetMode" ratio="16 / 9" collapsible>
@@ -648,7 +915,7 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
             </HbPanel>
             <HbPanel heading="depth" sunk>
               <HbSelect v-model="depthSource" :options="['own render', 'depth model']" label="depth from" />
-              <p v-if="depthSource === 'depth model'" class="hb-hint">the depth model loads from the rack. until it does, depth comes from the eye's own render.</p>
+              <p v-if="depthSource === 'depth model'" class="hb-hint" data-depth>{{ depthLine || 'the depth model loads through the rack. until it is in, depth comes from the eye\'s own render.' }}</p>
               <HbKv label="clear left" :value="`${live.clear.left.toFixed(1)} m`" />
               <HbKv label="clear ahead" :value="`${live.clear.ahead.toFixed(1)} m`" />
               <HbKv label="clear right" :value="`${live.clear.right.toFixed(1)} m`" />
@@ -674,8 +941,29 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
           </div>
 
           <div v-else-if="value === 'body'" class="hb-stack hb-instrument" data-pane="body">
-            <HbKv label="body" :value="tool.body.name" />
-            <HbKv label="hands" :value="live.hands" />
+            <HbPanel heading="body" sunk>
+              <HbKv label="model" :value="tool.body.name" />
+              <HbKv v-if="tool.body.local" label="kept" value="local only, on this device. the room document keeps its name, never the file." />
+              <div class="hb-acts">
+                <HbButton as="label" variant="primary" size="sm">
+                  load model
+                  <input type="file" :accept="BODY_ACCEPT" hidden data-body-pick @change="pickBody">
+                </HbButton>
+                <HbButton variant="secondary" size="sm" :disabled="tool.body.placeholder" @click="mannequin">mannequin</HbButton>
+              </div>
+              <p class="hb-hint">{{ tool.body.line }}</p>
+              <p class="hb-hint">drop a glb, vrm, pmx or pmd anywhere. it stays in this tab; the room document keeps its name only.</p>
+            </HbPanel>
+            <HbPanel heading="hands" sunk>
+              <HbKv label="hands" :value="live.hands" />
+              <p class="hb-hint">a grasp counts when the hand reaches the thing. held things ride in the hand until put down or dropped. the grippers chip shows them on the stage.</p>
+            </HbPanel>
+            <HbPanel heading="clips" sunk>
+              <div v-if="clips.length" class="hb-acts">
+                <HbButton v-for="c in clips" :key="c" variant="secondary" size="sm" @click="playClip(c)">{{ c }}</HbButton>
+              </div>
+              <p v-else class="hb-hint">this body has no clips. the walk is procedural; a glb or vrm with animations lists them here.</p>
+            </HbPanel>
             <HbPanel heading="the body api" sunk>
               <HbList>
                 <div v-for="l in live.tools" :key="l" class="hb-row"><code>{{ l }}</code></div>
@@ -685,9 +973,31 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
           </div>
 
           <div v-else-if="value === 'brain'" class="hb-stack hb-instrument" data-pane="brain">
-            <HbSelect v-model="room.brain.value" :options="[...BRAINS]" label="who decides" />
-            <p class="hb-hint">{{ BRAIN_NOTES[room.brain.value] }}</p>
-            <HbButton v-if="room.brain.value === 'in tab' && room.brainState.value !== 'loaded'" variant="secondary" size="sm" @click="loadBrain">load the brain</HbButton>
+            <HbPanel heading="who decides" sunk>
+              <div class="hb-stack" role="radiogroup" aria-label="who decides">
+                <HbRadio v-for="d in DECIDES" :key="d" v-model="room.decide.value" :value="d" name="room-decide">{{ d }}. {{ DECIDE_NOTES[d] }}</HbRadio>
+              </div>
+              <HbParamRow :model-value="room.params.value.steps" label="steps per turn" :min="2" :max="12" :step="1" :default-value="6" help="applies on the next turn." @update:model-value="(v) => setParam('steps', v)" />
+            </HbPanel>
+            <HbPanel heading="tier" sunk>
+              <HbSelect v-model="room.brain.value" :options="[...BRAINS]" label="brain" />
+              <p class="hb-hint">{{ BRAIN_NOTES[room.brain.value] }} the switch is live: the next turn uses it, and a brain that fails to load leaves reflexes in place.</p>
+              <HbButton v-if="room.brain.value === 'in tab' && room.brainState.value !== 'loaded'" variant="secondary" size="sm" @click="loadBrain">load the brain</HbButton>
+              <p v-if="room.brain.value === 'your endpoint'" class="hb-hint">the endpoint url and key are on the rack. open rack to change them.</p>
+            </HbPanel>
+            <HbPanel heading="parameters" sunk>
+              <HbParamRow :model-value="room.params.value.temperature" label="temperature" :min="0" :max="1.5" :step="0.05" :default-value="0.4" help="applies on the next turn. the model tiers only." @update:model-value="(v) => setParam('temperature', v)" />
+              <HbParamRow :model-value="room.params.value.tokens" label="reply tokens" :min="80" :max="800" :step="20" :default-value="320" help="applies on the next turn. the model tiers only." @update:model-value="(v) => setParam('tokens', v)" />
+              <HbParamRow :model-value="room.params.value.hits" label="memory hits" :min="0" :max="8" :step="1" :default-value="3" help="memories recalled into each prompt. applies on the next turn." @update:model-value="(v) => setParam('hits', v)" />
+            </HbPanel>
+            <HbPanel heading="free run" sunk>
+              <HbParamRow :model-value="every" label="think every" :min="2" :max="30" :step="1" unit="s" :default-value="6" help="in free run, an own idea from the drives once the body has idled this long. applies at once." @update:model-value="(v) => tool.reg.set('run.every', Number(v))" />
+            </HbPanel>
+            <HbPanel heading="persona addition" sunk>
+              <HbField label="added to the prompt" for="room-extra" hint="applies on the next turn.">
+                <HbTextarea id="room-extra" v-model="room.extra.value" :rows="3" placeholder="anything else it should always know about itself" />
+              </HbField>
+            </HbPanel>
             <HbPanel heading="fallback chain" sunk>
               <HbKv label="last turn by" :value="tierWord" />
               <HbEventLog :rows="dropRows" label="steps down" :max="40" />
@@ -696,8 +1006,28 @@ const dropRows = computed<HbEventRow[]>(() => live.slow.filter((r) => r.kind ===
           </div>
 
           <div v-else class="hb-stack hb-instrument" data-pane="voice">
-            <label class="hb-check"><HbSwitch v-model="speakOn" label="speak replies" /> speak replies with the browser voice</label>
-            <p class="hb-hint">replies always show in the bubble, the caption and the log.</p>
+            <HbPanel heading="voice" sunk>
+              <HbSelect v-model="room.voiceEngine.value" :options="VOICE_ENGINES.map((v) => ({ value: v, label: ENGINE_LABELS[v] ?? v }))" label="engine" />
+              <p class="hb-hint">{{ engineTrade(room.voiceEngine.value) }}</p>
+              <label class="hb-check"><HbSwitch v-model="speakOn" label="speak replies" /> speak replies</label>
+              <div class="hb-acts"><HbButton variant="secondary" size="sm" @click="testLine">test line</HbButton></div>
+              <p class="hb-hint" :data-voice-status="voiceFail ? 'fail' : 'ok'">{{ voiceLine || 'not started. replies show in the bubble, the caption and the log.' }}</p>
+            </HbPanel>
+            <HbPanel heading="clone" sunk>
+              <div class="hb-acts">
+                <HbButton as="label" variant="secondary" size="sm">
+                  clone from audio
+                  <input type="file" accept=".wav,audio/*" hidden data-clone @change="cloneFrom">
+                </HbButton>
+              </div>
+              <p class="hb-hint">{{ cloneLine || 'pocket tts clones a clip of a voice, 8 s or more. the clip stays in this tab.' }}</p>
+            </HbPanel>
+            <HbPanel heading="bellows" sunk>
+              <HbSelect v-model="room.voicePreset.value" :options="[...BELLOWS_VOICES]" label="preset" :disabled="room.voiceEngine.value !== BELLOWS_ID" />
+              <HbParamRow :model-value="room.voiceRate.value" label="rate" :min="0.7" :max="1.5" :step="0.01" :default-value="1" help="every engine; bellows and pocket take it on the next line." @update:model-value="(v) => (room.voiceRate.value = Number(v))" />
+              <HbInset title="mouth" aux="phoneme now" ratio="380 / 110"><canvas ref="mouthCv" data-mouth aria-label="the mouth and the phoneme sounding now" /></HbInset>
+              <p class="hb-hint">the mouth follows the phoneme the engine reports; engines without phonemes open it by loudness.</p>
+            </HbPanel>
           </div>
         </template>
       </HbTabs>

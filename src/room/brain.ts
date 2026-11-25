@@ -17,6 +17,30 @@ export const BRAIN_NOTES: Record<Brain, string> = {
   'your endpoint': 'any openai style server plans every turn. your words go to that server.',
 }
 
+/** Who decides when a model is loaded (P-ROOM-7), the room original's three options. */
+export type Decide = 'the model' | 'with hints' | 'reflexes first'
+export const DECIDES: readonly Decide[] = ['the model', 'with hints', 'reflexes first']
+export const DECIDE_NOTES: Record<Decide, string> = {
+  'the model': 'it reads the situation, picks every action, sees each result and goes again.',
+  'with hints': 'the same loop, but every prompt carries the step the reflexes would take. best for the smallest models.',
+  'reflexes first': 'plain orders run with no model call. the model only gets what the rules cannot parse.',
+}
+
+/** Planner parameters, each read at the start of a turn (P-SET-5). */
+export interface Params {
+  temperature: number
+  /** Reply tokens the model may write. */
+  tokens: number
+  /** Steps a plan may hold. */
+  steps: number
+  /** Memories recalled into each prompt. */
+  hits: number
+}
+export const PARAMS: Params = { temperature: 0.4, tokens: 320, steps: 6, hits: 3 }
+
+/** An injected event as the body hears it. */
+export const eventLine = (text: string): string => `something happened: ${text.trim().replace(/[.\s]+$/, '')}`
+
 const one = (tool: string, ...args: string[]): Step => ({ tool, args })
 const fetchSteps = (x: string): Step[] => [one('walk_to', x), one('pick_up', x)]
 
@@ -33,6 +57,8 @@ export function roomReflex(world: World): Reflex {
     return loose ? [...fetchSteps(loose.label), one('walk_to', 'shelf'), one('put_on', loose.label, 'shelf')] : [one('say', 'everything is put away.')]
   })
   r.add(/^wait\b/, [one('wait', '2')])
+  // an injected event: say so and look around, so a run on reflexes still reacts
+  r.add(/^something happened: /, [one('say', 'what was that?'), one('explore')])
   r.add(/^(drop it|let go|put it down)$/, [one('drop')])
   r.add(/^put it (?:on|onto|in) (?:the )?(\w+)$/, (m) => [one('walk_to', m[1]!), one('put_on', held(), m[1]!)])
   r.add(/^(?:put|move|take) (?:the )?(\w+) (?:on|onto|in|to) (?:the )?(\w+)$/, (m) => [...fetchSteps(m[1]!), one('walk_to', m[2]!), one('put_on', m[1]!, m[2]!)])
@@ -117,6 +143,12 @@ export interface MindOptions {
   stub?: { fail: boolean } | null
   /** False when the tier is reflexes only: a missing model is then no news. */
   wantsModel?: () => boolean
+  /** Who decides; default the model. */
+  decide?: () => Decide
+  /** Planner parameters; default PARAMS. */
+  params?: () => Params
+  /** Free text added to the persona, at the end of the system prompt. */
+  extra?: () => string
   log: TurnLog['log']
 }
 
@@ -126,7 +158,7 @@ const CHARS = 4
 export class Mind {
   readonly registry: Registry
   readonly reflex: Reflex
-  readonly chain: ReturnType<typeof createPlannerChain>
+  chain: ReturnType<typeof createPlannerChain>
   last: Last = { tier: '', prompt: '', reply: '', plan: '' }
   cost: Cost = { model: 0, scripted: 0, reflex: 0, none: 0, tokens: 0, ms: 0 }
   drops: Drop[] = []
@@ -134,20 +166,34 @@ export class Mind {
   private o: MindOptions
   private abort: AbortController | null = null
   private stubEngine: ChatEngine | null
+  private built = ''
 
   constructor(o: MindOptions) {
     this.o = o
     this.registry = createRegistry(o.world.tools())
     this.reflex = roomReflex(o.world)
     this.stubEngine = o.stub ? stubModel(this.reflex, o.stub.fail) : null
-    this.chain = createPlannerChain({
+    this.chain = this.build()
+  }
+
+  get params(): Params {
+    return { ...PARAMS, ...this.o.params?.() }
+  }
+
+  /** The chain for the parameters as they stand; rebuilt when they change, so they apply on the next turn. */
+  private build(): ReturnType<typeof createPlannerChain> {
+    const p = this.params
+    this.built = JSON.stringify(p)
+    return createPlannerChain({
       tools: this.registry.names,
-      getModel: () => this.stubEngine && o.model() ? this.stubEngine : o.model(),
-      loading: o.loading,
-      scripted: roomScripted(o.world, o.seen),
+      getModel: () => this.stubEngine && this.o.model() ? this.stubEngine : this.o.model(),
+      loading: this.o.loading,
+      scripted: roomScripted(this.o.world, this.o.seen),
       reflex: this.reflex,
       tries: 2,
-      maxActions: 6,
+      maxActions: p.steps,
+      maxTokens: p.tokens,
+      temperature: p.temperature,
     })
   }
 
@@ -161,14 +207,18 @@ export class Mind {
       'you are a body in a small room. you plan with these tools:',
       this.registry.describe(),
       'reply with one json object: {"think": "...", "say": "...", "do": [["tool", "arg"]], "done": true}.',
+      this.o.extra?.().trim() ?? '',
     ].filter(Boolean).join('\n')
   }
 
   async user(text: string): Promise<string> {
-    const mem = this.o.recall ? await this.o.recall(text).catch(() => []) : []
+    const hits = this.params.hits
+    const mem = this.o.recall && hits > 0 ? (await this.o.recall(text).catch(() => [])).slice(0, hits) : []
     const seen = this.o.seen()
+    const hint = this.o.decide?.() === 'with hints' ? this.reflex.parse(text) : null
     return [
       `heard: ${text}`,
+      hint ? `hint: the reflexes would do ${hint.steps.map(stepText).join(', then ')}` : '',
       `in view: ${seen.length ? seen.join('; ') : 'nothing'}`,
       `body: ${this.o.world.state()}`,
       mem.length ? `you remember: ${mem.join('; ')}` : '',
@@ -191,9 +241,14 @@ export class Mind {
     const t0 = performance.now()
     const messages: ChatMessage[] = [{ role: 'system', content: this.system() }, { role: 'user', content: await this.user(text) }]
     const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n\n')
-    const r = await this.chain.plan({ text, messages, signal: ac.signal })
+    if (JSON.stringify(this.params) !== this.built) this.chain = this.build()
+    // reflexes first: a plain order runs with no model call
+    const first = this.o.decide?.() === 'reflexes first' ? this.reflex.parse(text) : null
+    const r: ChainResult | null = first
+      ? { tier: 'reflex', raw: '', drops: [], plan: { think: '', say: '', do: first.steps.slice(0, this.params.steps), unknown: [], done: true, from: 'json' } }
+      : await this.chain.plan({ text, messages, signal: ac.signal })
     this.drops = [...this.chain.log]
-    for (const d of this.chain.lastDrops) {
+    for (const d of first ? [] : this.chain.lastDrops) {
       if (d.reason === 'absent' && (d.from !== 'model' || this.o.wantsModel?.() === false)) continue
       // the scripted planner answers questions only; no answer is a step down, said plainly
       if (d.from === 'scripted' && d.reason === 'invalid' && !d.raw) this.o.log('note', `the scripted planner had no answer for that.${d.to ? ' reflexes took over.' : ''}`)
