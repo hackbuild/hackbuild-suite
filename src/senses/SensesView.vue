@@ -20,7 +20,7 @@ import { useStageTool } from '../stagekit/useStageTool'
 import { exportDoc, kinds, registerKind, useDocument, ws } from '../workspace/state'
 import { logEvent } from '../shell/shell'
 import { tone } from '../vision/frame'
-import { clampRoom, seededLayout, type Placed } from '../agents/props.ts'
+import { clampRoom, propDef, seededLayout, type Placed } from '../agents/props.ts'
 import {
   FEEDS, INSETS, SENSES_KIND, SENSE_THINGS, bearingDeg, depthFeed, feedCsv, feedText, inViewLine, seenEarlierLine, sensesKind,
   type Feed, type InsetMode, type SensesBody,
@@ -42,6 +42,8 @@ const tool = useStageTool({
   },
   restart: (rng) => begin(rng),
   tick: (dt, t) => frame(dt, t),
+  menu: (at) => menuAt(at),
+  say: (s) => say(s),
 })
 
 const doc = useDocument<SensesBody>(SENSES_KIND)
@@ -190,6 +192,48 @@ function placeAt(label: string, x: number, z: number) {
   save((d) => { d.things = opts.things.map((t) => ({ ...t })) })
 }
 
+// ------------------------------------------------------------- menu
+
+/** The stage menu over a thing (P-ROOM-2): each item sends a sentence. */
+function menuAt(at: { x: number; y: number }) {
+  const w = tool.walk.value
+  const r = rig.value
+  if (!w || !r) return null
+  const box = w.stage.renderer.domElement.getBoundingClientRect()
+  const hit = r.room.pick(new Vector2((at.x / box.width) * 2 - 1, -(at.y / box.height) * 2 + 1), w.stage.camera)
+  if (!hit || !('label' in hit)) return null
+  const l = hit.label
+  return { title: l, items: [{ label: 'look at it', say: `look at the ${l}` }, { label: 'where is it?', say: `where is the ${l}` }, { label: 'put it here', say: `put the ${l} in front of me` }] }
+}
+
+/** A sentence from the menu, acted on and written to the feed as said. */
+function say(s: string) {
+  const c = core.value
+  const a = agent()
+  const m = /^(look at|where is|put) the (\w+)/.exec(s)
+  const th = m ? opts.things.find((t) => t.label === m[2]) : undefined
+  if (!c || !a || !m || !th) return
+  const t = tool.transport.time
+  let reply = ''
+  if (m[1] === 'look at') {
+    tool.walk.value?.place(a.x, a.z, Math.atan2(th.x - a.x, th.z - a.z))
+    reply = `turns to the ${th.label}`
+  } else if (m[1] === 'where is') {
+    const p = c.percepts.find((x) => x.label === th.label)
+    const e = c.seenEarlier(t).find((x) => x.label === th.label)
+    reply = p?.visible ? `in view: ${inViewLine(th.label, bearingDeg(th.x - a.x, th.z - a.z, a.yaw), p.dist)}` : e ? `from memory: ${seenEarlierLine(e.label, e.near, e.ago, e.confidence)}` : `the ${th.label} has not been seen.`
+  } else {
+    const d = 0.6 + (propDef(th.label)?.d ?? 0.3) / 2
+    placeAt(th.label, a.x + Math.sin(a.yaw) * d, a.z + Math.cos(a.yaw) * d)
+    reply = `the ${th.label} stands in front of it`
+  }
+  c.say(t, th.label, `"${s}": ${reply}`)
+  tool.body.line = `"${s}": ${reply}`
+  logEvent('note', `senses: ${s}`)
+  acc = 1
+  read(agent()!, t)
+}
+
 watch(() => opts.feed, (f: Feed) => save((d) => { d.feed = f }))
 watch(() => opts.inset, (m: InsetMode) => save((d) => { d.inset = m }))
 watch([fov, rate, floor], ([a, b, c]) => save((d) => { d.fov = a; d.rate = b; d.floor = c }))
@@ -319,7 +363,7 @@ function sense(t, agent) {
 
       <HbFold v-model="open.feed" :num="2" summary="sense feed" persist-key="senses-feed">
         <div class="hb-instrument" data-pane="feed">
-          <HbCausalLog :events="live.feed" :limit="40" :kinds="['see', 'lost', 'look', 'loom', 'scent']" label="sense feed" />
+          <HbCausalLog :events="live.feed" :limit="40" :kinds="['see', 'lost', 'look', 'loom', 'scent', 'say']" label="sense feed" />
           <HbKv label="scent at the nose" :value="live.whiff.toFixed(3)" />
         </div>
       </HbFold>

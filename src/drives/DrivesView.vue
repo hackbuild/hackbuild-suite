@@ -38,6 +38,7 @@ const EVERY = 12
 
 const tool = useStageTool({
   id: 'drives',
+  pad: false,
   empty: 'the agent walks to what it chose. inject an event to steer it.',
   tunables: (reg) => {
     reg.define({ key: 'drives.speed', group: 'run', label: 'sim speed', def: 60, min: 1, max: 3600, step: 1, unit: 'x', note: 'sim seconds a wall second; an hour of the body clock takes a minute at 60.', source: 'inferred' })

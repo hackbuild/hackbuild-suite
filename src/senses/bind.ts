@@ -30,6 +30,17 @@ const CELL = 0.1
 const FAN = 3
 const MAX_PUFFS = 600
 
+/**
+ * Linear to sRGB bytes. The eye renders into a render target, where three
+ * writes linear colour with no tone mapping, so the frame read back is dark
+ * next to the stage; the inset encodes it for display. Saliency reads the
+ * frame as rendered.
+ */
+const SRGB = Uint8Array.from({ length: 256 }, (_, i) => {
+  const c = i / 255
+  return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055))
+})
+
 export interface Colors { cone: string; gaze: string; puff: string }
 
 export interface SensePass {
@@ -164,8 +175,16 @@ export class SenseRig {
     const H = mode === 'what it sees' ? SH : p.dh
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H }
     const img = x.createImageData(W, H)
-    if (mode === 'what it sees' && this.colour) img.data.set(this.colour.subarray(0, W * H * 4))
-    else {
+    if (mode === 'what it sees' && this.colour) {
+      const c = this.colour
+      for (let i = 0; i < W * H * 4; i += 4) {
+        img.data[i] = SRGB[c[i]!]!
+        img.data[i + 1] = SRGB[c[i + 1]!]!
+        img.data[i + 2] = SRGB[c[i + 2]!]!
+        // a clear background reads back with alpha 0: show it as the void
+        img.data[i + 3] = 255
+      }
+    } else {
       for (let i = 0; i < W * H; i++) {
         const v = 255 - Math.round(Math.min(1, p.depth[i]! / FAR) * 255)
         img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v

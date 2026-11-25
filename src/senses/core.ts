@@ -11,7 +11,7 @@ import { EYE_Y, nearestFurniture } from './kind.ts'
 
 export const ready = (): Promise<void> => load()
 
-export type SenseKind = 'see' | 'lost' | 'look' | 'loom' | 'scent'
+export type SenseKind = 'see' | 'lost' | 'look' | 'loom' | 'scent' | 'say'
 export interface SenseEvent {
   id: number
   t: number
@@ -72,6 +72,11 @@ export class SenseCore {
     if (this.events.length > 400) this.events.shift()
     this.hash = fnv(`${t.toFixed(3)}|${kind}|${label}|${text};`, this.hash)
     return e
+  }
+
+  /** A sentence from the stage menu and what came of it, in the feed. */
+  say(t: number, label: string, text: string) {
+    this.log(t, 'say', label, text)
   }
 
   /** Records a fixation the saliency pass made; the eye is three side. */

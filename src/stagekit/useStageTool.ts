@@ -4,7 +4,7 @@
 // and hands the result to <StageTool>, which draws it. three.js and the
 // motion packages load on mount, through the walking stage module.
 import { onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch, type Ref } from 'vue'
-import { useHotkeys, type Hotkey } from '@virgilvox/hackbuild-ui'
+import { useHotkeys, type HbContextItem, type Hotkey } from '@virgilvox/hackbuild-ui'
 import { rollSeed } from '@virgilvox/hackbuild-ui/vanilla'
 import { seededRng, type Rng } from '@hackbuild/organic'
 import { createRegistry, type Registry, type StorageLike } from '@hackbuild/tunables'
@@ -30,6 +30,25 @@ export interface StageToolOptions {
   restart?: (rng: Rng, seed: number, ctx: StageCtx) => void
   /** Called each drawn frame while the transport plays, in transport seconds. */
   tick?: (dt: number, time: number, ctx: StageCtx) => void
+  /** Show the pad and walk the body with it and wasd. Default true; a tool with nothing to walk turns it off. */
+  pad?: boolean
+  /** The pad moves the body itself. Default true; false leaves the moving to the tool, which reads `move`. */
+  walk?: boolean
+  /**
+   * The right click or long press menu of the stage (P-ROOM-2): asked for
+   * at a point in stage pixels, before it opens. Null or no items keeps it
+   * shut.
+   */
+  menu?: (at: { x: number; y: number }) => StageMenu | null
+  /** A menu item was chosen: the sentence it sends. */
+  say?: (sentence: string) => void
+  /** Rewrites the key hints of the stage, as the tool's own keys read (P-KEY-6). */
+  hints?: (base: KeyHint[]) => KeyHint[]
+}
+
+export interface StageMenu {
+  title: string
+  items: HbContextItem[]
 }
 
 export interface StageCtx {
@@ -57,6 +76,7 @@ const sizeOf = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} mb` :
 
 export function useStageTool(opts: StageToolOptions) {
   const fps = opts.fps ?? 30
+  const pad = opts.pad ?? true
   const reg = createRegistry({ storage: safeStorage(), storageKey: `suite-tune-${opts.id}` })
   opts.tunables?.(reg)
   reg.restore()
@@ -136,7 +156,7 @@ export function useStageTool(opts: StageToolOptions) {
       const w = createPhoneStage(host.value, (s) => {
         stats.fps = s.fps
         stats.draw = `${s.width}x${s.height}`
-      }, { speed: () => (reg.has('walk.speed') ? reg.get('walk.speed') : 1.4) })
+      }, { speed: () => (opts.walk === false || !pad ? 0 : reg.has('walk.speed') ? reg.get('walk.speed') : 1.4) })
       w.stage.on('loaded', (e) => {
         body.name = e.name
         body.placeholder = e.placeholder
@@ -184,14 +204,15 @@ export function useStageTool(opts: StageToolOptions) {
     { keys: 't', label: 'tune: the settings of this tool', group: 'stage', run: () => { tune.value = !tune.value } },
   ]
   useHotkeys(table)
-  const hints: KeyHint[] = [
+  const base: KeyHint[] = [
     { keys: 'space', label: 'play' },
     { keys: '.', label: 'step' },
     { keys: 'r', label: 'restart' },
     { keys: '1 to 4', label: 'view' },
     { keys: 'wasd', label: 'walk' },
     { keys: 't', label: 'tune' },
-  ]
+  ].filter((h) => pad || h.keys !== 'wasd')
+  const hints = opts.hints ? opts.hints(base) : base
 
   onBeforeUnmount(() => {
     gone = true
@@ -202,7 +223,7 @@ export function useStageTool(opts: StageToolOptions) {
   })
 
   return {
-    id: opts.id, reg, values, transport, seed, locked, view, move, tune, body, stats, cover, failed, host, walk, hints,
+    id: opts.id, pad, menu: opts.menu, say: opts.say, reg, values, transport, seed, locked, view, move, tune, body, stats, cover, failed, host, walk, hints,
     play, pause, toggle, seek, step, restart, showBody,
   }
 }
