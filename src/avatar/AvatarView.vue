@@ -32,7 +32,7 @@ const IDLE_SECONDS = 10
 
 const tool = useStageTool({
   id: 'avatar',
-  empty: 'this is the built in rig. drop a glb or vrm anywhere to use your own.',
+  empty: 'this is the built in rig. drop a glb, vrm, pmx or pmd anywhere to use your own.',
   duration: IDLE_SECONDS,
   tunables(reg) {
     reg.define({ key: 'walk.speed', group: 'walk', label: 'speed', def: SPEED, min: 0.2, max: 3, step: 0.1, unit: 'm/s', note: 'walking speed at full stick.', source: 'inferred' })
@@ -376,6 +376,7 @@ onBeforeUnmount(() => {
     <template #rack>
       <HbFold v-model="open.source" :num="0" summary="source" persist-key="avatar-source">
         <HbKv label="body" :value="body?.name ?? 'starting'" />
+        <HbKv v-if="tool.body.local" label="kept" value="local only, on this device. never stored or exported." />
         <p class="hb-hint">{{ info?.licence ?? 'the stage is starting.' }}</p>
         <p v-for="w in info?.warnings ?? []" :key="w" class="hb-hint">{{ w }}</p>
         <HbButton variant="secondary" size="sm" :disabled="!body || tool.body.placeholder" @click="placeholder">back to the mannequin</HbButton>

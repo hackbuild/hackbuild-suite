@@ -11,7 +11,7 @@ import { createRegistry, type Registry, type StorageLike } from '@hackbuild/tuna
 import type { PhoneStage, View } from '../stage/walk'
 import { claimDrops } from '../workspace/state'
 import { usePrimary, useStop, logEvent } from '../shell/shell'
-import { isBodyFile } from './body'
+import { isBodyFile, isMmdFile, showMmd } from './body'
 
 export interface StageToolOptions {
   /** Tool id: names the stored tunables and the log rows. */
@@ -90,7 +90,7 @@ export function useStageTool(opts: StageToolOptions) {
   const view = ref<View>('front')
   const move = ref({ x: 0, y: 0 })
   const tune = ref(false)
-  const body = reactive({ name: 'mannequin', placeholder: true, line: opts.empty, failed: false })
+  const body = reactive({ name: 'mannequin', placeholder: true, line: opts.empty, failed: false, local: false })
   const stats = reactive({ fps: '--' as number | string, draw: '--' })
   const cover = ref('loading the stage')
   const failed = ref(false)
@@ -140,13 +140,26 @@ export function useStageTool(opts: StageToolOptions) {
     const w = walk.value
     const f = files.find(isBodyFile)
     if (!w || !f) {
-      if (files[0]) body.line = `this file is a ${files[0].name.replace(/^.*\./, '') || 'file with no extension'}. drop a glb or vrm.`
+      if (files[0]) body.line = `this file is a ${files[0].name.replace(/^.*\./, '') || 'file with no extension'}. drop a glb, vrm, pmx or pmd.`
       return
     }
     body.line = `reading ${f.name}, ${sizeOf(f.size)}.`
     body.failed = false
     logEvent('note', `${opts.id}: reading ${f.name}`)
-    await w.stage.show(files)
+    if (!isMmdFile(f)) {
+      body.local = false
+      await w.stage.show(files)
+      return
+    }
+    try {
+      await showMmd(w.stage, files)
+      body.local = true
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      body.failed = true
+      body.line = `could not read ${f.name}: ${m.replace(/^avatar: /, '')} the built in rig is still here.`
+      logEvent('fail', `${opts.id}: ${m}`)
+    }
   }
 
   onMounted(async () => {
@@ -191,7 +204,7 @@ export function useStageTool(opts: StageToolOptions) {
   watch(view, (v) => walk.value?.view(v))
   watch(seed, () => { if (locked.value) restart() })
 
-  // a glb or vrm dropped anywhere goes to this stage, not the import ring
+  // a glb, vrm, pmx or pmd dropped anywhere goes to this stage, not the import ring
   claimDrops({ accept: isBodyFile, take: (files) => void showBody(files) })
   usePrimary(toggle)
   useStop(pause)

@@ -8,6 +8,7 @@
 // the first load.
 import { AvatarStage, type Body } from '@hackbuild/avatar-host/three'
 import { droppedFiles } from '@hackbuild/avatar-host'
+import { showBodyFiles } from '../stagekit/body.ts'
 
 export interface BodyInfo {
   name: string
@@ -63,13 +64,13 @@ export function createCharacterStage(host: HTMLElement, hooks: StageHooks): Char
     if (speaking) stage.loop.invalidate()
   }
 
-  // a dropped glb, vrm or fbx becomes the body; it stays in this tab
+  // a dropped glb, vrm, fbx, pmx or pmd becomes the body; it stays in this tab
   const over = (e: DragEvent) => e.preventDefault()
   const drop = async (e: DragEvent) => {
     e.preventDefault()
     if (!e.dataTransfer) return
     const files = await droppedFiles(e.dataTransfer)
-    if (files.length) void stage.show(files)
+    if (files.length) void showBodyFiles(stage, files, hooks.onBodyFailed)
   }
   host.addEventListener('dragover', over)
   host.addEventListener('drop', drop)

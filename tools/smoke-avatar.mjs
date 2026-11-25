@@ -160,11 +160,20 @@ try {
   if (!same(back, held, 1e-3)) fail(`the imported pose is not the exported one: ${back} and ${held}`)
   const selected = await page.evaluate(() => [...document.querySelectorAll('[aria-label="clips"] .hb-chip')].filter((c) => c.classList.contains("is-on")).map((c) => c.textContent.trim()))
   if (!selected[0]?.startsWith("pose")) fail(`the imported pose is not the chosen clip: ${selected}`)
+
+  // a pmx drop goes to the mmd loader: a file with no pmx header is named, the body stays
+  await page.evaluate(() => {
+    const dt = new DataTransfer()
+    dt.items.add(new File([new Uint8Array([1, 2, 3, 4, 5, 6])], 'odd.pmx', { type: 'application/octet-stream' }))
+    for (const k of ['dragenter', 'dragover', 'drop']) document.body.dispatchEvent(new DragEvent(k, { dataTransfer: dt, bubbles: true, cancelable: true }))
+  })
+  await page.waitForFunction(() => /could not read odd\.pmx: odd\.pmx is named pmx but is not one/.test(document.querySelector('.hb-viewport-host').stageTool.body.line), { timeout: 10000 })
+    .catch(async () => fail(`the pmx drop was not routed to the mmd loader: ${await st(() => document.querySelector('.hb-viewport-host').stageTool.body.line)}`))
   await page.close()
 
   if (errors.length) fail('console errors')
   if (off.length) fail(`requests off file://: ${off.slice(0, 5).join(', ')}`)
-  console.log(`smoke-avatar: ok. a ${GLB.length} byte procedural glb dropped on the page landed; the rig tree lists ${tree.split('\n').length} nodes ("${bonesLine.trim()}"); the ${MORPHS[0]} slider set the morph weight to ${w.toFixed(2)}; the ${CLIP.name} clip set the transport to ${dur.toFixed(2)} s and played; the built in wave moved the mannequin arm; scrubbing to 0 s twice gave one pose; a pose exported at 1 s and imported back to the same arm; 0 requests off file:// (measured)`)
+  console.log(`smoke-avatar: ok. a ${GLB.length} byte procedural glb dropped on the page landed; the rig tree lists ${tree.split('\n').length} nodes ("${bonesLine.trim()}"); the ${MORPHS[0]} slider set the morph weight to ${w.toFixed(2)}; the ${CLIP.name} clip set the transport to ${dur.toFixed(2)} s and played; the built in wave moved the mannequin arm; scrubbing to 0 s twice gave one pose; a pose exported at 1 s and imported back to the same arm; a pmx drop reached the mmd loader and was named; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

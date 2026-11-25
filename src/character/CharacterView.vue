@@ -43,6 +43,7 @@ import { characterKind, CHARACTER_KIND, CHIPS, greetingOf, profileFor, systemOf,
 import type { CharacterStage } from './stage.ts'
 import { BUILT_IN, cardSink, EXT, extOf, LENGTHS, loadPresets, personaOf, planOf, REGISTERS, savePresets, setExt, withPersona, type Length, type Plan, type Register, type TierKey } from './sheet.ts'
 import type { Ears } from './ears.ts'
+import { showBodyFiles } from '../stagekit/body.ts'
 import { BODY_ACCEPT, PERSONA_ACCEPT, personaFrom, sizeOf, slotOf, TWIN_EMPTY, VOICE_ACCEPT, whereLine, type SlotKey, type TwinExt } from './twin.ts'
 import type { DropRoute } from '@virgilvox/hackbuild-ui/vanilla'
 import how from '@hackbuild/character/how'
@@ -210,7 +211,7 @@ async function startBody(): Promise<void> {
     if (gone || !host.value) return
     cs = createCharacterStage(host.value, {
       level: () => speaker?.level() ?? 0,
-      onBody: (b) => set('body', { state: 'ready', note: b.placeholder ? 'placeholder mannequin. drop a glb or vrm on the stage.' : `ready, ${b.name}${b.mouth ? '' : '. no mouth rig: the head moves instead'}` }),
+      onBody: (b) => set('body', { state: 'ready', note: b.placeholder ? 'placeholder mannequin. drop a glb, vrm, pmx or pmd on the stage.' : `ready, ${b.name}${b.mouth ? '' : '. no mouth rig: the head moves instead'}` }),
       onBodyFailed: (msg) => {
         const m = msg.replace(/\.+$/, '')
         set('body', { state: 'ready', pill: 'body*', note: `that body did not load: ${m}. the mannequin stays.` })
@@ -567,7 +568,7 @@ const setupRows = computed<HbReasonRow[]>(() => [
   { key: 'persona', label: 'persona', value: `${promptTokens.value} tokens`, why: 'the starter prompt. insert the template on the persona tab.' },
   { key: 'brain', label: 'brain', value: `${tierLabel.value}${brainState.value ? `, ${brainState.value.r.label ?? brainState.value.r.id}` : ''}`, why: tier.value === 'none' ? 'no download. replies come from a script.' : 'the brain that is awake now, kept for the new character.' },
   { key: 'voice', label: 'voice', value: speaker ? (rows.value.find((r: Row) => r.id === 'voice')?.pill ? 'browser voice' : 'pocket tts') : 'off', why: 'the voice of the gate. rate and pitch are on the voice tab.' },
-  { key: 'look', label: 'body', value: 'mannequin', why: 'no body file yet. drop a glb or vrm on the stage.' },
+  { key: 'look', label: 'body', value: 'mannequin', why: 'no body file yet. drop a glb, vrm, pmx or pmd on the stage.' },
   { key: 'memory', label: 'memory', value: memOn.value ? 'on' : 'off', why: 'recalls notes from the memory tool into each prompt.' },
 ])
 function setupEdit(key: string): void {
@@ -667,7 +668,7 @@ const twinEmpty = computed(() => !twinBody.value && !twinVoice.value && !twinPer
 const twinRows = computed<HbReasonRow[]>(() => {
   const where = keep.value ? 'kept in this browser, local only.' : 'in this tab only, in memory.'
   return [
-    { key: 'body', label: 'body', value: twinBody.value ? `${twinBody.value.name}, ${sizeOf(twinBody.value.size)}` : 'empty', why: twinBody.value ? where : 'drop a glb or vrm. the mannequin stands in until then.' },
+    { key: 'body', label: 'body', value: twinBody.value ? `${twinBody.value.name}, ${sizeOf(twinBody.value.size)}` : 'empty', why: twinBody.value ? where : 'drop a glb, vrm, pmx or pmd. the mannequin stands in until then.' },
     { key: 'voice', label: 'voice', value: twinVoice.value ? `${twinVoice.value.name}, ${sizeOf(twinVoice.value.size)}` : 'empty', why: twinVoice.value ? `${where} pocket tts clones it at wake.` : 'drop a wav of your voice, 8 s or more.' },
     { key: 'persona', label: 'persona', value: twinPersona.value || 'empty', why: twinPersona.value ? 'written into the character. it is text and exports with it.' : 'drop a persona json or a character card.' },
   ]
@@ -748,13 +749,13 @@ const twinRoutes: DropRoute[] = [
 ]
 const twinReject = (files: File[]) => {
   const f = files.find((x) => !slotOf(x))
-  twinError.value = f ? `${f.name} fills no slot. the body takes a glb or vrm, the voice a wav, the persona a json.` : ''
+  twinError.value = f ? `${f.name} fills no slot. the body takes a glb, vrm, pmx or pmd, the voice a wav, the persona a json.` : ''
 }
 const twinOn = computed(() => mode.value === 'twin')
 // a file dropped anywhere on the page fills its slot while the twin gate shows
 watch([twinOn, awake], ([on, up]) => claimDrops(on && !up ? { accept: (f) => !!slotOf(f), take: (files) => { for (const f of files) void fillSlot(slotOf(f)!, [f]) } } : null), { immediate: true })
 async function showTwinBody(): Promise<void> {
-  if (twinOn.value && twinBody.value && cs) await cs.stage.show([twinBody.value])
+  if (twinOn.value && twinBody.value && cs) await showBodyFiles(cs.stage, [twinBody.value], (m) => { twinError.value = m })
 }
 async function cloneTwin(): Promise<void> {
   const f = twinVoice.value
@@ -836,7 +837,7 @@ onBeforeUnmount(() => {
         <HbField label="mode"><HbSeg v-model="mode" :options="MODES" /></HbField>
         <div v-if="twinOn" class="hb-stack">
           <p class="hb-hint">{{ twinEmpty ? TWIN_EMPTY : whereLine(keep) }}</p>
-          <HbDropzone :routes="twinRoutes" :accept="`${BODY_ACCEPT},${VOICE_ACCEPT},${PERSONA_ACCEPT}`" multiple label="pick files" hint="or drop a glb or vrm, a wav and a persona json here" :error="twinError" @rejected="twinReject" />
+          <HbDropzone :routes="twinRoutes" :accept="`${BODY_ACCEPT},${VOICE_ACCEPT},${PERSONA_ACCEPT}`" multiple label="pick files" hint="or drop a glb, vrm, pmx or pmd, a wav and a persona json here" :error="twinError" @rejected="twinReject" />
           <HbReasons :rows="twinRows" label="twin slots">
             <template #edit="{ row }">
               <HbButton v-if="row.value !== 'empty'" variant="ghost" size="sm" @click="clearSlot(row.key ?? row.label)">remove</HbButton>
