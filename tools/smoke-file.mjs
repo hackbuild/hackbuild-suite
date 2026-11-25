@@ -5,7 +5,7 @@
 // imported back from both files through ctrl+o.
 // Then each group single file (design D11) from disk: one group tab, every
 // tool of the group opens, a tool of another group does not, rooms holds
-// only the lab stage page and says so.
+// the room tool and the lab stage page.
 // Fails on any console error or a missing control. Usage:
 //   npm run build:single && npm run build:groups && node tools/smoke-file.mjs [--shots <dir>]
 import { mkdtempSync, rmSync, mkdirSync, existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -53,9 +53,9 @@ try {
   if (tabs.length !== 7) throw new Error(`expected 7 group tabs, found ${tabs.length}: ${tabs.join(', ')}`)
   if (shots) await page.screenshot({ path: join(shots, 'home-1440.png') })
 
-  for (const [hash, expect] of [['#/character', 'wake mannequin up.'], ['#/rooms', 'room is not built yet']]) {
+  for (const [hash, expect] of [['#/character', 'wake mannequin up.'], ['#/rooms', 'wake the agent']]) {
     await page.evaluate((h) => { location.hash = h }, hash)
-    await page.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 5000 }, expect)
+    await page.waitForFunction((t) => document.body.textContent.includes(t), { timeout: 5000 }, expect)
     const stored = await idb(page, 'kv', 'get', 'last-route')
     const want = hash.slice(1)
     if (stored !== want) throw new Error(`indexeddb last-route is ${stored}, expected ${want}`)
@@ -211,15 +211,15 @@ try {
     }
     if (g === 'rooms') {
       await gp.evaluate(() => { location.hash = '#/rooms' })
-      await gp.waitForFunction(() => document.body.innerText.includes('this file holds only the lab stage page until the room tools land'), { timeout: 5000 })
-        .catch(() => { throw new Error('rooms.html does not say it holds only the lab stage page') })
+      await gp.waitForFunction(() => document.body.textContent.includes('wake the agent'), { timeout: 5000 })
+        .catch(() => { throw new Error('rooms.html does not open the room rack') })
       if (!(await lab())) throw new Error('rooms.html: the lab stage page did not open')
     } else if (await lab()) throw new Error(`${g}.html carries the lab stage page`)
     if (shots && (g === 'chat' || g === 'rooms')) await gp.screenshot({ path: join(shots, `group-${g}-1440.png`) })
     await ctx.close()
   }
   if (errors.length) throw new Error(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-file: ok. 7 group files from disk, each one tab with its own tools only, rooms with only the lab stage page.`)
+  console.log(`smoke-file: ok. 7 group files from disk, each one tab with its own tools only, rooms with the room tool and the lab stage page.`)
   console.log(`smoke-file: ok. 7 tabs, two route changes, indexeddb write read back, keys , ? m / esc alt+4 and the log strip; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
 } finally {
   await browser.close()
