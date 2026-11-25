@@ -10,10 +10,18 @@
 // rack tabs switch; a thing on the stage opens a menu whose entry sends a
 // sentence; the bubble stays inside the stage; mind shows the prompt,
 // drives and the plan; eyes shows the readout; memory keeps a line taught
-// by talking. Any request off file:// or console error fails the run.
+// by talking. 4.10: the body tab takes a pmx and names a bad one; who
+// decides "reflexes first" plans with no model call; the persona addition
+// reaches the prompt; the voice tab speaks a test line on the stub voice
+// and draws the mouth; the depth model loads through the hub's stub and
+// reads out; an injected event is logged and answered; free run has its own
+// idea; the stub mic is heard and the words are sent; the room json, log
+// csv and trace export with the seed in their names, and a room json
+// dropped on a fresh page opens with its name, seed and layout. Any
+// request off file:// or console error fails the run.
 //   npm run build:single && node tools/smoke-room.mjs [--shots <dir>]
-// --shots saves the rack, the awake room and the mind tab at 390 px.
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+// --shots saves the rack, the awake room, the mind, brain and voice tabs at 390 px.
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -35,12 +43,44 @@ const errors = []
 const off = []
 const fail = (why) => { throw new Error(errors.length ? `${why}\nconsole errors:\n${errors.join('\n')}` : why) }
 const phone = { width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true }
+const downloads = join(profile, 'downloads')
+mkdirSync(downloads)
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function open(query) {
   const page = await browser.newPage()
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) off.push(r.url()) })
+  // the stub mic: a 220 hz tone from 1 s to 2.4 s over a quiet noise floor
+  await page.evaluateOnNewDocument(() => {
+    if (!navigator.mediaDevices) Object.defineProperty(navigator, 'mediaDevices', { value: {}, configurable: true })
+    navigator.mediaDevices.getUserMedia = async () => {
+      const ac = new AudioContext()
+      await ac.resume()
+      const dest = ac.createMediaStreamDestination()
+      const noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate)
+      const d = noise.getChannelData(0)
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.002
+      const ns = ac.createBufferSource()
+      ns.buffer = noise
+      ns.loop = true
+      ns.connect(dest)
+      const osc = ac.createOscillator()
+      osc.frequency.value = 220
+      const g = ac.createGain()
+      const t = ac.currentTime
+      g.gain.setValueAtTime(0, t)
+      g.gain.setValueAtTime(0.4, t + 1)
+      g.gain.setValueAtTime(0, t + 2.4)
+      osc.connect(g).connect(dest)
+      osc.start()
+      ns.start()
+      return dest.stream
+    }
+  })
+  const cdp = await page.createCDPSession()
+  await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads })
   await page.setViewport(shots ? phone : { width: 1280, height: 900 })
   await page.goto(`${base}?${query}#/rooms`, { waitUntil: 'load' })
   await page.waitForFunction(() => !!document.querySelector('[data-rack] .hb-slot'), { timeout: 10000 }).catch(() => fail('the rack did not show first'))
@@ -81,6 +121,29 @@ async function wake(page) {
   if (!(await click(page, '[data-gate] button', 'wake the agent'))) fail('no wake the agent button')
   await page.waitForFunction(() => !!document.querySelector('.hb-viewport-host')?.room?.mind(), { timeout: 20000 }).catch(() => fail('the room did not build on wake'))
 }
+async function exportAs(page, label, ext) {
+  await page.evaluate((l) => [...document.querySelectorAll('[data-under] .hb-export-formats button')].find((b) => b.textContent.trim() === l)?.click(), label)
+  await wait(100)
+  const clicked = await page.evaluate((e) => {
+    const b = [...document.querySelectorAll('[data-under] .hb-export button')].find((x) => x.textContent.trim().startsWith('export') && x.textContent.trim().endsWith(e) && !x.disabled)
+    b?.click(); return !!b
+  }, ext)
+  if (!clicked) fail(`no export ${ext} button`)
+  for (let i = 0; i < 80; i++) {
+    const f = readdirSync(downloads).find((n) => n.endsWith(ext) && !n.endsWith('.crdownload'))
+    if (f) { const keep = join(profile, `got-${Date.now()}-${f}`); renameSync(join(downloads, f), keep); return { path: keep, name: f } }
+    await wait(100)
+  }
+  fail(`no ${ext} download`)
+}
+const pickFile = (page, sel, bytes, name, type) => page.evaluate((s, b, n, t) => {
+  const input = document.querySelector(s)
+  const dt = new DataTransfer()
+  dt.items.add(new File([Uint8Array.from(b)], n, { type: t }))
+  input.files = dt.files
+  input.dispatchEvent(new Event('change', { bubbles: true }))
+}, sel, bytes, name, type)
+const bodyLine = (page) => page.evaluate(() => document.querySelector('.hb-viewport-host')?.stageTool?.body.line ?? '')
 async function waitMind(page, test, why, ms = 20000) {
   const t0 = Date.now()
   while (Date.now() - t0 < ms) {
@@ -168,6 +231,93 @@ try {
   if (!/curiosity/.test(mind)) fail('the mind tab does not show drives')
   if (shots) await page.screenshot({ path: join(shots, 'room-mind-390.png') })
 
+  // 4.10, body: the pick takes pmx and pmd; a file that is not one is named, the mannequin stays
+  await pickTab(page, 'body')
+  const accept = await page.evaluate(() => document.querySelector('[data-body-pick]')?.accept ?? '')
+  if (!/\.pmx/.test(accept) || !/\.pmd/.test(accept)) fail(`the body pick does not take pmx and pmd: ${accept}`)
+  await pickFile(page, '[data-body-pick]', [1, 2, 3, 4, 5, 6, 7, 8], 'fake.pmx', 'application/octet-stream')
+  await page.waitForFunction(() => /fake\.pmx is named pmx but is not one/.test(document.querySelector('.hb-viewport-host')?.stageTool?.body.line ?? ''), { timeout: 10000 })
+    .catch(async () => fail(`a bad pmx is not named: ${await bodyLine(page)}`))
+  await pickFile(page, '[data-body-pick]', [80, 77, 88, 32, 0, 0, 0, 0, 1, 2], 'broken.pmx', 'application/octet-stream')
+  await page.waitForFunction(() => /could not read broken\.pmx: the mmd file did not parse/.test(document.querySelector('.hb-viewport-host')?.stageTool?.body.line ?? ''), { timeout: 15000 })
+    .catch(async () => fail(`a broken pmx did not fail through the mmd loader: ${await bodyLine(page)}`))
+  if (!(await page.evaluate(() => document.querySelector('.hb-viewport-host').stageTool.body.placeholder))) fail('a failed pmx replaced the mannequin')
+
+  // brain: three options for who decides; reflexes first plans with no model call
+  await pickTab(page, 'brain')
+  const radios = await page.$$eval('[data-pane="brain"] input[type="radio"]', (r) => r.map((x) => x.value))
+  if (radios.join(',') !== 'the model,with hints,reflexes first') fail(`who decides reads ${radios.join(',')}`)
+  await page.evaluate(() => document.querySelector('[data-pane="brain"] input[value="reflexes first"]').click())
+  await waitMind(page, (r) => !r.mind().running && !r.world().busy, 'the body did not settle')
+  const modelTurns = await room(page, (r) => r.mind().cost.model)
+  await room(page, (r) => r.send('come here'))
+  await waitMind(page, (r) => r.mind().last.tier === 'reflex' && /reflex rules on: come here/.test(r.mind().last.prompt), 'reflexes first did not plan the order')
+  if ((await room(page, (r) => r.mind().cost.model)) !== modelTurns) fail('reflexes first still called the model')
+  await page.evaluate(() => document.querySelector('[data-pane="brain"] input[value="the model"]').click())
+  await page.type('#room-extra', 'the lamp is broken.')
+  await waitMind(page, (r) => /the lamp is broken\./.test(r.mind().system()), 'the persona addition is not in the prompt', 3000)
+  if (shots) await page.screenshot({ path: join(shots, 'room-brain-390.png'), fullPage: true })
+
+  // voice: a test line on the stub bellows voice, the mouth canvas drawn
+  await pickTab(page, 'voice')
+  await page.evaluate(() => {
+    const sel = [...document.querySelectorAll('[data-pane="voice"] select')].find((s) => [...s.options].some((o) => o.value === 'bellows-voice'))
+    sel.value = 'bellows-voice'
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  if (!(await click(page, '[data-pane="voice"] button', 'test line'))) fail('no test line button')
+  await page.waitForFunction(() => /ready, bellows-voice/.test(document.querySelector('[data-voice-status]')?.textContent ?? ''), { timeout: 15000 })
+    .catch(async () => fail(`the voice did not start: ${await page.evaluate(() => document.querySelector('[data-voice-status]')?.textContent)}`))
+  const mouth = await page.evaluate(() => { const c = document.querySelector('[data-mouth]'); return c ? { w: c.width, h: c.height } : null })
+  if (!mouth || mouth.w < 50) fail(`the mouth canvas is not drawn: ${JSON.stringify(mouth)}`)
+  const presets = await page.evaluate(() => [...document.querySelectorAll('[data-pane="voice"] select')].map((s) => s.options.length))
+  if (!presets.some((n) => n === 14)) fail(`the bellows presets are not 14: ${presets}`)
+  if (shots) await page.screenshot({ path: join(shots, 'room-voice-390.png'), fullPage: true })
+
+  // eyes: the depth model through the hub's stub
+  await pickTab(page, 'eyes')
+  await page.evaluate(() => {
+    const sel = [...document.querySelectorAll('[data-pane="eyes"] select')].find((s) => [...s.options].some((o) => o.value === 'depth model'))
+    sel.value = 'depth model'
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await page.waitForFunction(() => /model depth ahead/.test(document.querySelector('[data-pane="eyes"]')?.textContent ?? ''), { timeout: 20000 })
+    .catch(async () => fail(`the depth model did not read out: ${await page.evaluate(() => document.querySelector('[data-pane="eyes"]')?.textContent.slice(0, 600))}`))
+
+  // inject an event under the stage
+  await page.type('[data-inject] input', 'a ball rolls in')
+  if (!(await click(page, '[data-inject] button', 'inject'))) fail('no inject button')
+  await waitMind(page, (r) => r.live.log.some((e) => e.text === 'event: a ball rolls in') && r.injected.length === 1, 'the event is not in the log')
+  await waitMind(page, (r) => r.live.log.some((e) => e.kind === 'me' && /what was that/.test(e.text)), 'the body did not react to the event')
+
+  // free run: an own idea once the body idles past the interval
+  await waitMind(page, (r) => !r.mind().running && !r.world().busy, 'the body did not settle before free run', 30000)
+  await page.evaluate(() => document.querySelector('.hb-viewport-host').stageTool.reg.set('run.every', 2))
+  await room(page, (r) => { r.run.value = 'free run' })
+  await waitMind(page, (r) => r.live.log.some((e) => e.kind === 'think' && /^own idea: /.test(e.text)), 'free run had no own idea', 20000)
+  await room(page, (r) => { r.run.value = 'prompted'; r.mind().stop() })
+
+  // the mic: hands free on the stub stream, the stub words sent as an order
+  await pickTab(page, 'talk')
+  await page.click('[data-pane="talk"] .hb-mic-btn')
+  await waitMind(page, (r) => r.live.log.some((e) => e.kind === 'you' && /the level rail/.test(e.text)), 'the mic heard nothing from the stub stream', 30000)
+  await page.click('[data-pane="talk"] .hb-mic-btn')
+
+  // exports: room json, log csv and trace, each named with the seed
+  const seed = await page.evaluate(() => document.querySelector('.hb-viewport-host').stageTool.seed.value)
+  const doc = await exportAs(page, 'room', '.hbroom.json')
+  const csv = await exportAs(page, 'log', '.csv')
+  const trace = await exportAs(page, 'trace', '.trace.json')
+  for (const f of [doc, csv, trace]) if (!f.name.includes(`seed-${seed}`)) fail(`the export ${f.name} lacks the seed ${seed}`)
+  const roomJson = readFileSync(doc.path, 'utf8')
+  const rows = readFileSync(csv.path, 'utf8').trim().split('\n')
+  if (rows[0] !== 't,agent,kind,text' || rows.length < 10) fail(`the log csv has ${rows.length} rows`)
+  const tr = JSON.parse(readFileSync(trace.path, 'utf8'))
+  if (tr.seed !== seed || tr.events.length !== 1 || !tr.log.length) fail('the trace lacks the seed, the event or the log')
+  const saved = JSON.parse(roomJson)
+  const body = saved.body ?? saved
+  if (body.seed !== seed || body.layout.length < 5 || body.cast[0].extra !== 'the lamp is broken.') fail(`the room json lacks the seed, the layout or the cast: ${roomJson.slice(0, 300)}`)
+
   // open rack, resume returns to the same run
   const lines = await room(page, (r) => r.live.log.length)
   if (!(await click(page, 'button', 'open rack'))) fail('no open rack button')
@@ -194,9 +344,28 @@ try {
   if (!/the brain failed: out of gpu memory/.test(log2)) fail(`run 2: the drop reason is not in the log:\n${log2}`)
   await p2.close()
 
+  // run 3: a room json dropped on a fresh page opens with its name, seed and layout
+  const p3 = await open('stub')
+  const edited = JSON.parse(roomJson)
+  const b3 = edited.body ?? edited
+  b3.seed = 4242
+  b3.cast[0].name = 'bo'
+  b3.layout = b3.layout.map((t) => (t.label === 'ball' ? { ...t, x: 1.5, z: -1.25, on: null } : t))
+  await p3.evaluate((t, n) => {
+    const dt = new DataTransfer()
+    dt.items.add(new File([t], n, { type: 'application/json' }))
+    for (const k of ['dragenter', 'dragover', 'drop']) document.body.dispatchEvent(new DragEvent(k, { dataTransfer: dt, bubbles: true, cancelable: true }))
+  }, JSON.stringify(edited), 'take.hbroom.json')
+  await p3.waitForFunction(() => document.querySelector('#room-name')?.value === 'bo', { timeout: 8000 }).catch(() => fail('the dropped room json did not open its cast'))
+  await wake(p3)
+  await waitMind(p3, (r) => { const b = r.world().thing('ball'); return Math.abs(b.x - 1.5) < 0.01 && Math.abs(b.z + 1.25) < 0.01 }, 'the dropped layout did not place the ball')
+  const seed3 = await p3.evaluate(() => document.querySelector('.hb-viewport-host').stageTool.seed.value)
+  if (seed3 !== 4242) fail(`the dropped room opened on seed ${seed3}`)
+  await p3.close()
+
   if (off.length) fail(`requests left file://: ${off.slice(0, 5).join(', ')}`)
   if (errors.length) fail('console errors')
-  console.log(`smoke-room: rack ${rack.rows} rows, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs, resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
+  console.log(`smoke-room: rack ${rack.rows} rows, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs; a bad and a broken pmx named; reflexes first with no model call; persona addition, stub voice and mouth, stub depth model, injected event, free run idea and stub mic heard; room json, ${rows.length - 1} csv rows and trace named with seed ${seed}; a dropped room json reopened on seed ${seed3}; resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
