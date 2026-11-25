@@ -4,7 +4,10 @@
 // the page; the rig tree lists its bones; a blendshape slider sets the
 // morph weight on the mesh; the file's clip plays and scrubs, and the same
 // time gives the same pose; a pose exports as json and imports back to the
-// same bones. Any request off file:// or console error fails the run.
+// same bones. Under ?stub the clip and body previews (4.4e) draw on a
+// canvas stub: the built in clips get thumbs in the strip, the glb gets a
+// tile with media, and each PNG sits in the blobs store by content hash.
+// Any request off file:// or console error fails the run.
 //   npm run build:single && node tools/smoke-avatar.mjs
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +19,8 @@ import { avatarGlb, CLIP, MORPHS } from './avatar-glb.mjs'
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const file = resolve('dist/single/index.html')
 if (!existsSync(file)) throw new Error('no single build: run npm run build:single first')
-const url = `${pathToFileURL(file).href}#/motion/avatar`
+// THUMBS=real draws the previews on the clay figure instead of the stub
+const url = `${pathToFileURL(file).href}${process.env.THUMBS === "real" ? "" : "?stub"}#/motion/avatar`
 const GLB = avatarGlb()
 const BODY = 'smoke-body.glb'
 
@@ -55,6 +59,16 @@ try {
   }
   const builtin = await page.$$eval('[aria-label="clips"] .hb-chip', (c) => c.map((x) => x.textContent.trim()))
   if (!['wave', 'nod', 'look around', 'bow'].every((n) => builtin.includes(n))) fail(`the mannequin lacks the built in clips: ${builtin}`)
+  // previews: every built in clip gets a thumb in the strip, from the stub renderer
+  const thumbed = () => page.$$eval('[data-pane="clip-thumbs"] img', (is) => is.filter((i) => i.src.startsWith('blob:')).length)
+  const want = builtin.filter((n) => n !== 'rest').length
+  await page.waitForFunction((n) => document.querySelectorAll('[data-pane="clip-thumbs"] img[src^="blob:"]').length >= n, { timeout: 15000 }, want)
+    .catch(async () => fail(`the clip strip has ${await thumbed()} thumbs for ${want} clips`))
+  const clipThumbs = await thumbed()
+  if (process.env.SHOTS) {
+    await page.$eval('[data-pane="clip-thumbs"]', (e) => e.scrollIntoView({ block: 'center' }))
+    await page.screenshot({ path: join(process.env.SHOTS, `clip-strip-390${process.env.THUMBS === 'real' ? '-clay' : ''}.png`) })
+  }
   const handQ = () => st(() => document.querySelector('.hb-viewport-host').stageTool.walk.stage.body.avatar.bones.rightUpperArm.quaternion.toArray())
   const seekTo = (v) => st((t) => { const s = document.querySelector('.hb-tp-scrub'); s.value = String(t); s.dispatchEvent(new Event('input', { bubbles: true })) }, v)
   await page.evaluate(() => [...document.querySelectorAll('[aria-label="clips"] .hb-chip')].find((c) => c.textContent.trim() === 'wave').click())
@@ -74,6 +88,25 @@ try {
   }, GLB.toString('base64'), BODY)
   await page.waitForFunction(() => !document.querySelector('.hb-viewport-host').stageTool.body.placeholder, { timeout: 15000 })
     .catch(async () => fail(`the glb did not land: ${await st(() => document.querySelector('.hb-viewport-host').stageTool.body.line)}`))
+
+  // the dropped body gets a tile with a preview in its media slot
+  await page.waitForFunction(() => [...document.querySelectorAll('.hb-tile')].some((t) => !t.textContent.includes('mannequin') && t.querySelector('.hb-tile-media img[src^="blob:"]')), { timeout: 15000 })
+    .catch(async () => fail(`the dropped body has no tile with a preview: ${await page.$$eval('.hb-tile', (ts) => ts.map((t) => t.outerHTML.slice(0, 200)).join(' | '))}`))
+  if (process.env.SHOTS) {
+    await page.$eval('.hb-tile.has-media', (e) => e.scrollIntoView({ block: 'center' }))
+    await page.screenshot({ path: join(process.env.SHOTS, `body-tile-390${process.env.THUMBS === 'real' ? '-clay' : ''}.png`) })
+  }
+  const pngs = await page.evaluate(() => new Promise((res) => {
+    const q = indexedDB.open('hackbuild-suite')
+    q.onsuccess = () => {
+      const tx = q.result.transaction(['blobs', 'kv'])
+      const b = tx.objectStore('blobs').getAll()
+      const k = tx.objectStore('kv').get('thumbs')
+      tx.oncomplete = () => { q.result.close(); res({ blobs: b.result.filter((x) => x.type === 'image/png').map((x) => x.hash), index: k.result ?? {} }) }
+    }
+  }))
+  const indexed = Object.values(pngs.index)
+  if (indexed.length < clipThumbs + 1 || !indexed.every((h) => pngs.blobs.includes(h))) fail(`the preview index does not point at stored pngs: ${indexed.length} indexed, ${pngs.blobs.length} pngs`)
 
   // the rig tree lists the bones
   await page.waitForFunction(() => /rightUpperArm/.test(document.querySelector('[data-pane="rig"] .hb-tree')?.textContent ?? ''), { timeout: 5000 })
@@ -173,7 +206,7 @@ try {
 
   if (errors.length) fail('console errors')
   if (off.length) fail(`requests off file://: ${off.slice(0, 5).join(', ')}`)
-  console.log(`smoke-avatar: ok. a ${GLB.length} byte procedural glb dropped on the page landed; the rig tree lists ${tree.split('\n').length} nodes ("${bonesLine.trim()}"); the ${MORPHS[0]} slider set the morph weight to ${w.toFixed(2)}; the ${CLIP.name} clip set the transport to ${dur.toFixed(2)} s and played; the built in wave moved the mannequin arm; scrubbing to 0 s twice gave one pose; a pose exported at 1 s and imported back to the same arm; a pmx drop reached the mmd loader and was named; 0 requests off file:// (measured)`)
+  console.log(`smoke-avatar: ok. a ${GLB.length} byte procedural glb dropped on the page landed; the rig tree lists ${tree.split('\n').length} nodes ("${bonesLine.trim()}"); the ${MORPHS[0]} slider set the morph weight to ${w.toFixed(2)}; the ${CLIP.name} clip set the transport to ${dur.toFixed(2)} s and played; the built in wave moved the mannequin arm; ${clipThumbs} clip previews in the strip and a body tile preview, ${indexed.length} pngs indexed by content hash (${process.env.THUMBS === 'real' ? 'clay figure' : 'stub renderer'}); scrubbing to 0 s twice gave one pose; a pose exported at 1 s and imported back to the same arm; a pmx drop reached the mmd loader and was named; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
