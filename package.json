@@ -66,6 +66,7 @@
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.1.0-a79f0f5.tgz",
     "@hackbuild/organic": "file:tools/vendor/hackbuild-organic-0.1.0-a047b82.tgz",
     "@hackbuild/presence": "file:tools/vendor/hackbuild-presence-0.1.0-a047b82.tgz",
+    "@hackbuild/retarget": "file:tools/vendor/hackbuild-retarget-0.1.0-a047b82.tgz",
     "@hackbuild/rig": "file:tools/vendor/hackbuild-rig-0.1.0-a047b82.tgz",
     "@hackbuild/speak": "file:tools/vendor/hackbuild-speak-0.1.0-44da07c.tgz",
     "@hackbuild/transcribe": "file:tools/vendor/hackbuild-transcribe-0.1.0-2219635.tgz",
