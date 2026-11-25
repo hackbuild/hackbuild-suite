@@ -50,7 +50,8 @@
     "smoke:cameras": "node tools/smoke-agents.mjs cameras",
     "smoke:mover": "node tools/smoke-agents.mjs mover",
     "smoke:scenario": "node tools/smoke-agents.mjs scenario",
-    "smoke:room": "node tools/smoke-room.mjs"
+    "smoke:room": "node tools/smoke-room.mjs",
+    "smoke:seal": "node tools/smoke-seal.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
