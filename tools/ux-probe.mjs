@@ -125,7 +125,8 @@ async function probe(layout) {
   }
   const marked = (k) => [...document.querySelectorAll(`[data-ux~="${k}"]`)].filter(shown)
   const SEL = 'button,input:not([type=hidden]),select,textarea,[role=button],[role=tab]'
-  const controlsIn = (el) => [...el.querySelectorAll(SEL)].filter(shown).length
+  // controls in a verb row or an inset belong to the subject, so they do not make it a panel
+  const controlsIn = (el) => [...el.querySelectorAll(SEL)].filter(shown).filter((c) => !c.closest('[data-ux~="verbs"],[data-ux~="inset"]')).length
   const detectors = {}
 
   // bar: marker, else the topmost full width header or banner
