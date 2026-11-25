@@ -391,7 +391,7 @@ export const rackPresets = computed<HbRackPreset[]>(() =>
 export function rackStates(picks: Record<string, string>): Record<string, HbRackSlotState> {
   const out: Record<string, HbRackSlotState> = {}
   for (const s of rackSlots.value) {
-    const id = picks[s.slot] ?? s.options[0]?.value
+    const id = picks[s.slot] ?? s.options?.[0]?.value
     const st = id ? states.value[id] : undefined
     if (!st) continue
     if (st.state === 'loaded') out[s.slot] = { state: 'ready' }

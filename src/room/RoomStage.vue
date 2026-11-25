@@ -393,7 +393,7 @@ function frame(dt: number, t: number) {
 
 let depthAt = 0
 let depthBusy = false
-const depthId = computed(() => room.picks.value.depth ?? room.slots.value.find((s) => s.slot === 'depth')?.options[0]?.value ?? null)
+const depthId = computed(() => room.picks.value.depth ?? room.slots.value.find((s) => s.slot === 'depth')?.options?.[0]?.value ?? null)
 const depthState = computed(() => (depthId.value ? hub.states.value[depthId.value]?.state ?? 'none' : 'none'))
 /** The depth model on the eye image, through the hub; until it is in, depth is the eye's own render. */
 async function modelDepth() {

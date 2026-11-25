@@ -52,7 +52,7 @@ export const origin = typeof location !== 'undefined' && location.protocol === '
 export const slots = computed<HbRackSlot[]>(() =>
   ORGANS.flatMap(({ slot, role }) => {
     const s = hub.rackSlots.value.find((x) => x.slot === slot)
-    return s && s.options.length ? [{ ...s, role, required: false }] : []
+    return s && s.options?.length ? [{ ...s, role, required: false }] : []
   }),
 )
 
@@ -67,7 +67,7 @@ export const presets = computed<HbRackPreset[]>(() => {
 })
 
 /** The brain pick: the rack's, else the first option of the slot. */
-export const brainId = computed(() => picks.value.brain ?? slots.value.find((s) => s.slot === 'brain')?.options[0]?.value ?? null)
+export const brainId = computed(() => picks.value.brain ?? slots.value.find((s) => s.slot === 'brain')?.options?.[0]?.value ?? null)
 export const brainState = computed(() => (brainId.value ? hub.states.value[brainId.value]?.state ?? 'none' : 'none'))
 
 export const endpointOk = computed(() => /^https?:\/\/\S+$/.test(endpoint.value) && (keyOk.value || !endpointKey.value))

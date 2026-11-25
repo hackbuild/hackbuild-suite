@@ -16,7 +16,7 @@ const emit = defineEmits<{ wake: [] }>()
 
 const webgpu = computed(() => hub.env.value?.webgpu ?? true)
 const brainSlot = computed(() => room.slots.value.find((s) => s.slot === 'brain'))
-const brainLabel = computed(() => brainSlot.value?.options.find((o) => o.value === room.brainId.value)?.label ?? 'none')
+const brainLabel = computed(() => brainSlot.value?.options?.find((o) => o.value === room.brainId.value)?.label ?? 'none')
 
 /** Wake is open unless the tier needs something it does not have. */
 const gate = computed(() => {
