@@ -13,6 +13,7 @@ export { registerKind, kinds } from './kinds.ts'
 export type { DocKind } from './kinds.ts'
 
 const files = () => import('./files.ts')
+const sealing = () => import('./seal.ts')
 
 // Short answers go to the toaster; failures stay longer.
 const { toast: say } = useToast()
@@ -137,7 +138,7 @@ export const deleteDoc = (id: string) => task('deleting', () => ws.deleteDoc(id)
 export const kindOf = (d: Doc): DocKind | undefined => (kindsTick.value, kinds.get(d.kind))
 
 /** Download one document in its own extension, or in a native format of its kind. */
-export async function exportDoc(id: string, opts: { format?: string; filename?: string; includeLocal?: boolean } = {}): Promise<void> {
+export async function exportDoc(id: string, opts: { format?: string; filename?: string; includeLocal?: boolean; seal?: string } = {}): Promise<void> {
   await task('exporting', async () => {
     const f = await files()
     await ws.flush()
@@ -153,20 +154,22 @@ export async function exportDoc(id: string, opts: { format?: string; filename?: 
     }
     const out = await f.writeDoc(ws, kinds, d, { includeLocal: opts.includeLocal })
     const name = opts.filename ? opts.filename + f.docExt(kinds, d.kind) : out.name
-    saveFile(name, out.text, 'application/json')
-    logEvent('note', `export: ${name}${out.left.length ? `. left out, local only: ${out.left.join(', ')}` : ''}`)
+    if (opts.seal) saveFile(name, (await (await sealing()).sealFile(opts.seal, 'document', new TextEncoder().encode(out.text))) as BlobPart, 'application/json')
+    else saveFile(name, out.text, 'application/json')
+    logEvent('note', `export: ${name}${opts.seal ? ', sealed' : ''}${out.left.length ? `. left out, local only: ${out.left.join(', ')}` : ''}`)
   })
 }
 
 /** Download the open project as one .hbsuite.zip. */
-export async function exportWorkspace(opts: { filename?: string; includeLocal?: boolean } = {}): Promise<void> {
+export async function exportWorkspace(opts: { filename?: string; includeLocal?: boolean; seal?: string } = {}): Promise<void> {
   await task('exporting the workspace', async () => {
     const f = await files()
     const out = await f.writeWorkspace(ws, kinds, { includeLocal: opts.includeLocal })
     const name = opts.filename ? opts.filename + WORKSPACE_EXT : out.name
-    saveFile(name, out.bytes as BlobPart, 'application/zip')
+    const bytes = opts.seal ? await (await sealing()).sealFile(opts.seal, 'workspace', out.bytes) : out.bytes
+    saveFile(name, bytes as BlobPart, 'application/zip')
     const n = out.manifest.files.filter((x) => x.path.startsWith('docs/')).length
-    logEvent('note', `export: ${name}, ${n} documents, ${out.bytes.length} bytes (measured)${out.manifest.left.length ? `. left out, local only: ${out.manifest.left.join(', ')}` : ''}`)
+    logEvent('note', `export: ${name}, ${n} documents, ${bytes.length} bytes (measured)${opts.seal ? ', sealed' : ''}${out.manifest.left.length ? `. left out, local only: ${out.manifest.left.join(', ')}` : ''}`)
   })
 }
 
@@ -203,6 +206,53 @@ function choose(file: string, takers: { kind: DocKind; via: NativeImport<unknown
   })
 }
 
+/** A sealed file waits for its password: the shell shows the box and answers here. */
+export interface PasswordAsk {
+  file: string
+  error: string
+  answer: (password: string | null) => void
+}
+export const passwordAsk = shallowRef<PasswordAsk | null>(null)
+function askPassword(file: string, error = ''): Promise<string | null> {
+  return new Promise((resolve) => {
+    passwordAsk.value = {
+      file, error,
+      answer: (p) => {
+        passwordAsk.value = null
+        resolve(p)
+      },
+    }
+  })
+}
+
+/** The plain bytes of a picked file: a sealed one asks for its password
+ * until it opens or the person cancels (null). */
+async function unseal(file: File): Promise<Uint8Array | null> {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const s = await sealing()
+  let sealed
+  try {
+    sealed = await s.readSealed(bytes)
+  } catch (e) {
+    toast(`${file.name}: ${(e as Error).message}`, { kind: 'err' })
+    return null
+  }
+  if (!sealed) return bytes
+  let error = ''
+  for (;;) {
+    const pw = await askPassword(file.name, error)
+    if (pw === null) return null
+    try {
+      const plain = await s.openSealed(pw, sealed)
+      logEvent('note', `import: ${file.name} opened with its password`)
+      return plain
+    } catch (e) {
+      error = (e as Error).message
+      logEvent('fail', `import: ${file.name}: ${error}`)
+    }
+  }
+}
+
 /** The shell's file input, set by the panels; ctrl+o and the menu's import press it. */
 export const picker = shallowRef<(() => void) | null>(null)
 export const pickFiles = () => picker.value?.()
@@ -222,7 +272,9 @@ export async function importFiles(list: File[]): Promise<void> {
   for (const file of list) {
     const lower = file.name.toLowerCase()
     if (lower.endsWith(WORKSPACE_EXT)) {
-      const read = await task('reading the workspace', async () => (await files()).readWorkspace(kinds, new Uint8Array(await file.arrayBuffer())))
+      const plain = await unseal(file)
+      if (!plain) continue
+      const read = await task('reading the workspace', async () => (await files()).readWorkspace(kinds, plain))
       if (!read) continue
       const n = read.docs.length
       const ok = await dialog.ask({
@@ -234,9 +286,11 @@ export async function importFiles(list: File[]): Promise<void> {
       const added = await task('importing', async () => (await files()).addWorkspace(ws, read))
       if (added) logEvent('note', `import: ${added.length} documents from ${file.name}`)
     } else if (kinds.isDocFile(lower)) {
+      const plain = await unseal(file)
+      if (!plain) continue
       const d = await task('importing', async () => {
         const f = await files()
-        return f.addDocFile(ws, f.readDoc(kinds, await file.text()))
+        return f.addDocFile(ws, f.readDoc(kinds, new TextDecoder().decode(plain)))
       })
       if (d) {
         if (kinds.get(d.kind)) last = d

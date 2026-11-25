@@ -5,7 +5,7 @@
 // drop ring (design 2.5, 2.6).
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
-  HbActions, HbButton, HbConversationList, HbDrawer, HbDropzone, HbEmptyState, HbExportPanel, HbField, HbInput, HbModal, HbToolbar,
+  HbActions, HbButton, HbCallout, HbConversationList, HbDrawer, HbDropzone, HbEmptyState, HbExportPanel, HbField, HbInput, HbModal, HbToggleRow, HbToolbar,
   type HbExportFormat, type HbExportRequest,
 } from '@virgilvox/hackbuild-ui'
 import type { ConfirmRequest } from '@virgilvox/hackbuild-ui/vanilla'
@@ -13,7 +13,7 @@ import { overlay, type Overlay } from './shell'
 import { TOOLS } from '../tools/registry'
 import {
   busy, choice, deleteDoc, dialog, docs, dropRoutes, duplicateDoc, exportDoc, exportWorkspace, importFiles, kindOf,
-  localNames, opened, picker, project, renameDoc, renameProject, renaming, selected,
+  localNames, opened, passwordAsk, picker, project, renameDoc, renameProject, renaming, selected,
 } from '../workspace/state'
 import { FALLBACK_EXT, WORKSPACE_EXT } from '../workspace/kinds'
 
@@ -56,9 +56,32 @@ const readout = computed(() => [
   { label: 'project', value: project.value?.name ?? 'none' },
 ])
 const checks = [{ tone: 'ok' as const, text: 'weights are never in a workspace. each tool fetches its own on load.' }]
+// Seal with a password: the workspace zip and the document file only; a
+// native format is for other apps and stays plain.
+const sealable = computed(() => format.value === 'workspace' || format.value === 'doc')
+const sealOn = ref(false)
+const sealPw = ref('')
+const sealPw2 = ref('')
+const sealWhy = computed(() => {
+  if (!sealable.value || !sealOn.value) return ''
+  if (!sealPw.value) return 'type a password to seal with.'
+  if (sealPw.value !== sealPw2.value) return 'the two passwords differ.'
+  return ''
+})
+watch(exportOpen, (on) => { if (!on) sealPw.value = sealPw2.value = '' })
 function runExport(r: HbExportRequest) {
-  if (r.format === 'workspace') void exportWorkspace({ filename: r.filename, includeLocal: r.includeLocal })
-  else if (sel.value) void exportDoc(sel.value.id, { filename: r.filename, includeLocal: r.includeLocal, format: r.format.replace(/^native:/, '') })
+  if (sealWhy.value) return
+  const seal = sealable.value && sealOn.value ? sealPw.value : undefined
+  if (r.format === 'workspace') void exportWorkspace({ filename: r.filename, includeLocal: r.includeLocal, seal })
+  else if (sel.value) void exportDoc(sel.value.id, { filename: r.filename, includeLocal: r.includeLocal, seal, format: r.format.replace(/^native:/, '') })
+}
+
+// The password box for a sealed file being imported.
+const pw = ref('')
+const pwOpen = computed({ get: () => !!passwordAsk.value, set: (v: boolean) => { if (!v) passwordAsk.value?.answer(null) } })
+watch(passwordAsk, () => (pw.value = ''))
+function givePassword() {
+  if (pw.value) passwordAsk.value?.answer(pw.value)
 }
 
 // Project rename box, opened by the workspace menu.
@@ -126,10 +149,24 @@ function picked() {
       :local-only="local"
       :readout="readout"
       :checks="checks"
-      :busy="busy"
+      :busy="busy || sealWhy"
       label="export"
       @export="runExport"
-    />
+    >
+      <template #extra>
+        <div v-if="sealable" class="hb-stack">
+          <HbToggleRow v-model="sealOn" label="seal with a password" description="the file opens only with the password. there is no recovery: a lost password means the file is gone." />
+          <template v-if="sealOn">
+            <HbField label="password" for="ws-seal-pw">
+              <HbInput id="ws-seal-pw" v-model="sealPw" type="password" autocomplete="new-password" />
+            </HbField>
+            <HbField label="password again" for="ws-seal-pw2">
+              <HbInput id="ws-seal-pw2" v-model="sealPw2" type="password" autocomplete="new-password" :invalid="!!sealPw2 && sealPw !== sealPw2" />
+            </HbField>
+          </template>
+        </div>
+      </template>
+    </HbExportPanel>
   </HbDrawer>
 
   <HbModal v-model="renaming" title="rename project" size="sm">
@@ -149,6 +186,20 @@ function picked() {
     <template #footer>
       <HbButton variant="ghost" @click="dialog.answer(false)">{{ ask?.cancelLabel ?? 'cancel' }}</HbButton>
       <HbButton :variant="ask?.danger ? 'danger' : 'primary'" @click="dialog.answer(true)">{{ ask?.confirmLabel ?? 'confirm' }}</HbButton>
+    </template>
+  </HbModal>
+
+  <HbModal v-model="pwOpen" :title="`${passwordAsk?.file ?? 'this file'} is sealed`" size="sm">
+    <form id="ws-unseal-form" class="hb-stack" @submit.prevent="givePassword">
+      <HbField label="password" for="ws-unseal-pw">
+        <HbInput id="ws-unseal-pw" v-model="pw" type="password" autocomplete="current-password" :invalid="!!passwordAsk?.error" />
+      </HbField>
+      <HbCallout v-if="passwordAsk?.error" variant="err">{{ passwordAsk.error }}</HbCallout>
+      <p v-else class="hb-hint">type the password it was sealed with. there is no recovery.</p>
+    </form>
+    <template #footer>
+      <HbButton variant="ghost" @click="passwordAsk?.answer(null)">cancel</HbButton>
+      <HbButton type="submit" form="ws-unseal-form" :disabled="!pw">open</HbButton>
     </template>
   </HbModal>
 
