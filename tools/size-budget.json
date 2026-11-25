@@ -8,8 +8,8 @@
   },
   "today": {
     "note": "measured 2026-11-24 after 7.2: three in two chunks, single without the duplicate wasm cores; rewrite this block when a phase lands",
-    "first-load-gzip": 167299,
+    "first-load-gzip": 167347,
     "largest-chunk-gzip": 145845,
-    "single-raw": 4398316
+    "single-raw": 4398501
   }
 }
