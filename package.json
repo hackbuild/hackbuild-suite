@@ -67,9 +67,9 @@
     "@hackbuild/ai-env": "file:tools/vendor/hackbuild-ai-env-0.1.0-1d5b864.tgz",
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.0-1d5b864.tgz",
     "@hackbuild/avatar": "file:tools/vendor/hackbuild-avatar-0.1.2-16bd854.tgz",
-    "@hackbuild/avatar-host": "file:tools/vendor/hackbuild-avatar-host-0.1.3-5cb49ff.tgz",
+    "@hackbuild/avatar-host": "file:tools/vendor/hackbuild-avatar-host-0.1.4-32d3f64.tgz",
     "@hackbuild/cameras": "file:tools/vendor/hackbuild-cameras-0.1.0-60e4fff.tgz",
-    "@hackbuild/character": "file:tools/vendor/hackbuild-character-0.1.0-1d5b864.tgz",
+    "@hackbuild/character": "file:tools/vendor/hackbuild-character-0.1.2-3c3f373.tgz",
     "@hackbuild/chat": "file:tools/vendor/hackbuild-chat-0.1.0-1d5b864.tgz",
     "@hackbuild/converse": "file:tools/vendor/hackbuild-converse-0.1.0-1d5b864.tgz",
     "@hackbuild/depth-mesh": "file:tools/vendor/hackbuild-depth-mesh-0.1.0-1d5b864.tgz",
@@ -80,9 +80,9 @@
     "@hackbuild/ik": "file:tools/vendor/hackbuild-ik-0.1.0-6ef5b9a.tgz",
     "@hackbuild/imagegen": "file:tools/vendor/hackbuild-imagegen-0.1.0-1d5b864.tgz",
     "@hackbuild/lipsync": "file:tools/vendor/hackbuild-lipsync-0.1.1-16bd854.tgz",
-    "@hackbuild/listen": "file:tools/vendor/hackbuild-listen-0.1.0-1d5b864.tgz",
+    "@hackbuild/listen": "file:tools/vendor/hackbuild-listen-0.1.2-fd317c5.tgz",
     "@hackbuild/media": "file:tools/vendor/hackbuild-media-0.1.0-1d5b864.tgz",
-    "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.0-1d5b864.tgz",
+    "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.2-3c3f373.tgz",
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.1.0-1d5b864.tgz",
     "@hackbuild/motion-match": "file:tools/vendor/hackbuild-motion-match-0.1.0-6ef5b9a.tgz",
     "@hackbuild/motion-net": "file:tools/vendor/hackbuild-motion-net-0.2.0-6ef5b9a.tgz",
@@ -111,6 +111,8 @@
     "@hackbuild/organic": "$@hackbuild/organic",
     "@hackbuild/chat": "$@hackbuild/chat",
     "@hackbuild/structured": "$@hackbuild/structured",
-    "@hackbuild/memory": "$@hackbuild/memory"
+    "@hackbuild/memory": "$@hackbuild/memory",
+    "@hackbuild/models": "$@hackbuild/models",
+    "@hackbuild/transcribe": "$@hackbuild/transcribe"
   }
 }
