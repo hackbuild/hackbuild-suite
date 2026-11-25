@@ -2,7 +2,7 @@
 // The shared stage toolbar and stage of the motion and agents tools
 // (design 3.11, 3.12): seed with restart, a body by pick or drop, tune;
 // the stage with camera chips, telemetry, key hints, the caption and the
-// pad; the transport under it; the rack in the side column; the tune
+// pad; a tool's own band of verbs in the stage and its own strip under it; the transport; the rack in the side column; the tune
 // drawer generated from the tool's tunables registry. State comes from
 // useStageTool.
 import { computed } from 'vue'
@@ -70,7 +70,10 @@ function picked(e: Event) {
         <HbStageCaption :line="t.body.line" :who="t.body.name" :max-chars="160" />
       </template>
       <template #pad><HbPad v-model="t.move.value" keys /></template>
+      <template v-if="$slots.band" #b><slot name="band" /></template>
     </HbViewport>
+
+    <slot name="under" />
 
     <HbTransport
       v-model:loop="t.transport.loop"

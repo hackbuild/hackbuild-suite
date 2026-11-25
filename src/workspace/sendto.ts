@@ -18,7 +18,8 @@ export type Sendable =
   /** A depth map as a grey png data url over its frame, nearer is lighter. */
   | { type: 'depth'; name: string; frame: Frame; depth: string; model: string | null }
   | { type: 'text'; name: string; text: string }
-  | { type: 'audio'; name: string; audio: Blob }
+  /** Word times in seconds when a speech engine made the audio. */
+  | { type: 'audio'; name: string; audio: Blob; words?: { text: string; t0: number; t1: number }[] }
 
 /** One result a tool offers to the menu. */
 export interface SendOffer {
@@ -119,6 +120,16 @@ export const TARGETS: Target[] = [
       const file = new File([s.audio], `${s.name}.wav`, { type: s.audio.type || 'audio/wav' })
       const d = await ws.createDoc(t.TRANSCRIPT_KIND, await via.read(file))
       await openDoc('transcribe', d.id)
+    },
+  },
+  {
+    tool: 'lipsync', takes: ['audio', 'text'],
+    async send(s) {
+      const { post } = await import('../lipsync/inbox.ts')
+      if (s.type === 'audio') post({ name: s.name, audio: s.audio, ...(s.words ? { words: s.words } : {}) })
+      else if (s.type === 'text') post({ name: s.name, text: s.text })
+      else return
+      await router.push({ name: 'lipsync' })
     },
   },
 ]

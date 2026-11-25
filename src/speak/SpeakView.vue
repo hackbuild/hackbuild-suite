@@ -304,7 +304,15 @@ const offers = computed<SendOffer[]>(() => {
   const ok = !!draft.value.trim()
   return [
     { type: 'text', what: 'text', ready: ok, get: () => (draft.value.trim() ? { type: 'text', name, text: draft.value.trim() } : null) },
-    { type: 'audio', what: 'audio', ready: ok && !saving.value, get: async () => { const audio = await renderWav(false); return audio ? { type: 'audio', name, audio } : null } },
+    {
+      type: 'audio', what: 'audio', ready: ok && !saving.value,
+      get: async () => {
+        const audio = await renderWav(false)
+        const t = body.value.timing
+        const words = t?.words.map((w) => ({ text: draft.value.trim().slice(w.start, w.end), t0: w.t0, t1: w.t1 }))
+        return audio ? { type: 'audio', name, audio, ...(words?.length ? { words } : {}) } : null
+      },
+    },
   ]
 })
 
