@@ -14,6 +14,7 @@ import {
 } from '@virgilvox/hackbuild-ui'
 import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import type { Rng } from '@hackbuild/organic'
+import { seededRng } from '@hackbuild/drives'
 import StageTool from '../stagekit/StageTool.vue'
 import { useStageTool } from '../stagekit/useStageTool'
 import { exportDoc, kinds, registerKind, useDocument, ws } from '../workspace/state'
@@ -53,7 +54,7 @@ const tool = useStageTool({
 
 const doc = useDocument<DrivesBody>(DRIVES_KIND)
 const opts = reactive<DrivesBody>(drivesKind.create())
-const open = reactive({ drives: true, choice: true, goals: true, clock: true, inject: true, run: false, export: false })
+const open = reactive({ drives: true, choice: true, goals: true, clock: true, inject: true, cues: true, run: false, export: false })
 const sim = shallowRef<DriveSim | null>(null)
 const said = ref('')
 const event = ref<string>('')
@@ -65,6 +66,7 @@ const live = reactive({
   whys: [] as { t: string; act: string; reason: string; p: string; why: string }[],
   goals: [] as { goal: string; why: string; status: string; until: string }[],
   memory: [] as string[], stages: [] as string[], note: '',
+  cues: [] as Record<string, string>[], lesson: '',
 })
 let lib: typeof import('./sim.ts') | null = null
 let scene: typeof import('../agents/scene.ts') | null = null
@@ -93,7 +95,7 @@ function begin(rng: Rng) {
       startHour: tool.values['drives.hour'] ?? 8,
       temperature: tool.values['drives.temperature'] ?? 0.06,
       commitment: tool.values['drives.commitment'] ?? 0.12,
-    })
+    }, seededRng(tool.seed.value))
     todo = opts.events.map((e) => ({ step: e.step, text: e.text })).sort((a, b) => a.step - b.step)
     acc = 0
     Object.assign(live, { history: { hunger: [], rest: [], play: [], social: [] }, ticks: [], whys: [], stages: [], note: '' })
@@ -162,6 +164,9 @@ function read() {
   })
   live.goals = s.goals.slice(-6).reverse().map((g) => ({ goal: g.id, why: g.why, status: g.status, until: lib!.hhmm((s.opts.startHour + g.until / 3600) % 24) }))
   live.memory = s.memory.length ? s.memory.retrieve(s.hour, [s.current], 3) : []
+  live.cues = s.cueWeights().map((c) => ({ cue: c.cue, ...Object.fromEntries(ACT_WORDS.map((a) => [a, c.weights[a].toFixed(2)])) }))
+  const l = s.lessons[s.lessons.length - 1]
+  live.lesson = l ? `${l.cue}: ${l.act ? `it did ${l.act}` : 'it did nothing'}, ${l.act === l.want ? 'right' : `wanted ${l.want}`}, reward ${l.reward}. weight on ${l.want} now ${l.value.toFixed(2)}.` : ''
   tool.body.line = d ? `${s.current} at ${lib.hhmm(s.hour)}. ${d.why}` : tool.body.line
   drawStrip()
 }
@@ -363,7 +368,20 @@ watch(sim, (s) => {
         </div>
       </HbFold>
 
-      <HbFold v-model="open.run" :num="5" summary="run" persist-key="drives-run">
+      <HbFold v-model="open.cues" :num="5" summary="cue learning" persist-key="drives-cues">
+        <div class="hb-instrument" data-pane="cues">
+          <HbTable
+            v-if="live.cues.length"
+            :columns="[{ key: 'cue', label: 'cue' }, ...ACT_WORDS.map((a) => ({ key: a, label: a, numeric: true }))]"
+            :rows="live.cues"
+          />
+          <p v-else class="hb-hint">no cue yet. each injected event is a cue: the agent answers it and the right act is rewarded.</p>
+          <p v-if="live.lesson" class="hb-hint" data-lesson>{{ live.lesson }}</p>
+          <p class="hb-hint">weights are learned excitation less inhibition per cue and act. a late reward credits less.</p>
+        </div>
+      </HbFold>
+
+      <HbFold v-model="open.run" :num="6" summary="run" persist-key="drives-run">
         <div class="hb-instrument" data-pane="run">
           <HbParamRow :model-value="speed" label="sim speed" :min="1" :max="3600" :step="1" unit="x" :default-value="60" @update:model-value="(v) => tool.reg.set('drives.speed', Number(v))" />
           <HbKv label="step" :value="`${live.step}, 5 s each`" />
@@ -372,7 +390,7 @@ watch(sim, (s) => {
         </div>
       </HbFold>
 
-      <HbFold v-model="open.export" :num="6" summary="export" persist-key="drives-export">
+      <HbFold v-model="open.export" :num="7" summary="export" persist-key="drives-export">
         <HbExportPanel :formats="formats" :name="name" :readout="readout" :busy="sim ? '' : 'the core is starting.'" label="drives" @export="onExport" />
       </HbFold>
 

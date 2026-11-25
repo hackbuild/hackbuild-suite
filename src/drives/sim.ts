@@ -5,7 +5,7 @@
 // seconds, so a seed and the same injected events give the same trace on
 // any frame rate. Three free and framework free; the view and the tests
 // both run it.
-import { Chooser, Drives, GoalBoost, MemoryStream, Sleep, bodyClock, load, type Decision, type SleepStage } from '@hackbuild/drives'
+import { Chooser, CueLearner, Drives, GoalBoost, MemoryStream, Sleep, bodyClock, load, seededRng, type Decision, type Rng, type SleepStage } from '@hackbuild/drives'
 import { fnv, hex8 } from '../agents/props.ts'
 
 export const ready = (): Promise<void> => load()
@@ -49,6 +49,24 @@ export function eventOf(text: string): EventKind | null {
   if (/\b(ball|toy|fetch|play)\b/.test(s)) return 'the ball rolls by'
   if (/\b(noise|bang|loud|thunder|crash)\b/.test(s)) return 'a loud noise'
   return null
+}
+
+/** The act each event cue teaches: doing it earns the reward. */
+export const CUE_ACT: Record<EventKind, Act> = { 'food arrives': 'eat', 'a visitor': 'greet', 'the ball rolls by': 'play', 'a loud noise': 'idle' }
+/** Reward when the cued act is the right one, and when it is another (the vendor test's values). */
+const RIGHT = 1
+const WRONG = -0.3
+
+/** One cue the learner answered: what it did and what that earned. */
+export interface Lesson {
+  step: number
+  cue: EventKind
+  /** The act it answered with; null when it ignored the cue or did nothing. */
+  act: Act | null
+  want: Act
+  reward: number
+  /** The learned weight of the cue on the wanted act after the reward. */
+  value: number
 }
 
 export interface Injected {
@@ -99,6 +117,9 @@ export class DriveSim {
   readonly rows: Row[] = []
   readonly goals: Goal[] = []
   readonly injected: Injected[] = []
+  /** Cue learning off the trace: its own rng, so the trace hash is the same with or without it. */
+  readonly learner: CueLearner<Act>
+  readonly lessons: Lesson[] = []
   last: Decision<Act> | null = null
   hash = 0x811c9dc5
   private runFor = 0
@@ -106,8 +127,9 @@ export class DriveSim {
 
   readonly opts: SimOptions
 
-  constructor(rng: () => number, opts: SimOptions) {
+  constructor(rng: () => number, opts: SimOptions, learnRng: Rng = seededRng(1)) {
     this.opts = opts
+    this.learner = new CueLearner<Act>({ rng: learnRng, actions: ACTS })
     this.drives = new Drives<Need>({ hunger: 1, rest: 0.9, play: 0.7, social: 0.8 })
     this.drives.set({ hunger: 0.3, rest: 0.2, play: 0.35, social: 0.25 })
     this.chooser = new Chooser<Act>({ rng, options: ACTS, start: 'idle', temperature: opts.temperature, commitment: opts.commitment, dwellMu: DWELL, dwellTau: DWELL / 2 })
@@ -141,8 +163,30 @@ export class DriveSim {
     if (e.kind === 'the ball rolls by') { this.drives.set({ play: Math.min(1, v.play + 0.3) }); goal('play', 180, 'the ball rolled by') }
     if (e.kind === 'a loud noise' && this.sleep.stage !== 'awake') { this.sleep.wakeUp(); this.chooser.markDone() }
     this.memory.add(`${e.kind}: ${e.text}`, e.kind === 'a loud noise' ? 0.8 : 0.5, this.hour)
+    this.teach(e)
     this.injected.push(e)
     this.hash = fnv(`ev|${e.step}|${e.kind};`, this.hash)
+  }
+
+  /** The event is a cue: the learner answers it, the wanted act is offered, and the answer is rewarded. */
+  private teach(e: Injected) {
+    const now = this.t
+    const want = CUE_ACT[e.kind]
+    this.learner.offerTrick(want, now)
+    const r = this.learner.respond(e.kind, now)
+    let reward = 0
+    if (r.kind === 'act') {
+      this.learner.markDone(r.action, now + 0.5)
+      reward = r.action === want ? RIGHT : WRONG
+      this.learner.reward(reward, now + 0.8)
+    }
+    this.lessons.push({ step: e.step, cue: e.kind, act: r.kind === 'act' ? r.action : null, want, reward, value: this.learner.value(e.kind, want) })
+    if (this.lessons.length > 200) this.lessons.shift()
+  }
+
+  /** Learned weight of every cue heard so far on every act. */
+  cueWeights(): { cue: string; weights: Record<Act, number> }[] {
+    return Object.keys(this.learner.toJSON().cues).map((cue) => ({ cue, weights: Object.fromEntries(ACTS.map((a) => [a, this.learner.value(cue, a)])) as Record<Act, number> }))
   }
 
   /** One fixed step of STEP sim seconds. */
@@ -218,6 +262,7 @@ export class DriveSim {
     this.chooser.free()
     this.sleep.free()
     this.memory.free()
+    this.learner.free()
   }
 }
 

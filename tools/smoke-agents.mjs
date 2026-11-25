@@ -323,11 +323,15 @@ try {
     const note = await page.$eval('[data-note]', (e) => e.textContent)
     if (!/^a visitor lands at step \d+\.$/.test(note)) fail(`the event did not land: ${note}`)
     const c = await h((d) => d.steps(200))
+    // the event was a cue: the learner answered it and its weights show per cue and act
+    const cue = await page.evaluate(() => ({ rows: [...document.querySelectorAll('[data-pane="cues"] tbody tr')].map((r) => r.textContent.trim()), lesson: document.querySelector('[data-lesson]')?.textContent ?? '' }))
+    if (cue.rows.length !== 1 || !cue.rows[0].startsWith('a visitor')) fail(`no learned weights for the visitor cue: ${JSON.stringify(cue.rows)}`)
+    if (!/^a visitor: it did (nothing|\w+), (right|wanted greet), reward -?[\d.]+\. weight on greet now -?\d\.\d\d\.$/.test(cue.lesson)) fail(`no lesson line for the cue: ${cue.lesson}`)
     const csv = readFileSync(await exportAs(page, 'run', '.csv'), 'utf8').trim().split('\n')
     if (csv[0] !== 't,hour,hunger,rest,play,social,act,reason,probability,switched,sleep,pressure,why' || csv.length < 1700) fail(`the run csv is not whole: ${csv.length} rows, ${csv[0]}`)
     const trace = JSON.parse(readFileSync(await exportAs(page, 'trace', '.trace.json'), 'utf8'))
     if (trace.hash !== c || trace.events.length !== 1 || trace.rows.length !== 1700) fail(`the trace is not whole: hash ${trace.hash} for ${c}, ${trace.events?.length} events, ${trace.rows?.length} rows`)
-    detail = `two runs of 1500 steps from seed 7 gave hash ${a.hash} both times, the same as node; ${moved.join(', ')} moved; "${note}"; csv ${csv.length - 1} rows, trace hash ${trace.hash}`
+    detail = `two runs of 1500 steps from seed 7 gave hash ${a.hash} both times, the same as node; ${moved.join(', ')} moved; "${note}"; "${cue.lesson}"; csv ${csv.length - 1} rows, trace hash ${trace.hash}`
   }
   await page.close()
   if (errors.length) fail('console errors')
