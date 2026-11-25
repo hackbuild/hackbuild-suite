@@ -77,7 +77,7 @@
     "@hackbuild/tunables": "file:tools/vendor/hackbuild-tunables-0.1.0-1365c79.tgz",
     "@hackbuild/vision": "file:tools/vendor/hackbuild-vision-0.1.0-44da07c.tgz",
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.0-a79f0f5.tgz",
-    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.9.1-2cc77a7.tgz",
+    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.9.2-2a1876d.tgz",
     "three": "0.186.1",
     "vue": "3.5.41",
     "vue-router": "4.6.4"
