@@ -34,7 +34,8 @@
     "smoke:sendto": "node tools/smoke-sendto.mjs",
     "smoke:character": "node tools/smoke-character.mjs",
     "smoke:twin": "node tools/smoke-twin.mjs",
-    "smoke:toolbar": "node tools/smoke-toolbar.mjs"
+    "smoke:toolbar": "node tools/smoke-toolbar.mjs",
+    "smoke:avatar": "node tools/smoke-avatar.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
