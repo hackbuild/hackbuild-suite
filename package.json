@@ -72,6 +72,7 @@
     "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.0-a79f0f5.tgz",
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.1.0-a79f0f5.tgz",
     "@hackbuild/motion-match": "file:tools/vendor/hackbuild-motion-match-0.1.0-8f97063.tgz",
+    "@hackbuild/motion-net": "file:tools/vendor/hackbuild-motion-net-0.2.0-8f97063.tgz",
     "@hackbuild/organic": "file:tools/vendor/hackbuild-organic-0.1.0-a047b82.tgz",
     "@hackbuild/presence": "file:tools/vendor/hackbuild-presence-0.1.0-a047b82.tgz",
     "@hackbuild/retarget": "file:tools/vendor/hackbuild-retarget-0.1.0-a047b82.tgz",
