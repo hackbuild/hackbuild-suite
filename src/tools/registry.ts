@@ -21,9 +21,7 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'gait', group: 'motion', title: 'gait', job: 'make a quadruped walk and tune it', phase: 5, packages: ['gait', 'rig', 'avatar-host'], load: () => import('../gait/GaitView.vue') }),
   defineTool({ id: 'lipsync', group: 'motion', title: 'lipsync', job: 'drive a mouth from text, audio or the mic', phase: 5, packages: ['lipsync', 'speak', 'avatar-host'], load: () => import('../lipsync/LipsyncView.vue') }),
   defineTool({ id: 'motion-match', group: 'motion', title: 'motion-match', job: 'steer a character through a clip set', phase: 5, packages: ['motion-match', 'ik', 'avatar-host'], load: () => import('../motionmatch/MotionMatchView.vue') }),
-  ...['motion-net'].map((id) =>
-    defineTool({ id, group: 'motion', title: id, job: `${id} for 3d characters`, phase: 5, packages: [id], load: pending }),
-  ),
+  defineTool({ id: 'motion-net', group: 'motion', title: 'motion-net', job: 'run the neural quadruped gait', phase: 5, packages: ['motion-net', 'weights', 'gait'], load: () => import('../motionnet/MotionNetView.vue') }),
   ...['senses', 'drives', 'cameras', 'mover', 'scenario'].map((id) =>
     defineTool({ id, group: 'agents', title: id, job: `${id} for embodied agents`, phase: 5, packages: [id], load: pending }),
   ),

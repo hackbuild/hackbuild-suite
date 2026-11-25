@@ -40,7 +40,8 @@
     "smoke:lipsync": "node tools/smoke-lipsync.mjs",
     "smoke:ik": "node tools/smoke-ik.mjs",
     "smoke:gait": "node tools/smoke-locomotion.mjs gait",
-    "smoke:motionmatch": "node tools/smoke-locomotion.mjs motionmatch"
+    "smoke:motionmatch": "node tools/smoke-locomotion.mjs motionmatch",
+    "smoke:motionnet": "node tools/smoke-motionnet.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
