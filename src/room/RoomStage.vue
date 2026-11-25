@@ -24,10 +24,10 @@
 // sheet, the talk input pinned in the shell's dock, the pad with grab.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbExportPanel, HbField, HbFold, HbGauges, HbHudStat, HbIcon, HbInput, HbInset, HbKv, HbList,
+  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbExportPanel, HbField, HbFold, HbGauges, HbHistoryStrip, HbHudStat, HbIcon, HbInput, HbInset, HbKv, HbList,
   HbMemoryPanel, HbMicButton, HbNameHud, HbPanel, HbParamRow, HbPill, HbRadio, HbSeg, HbSelect, HbSparkRows, HbSwitch, HbTable, HbTabs, HbTextarea,
   usePersisted, type HbCausalEvent, type HbChoiceOption, type HbEventRow, type HbExportFormat, type HbExportReadout, type HbExportRequest, type HbGaugeRow,
-  type HbMemoryEntry, type HbSparkRow, type HudState,
+  type HbHistoryItem, type HbMemoryEntry, type HbSparkRow, type HudState,
 } from '@virgilvox/hackbuild-ui'
 import { replaceRow, saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import { BELLOWS_VOICES } from '@hackbuild/speak'
@@ -50,6 +50,7 @@ import * as room from './state.ts'
 import { exportName, logCsv, newCast, type RoomBody } from './kind.ts'
 import { BELLOWS_ID, ENGINE_LABELS, POCKET_ID, RoomVoice, VOICE_ENGINES, drawMouth, engineTrade } from './voice.ts'
 import { BODY_ACCEPT } from '../stagekit/body'
+import { thumbFails, thumbs, wantClips } from '../stagekit/thumbs'
 import { exportDoc, type UseDocument } from '../workspace/state'
 import { DOCK, dock, logEvent } from '../shell/shell'
 
@@ -659,6 +660,18 @@ function mannequin() {
   const wd = world.value
   if (wd) w.place(wd.pose.x, wd.pose.z, wd.pose.yaw)
 }
+// Clip previews on the clay figure, from the body's own animations.
+const clipId = (name: string) => `clip:${tool.body.name}:${name}`
+watch(clips, (list) => {
+  const b = tool.walk.value?.stage.body
+  if (!b || !list.length) return
+  void wantClips(list.map((n) => ({ id: clipId(n), clip: () => {
+    const a = b.avatar.animations.find((x) => x.name === n)
+    if (!a) throw new Error(`${n} is gone from this body.`)
+    return a
+  } })))
+})
+const clipItems = computed<HbHistoryItem[]>(() => clips.value.map((n) => ({ id: n, label: n, thumb: thumbs.value[clipId(n)] ?? '', meta: thumbFails.value[clipId(n)] ? 'no preview' : '' })))
 function playClip(name: string) {
   const b = tool.walk.value?.stage.body
   if (b && b.play(name) < 0) log('fail', `${name} is not a clip of this body.`)
@@ -1020,7 +1033,7 @@ const setParam = (k: keyof typeof room.params.value, v: unknown) => { room.param
             </HbPanel>
             <HbPanel heading="clips" sunk>
               <div v-if="clips.length" class="hb-acts">
-                <HbButton v-for="c in clips" :key="c" variant="secondary" size="sm" @click="playClip(c)">{{ c }}</HbButton>
+                <HbHistoryStrip :items="clipItems" grid empty="" data-pane="clip-thumbs" @restore="(it) => playClip(String(it.id))" @remove="(it) => log('note', `${it.id} is part of this body. it stays.`)" />
               </div>
               <p v-else class="hb-hint">this body has no clips. the walk is procedural; a glb or vrm with animations lists them here.</p>
             </HbPanel>
