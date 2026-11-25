@@ -2,7 +2,7 @@
 // lets the transport own a clip's time and holds blendshapes by hand. The
 // view imports this module on mount, with the stage, so three.js stays out
 // of the route chunk.
-import { Quaternion, type Mesh, type Object3D } from 'three'
+import { AnimationClip, Quaternion, QuaternionKeyframeTrack, type Mesh, type Object3D } from 'three'
 import type { Body } from '@hackbuild/avatar-host/three'
 import type { HbTreeNode } from '@virgilvox/hackbuild-ui'
 import { checkRedistribution, type VrmMetaLike } from '@hackbuild/avatar'
@@ -177,4 +177,16 @@ export function drive(body: Body, time: () => number): Driver {
       clip = null
     },
   }
+}
+
+/** A presence clip as a three clip over the normalized bone names, for a
+ * preview on the clay placeholder figure (its nodes carry those names). */
+export function threeClip(c: ClipData, names: readonly string[]): AnimationClip {
+  const times = Float32Array.from({ length: c.frames }, (_, f) => f / c.fps)
+  const tracks = names.slice(0, c.bones).map((n, b) => {
+    const v = new Float32Array(c.frames * 4)
+    for (let f = 0; f < c.frames; f++) v.set(c.rotations.subarray((f * c.bones + b) * 4, (f * c.bones + b) * 4 + 4), f * 4)
+    return new QuaternionKeyframeTrack(`${n}.quaternion`, times, v)
+  })
+  return new AnimationClip(c.name, Math.max(0, c.frames - 1) / c.fps, tracks)
 }

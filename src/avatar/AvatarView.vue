@@ -9,7 +9,8 @@
 // press that names where it comes from.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  HbButton, HbChipGroup, HbExportPanel, HbFold, HbHow, HbInput, HbKv, HbParamRow, HbSeg, HbToggleRow, HbTree,
+  HbButton, HbChipGroup, HbExportPanel, HbFold, HbHistoryStrip, HbHow, HbInput, HbKv, HbParamRow, HbSeg, HbTile, HbTiles, HbToggleRow, HbTree,
+  type HbHistoryItem,
   type HbTreeNode,
   type HbExportFormat, type HbExportReadout, type HbExportRequest,
 } from '@virgilvox/hackbuild-ui'
@@ -25,6 +26,7 @@ import { AVATAR_KIND, POSES_CAP, avatarKind, type AvatarBody, type GazeModeName 
 import { CLIP_EXT, POSE_EXT, clipFile, clipSeconds, poseClip, poseFile, readClip, readPose, type ClipData } from './pose.ts'
 import type { Driver, Inspection } from './inspect.ts'
 import how from '@hackbuild/avatar-host/how'
+import { thumbFails, thumbProgress, thumbs, wantAvatars, wantClips } from '../stagekit/thumbs'
 
 if (!kinds.get(AVATAR_KIND)) registerKind(avatarKind)
 
@@ -71,6 +73,44 @@ let offLoaded: (() => void) | null = null
 const clips = computed<ClipData[]>(() => (info.value ? [...info.value.builtin, ...info.value.fileClips, ...extra.value] : []))
 const current = computed(() => clips.value.find((c) => c.name === clip.value) ?? null)
 
+// ------------------------------------------------------------- previews
+// Clip previews on the clay figure feed the history strip; body previews
+// feed the tile media. Both are stored by content hash in the workspace.
+const clipId = (c: ClipData) => `clip:${body.value?.name ?? 'rig'}:${c.name}:${c.frames}`
+const clipJob = (c: ClipData) => {
+  const names = info.value?.names ?? []
+  return { id: clipId(c), hold: c.frames < 2, clip: () => mod!.threeClip(c, names) }
+}
+watch(clips, (list) => { if (mod && list.length) void wantClips(list.map(clipJob)) })
+const clipItems = computed<HbHistoryItem[]>(() => clips.value.map((c) => ({
+  id: c.name, thumb: thumbs.value[clipId(c)] ?? '', label: c.name,
+  meta: thumbFails.value[clipId(c)] ? 'no preview' : `${clipSeconds(c).toFixed(2)} s`,
+})))
+const previewLine = computed(() => (thumbProgress.value.active ? `drawing previews, ${thumbProgress.value.done} of ${thumbProgress.value.total}.` : ''))
+
+/** Bodies shown this visit, as tiles; a press shows one again. */
+interface Seen { id: string; name: string; files: File[] | null }
+const seen = shallowRef<Seen[]>([{ id: 'body:mannequin', name: 'mannequin', files: null }])
+async function remember(name: string) {
+  const files = tool.files.value
+  if (tool.body.placeholder || tool.body.local || !files) return
+  const id = `body:${name}:${tool.body.size}`
+  if (!seen.value.some((x) => x.id === id)) seen.value = [...seen.value, { id, name, files }]
+  const { sourceFromFiles } = await import('@hackbuild/avatar-host')
+  void wantAvatars([{ id, source: sourceFromFiles(files) }])
+}
+/** Remove from the strip: an opened clip file goes; built in and file clips stay. */
+function dropClip(it: HbHistoryItem) {
+  const name = String(it.id)
+  if (!extra.value.some((c) => c.name === name)) return void logEvent('note', `${name} is part of this body. it stays.`)
+  extra.value = extra.value.filter((c) => c.name !== name)
+  if (clip.value === name) pick(null)
+}
+function showSeen(x: Seen) {
+  if (x.files) void tool.showBody(x.files)
+  else placeholder()
+}
+
 function adopt(b: Body) {
   driver?.dispose()
   if (!mod) return
@@ -92,6 +132,7 @@ function adopt(b: Body) {
   }
   applyFace()
   pick(d?.clip && clips.value.some((c) => c.name === d.clip) ? d.clip : null)
+  void remember(b.name)
 }
 
 function applyFace() {
@@ -106,6 +147,7 @@ function applyFace() {
 function pick(name: string | null) {
   clip.value = name
   const c = current.value
+  if (c && mod) void wantClips([clipJob(c)], true)
   driver?.setClip(c)
   tool.transport.duration = c ? Math.max(clipSeconds(c), 1 / c.fps) : IDLE_SECONDS
   tool.seek(0)
@@ -380,6 +422,11 @@ onBeforeUnmount(() => {
         <p class="hb-hint">{{ info?.licence ?? 'the stage is starting.' }}</p>
         <p v-for="w in info?.warnings ?? []" :key="w" class="hb-hint">{{ w }}</p>
         <HbButton variant="secondary" size="sm" :disabled="!body || tool.body.placeholder" @click="placeholder">back to the mannequin</HbButton>
+        <HbTiles small aria-label="bodies this visit">
+          <HbTile v-for="x in seen" :key="x.id" small :name="x.name" :sub="x.files ? 'dropped' : 'built in'" :active="(body?.name ?? '') === x.name" @click="showSeen(x)">
+            <template v-if="thumbs[x.id]" #media><img :src="thumbs[x.id]" :alt="`${x.name} at rest`"></template>
+          </HbTile>
+        </HbTiles>
       </HbFold>
 
       <HbFold v-model="open.model" :num="1" summary="model" persist-key="avatar-model">
@@ -444,6 +491,8 @@ onBeforeUnmount(() => {
           @update:model-value="(v) => pick((v as string) || null)"
         />
         <p class="hb-hint">{{ current ? `${current.name}: ${clipSeconds(current).toFixed(2)} s, ${current.frames} frames. the transport plays and scrubs it.` : 'the rest stance breathes on its own. pick a clip to play and scrub it.' }}</p>
+        <HbHistoryStrip :items="clipItems" :current="clip" grid empty="no clips on this body." data-pane="clip-thumbs" @restore="(it) => pick(String(it.id))" @remove="dropClip" />
+        <p v-if="previewLine" class="hb-hint">{{ previewLine }}</p>
         <HbButton as="label" variant="secondary" size="sm">
           open a pose or clip file
           <input type="file" accept=".json,application/json" hidden data-import="pose-clip" @change="importFile">

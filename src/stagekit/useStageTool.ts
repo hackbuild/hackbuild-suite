@@ -154,6 +154,8 @@ export function useStageTool(opts: StageToolOptions) {
     walk.value?.stage.loop.invalidate()
   }
 
+  /** The files of the last glb or vrm shown, for previews and a second look. */
+  const filesRef = shallowRef<File[] | null>(null)
   async function showBody(files: File[]) {
     const w = walk.value
     const f = files.find(isBodyFile)
@@ -167,6 +169,7 @@ export function useStageTool(opts: StageToolOptions) {
     logEvent('note', `${opts.id}: reading ${f.name}`)
     if (!isMmdFile(f)) {
       body.local = false
+      filesRef.value = files
       await w.stage.show(files)
       return
     }
@@ -259,7 +262,7 @@ export function useStageTool(opts: StageToolOptions) {
   })
 
   return {
-    id: opts.id, pad, action: opts.action ?? null, menu: opts.menu, say: opts.say, reg, values, transport, seed, locked, view, move, tune, follow, rackOpen, phone, sheet: opts.sheet ?? false, body, stats, cover, failed, host, walk, hints,
+    id: opts.id, pad, action: opts.action ?? null, menu: opts.menu, say: opts.say, reg, values, transport, seed, locked, view, move, tune, follow, rackOpen, phone, sheet: opts.sheet ?? false, body, stats, cover, failed, host, walk, hints, files: filesRef,
     play, pause, toggle, seek, step, restart, showBody,
   }
 }
