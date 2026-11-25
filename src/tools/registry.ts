@@ -18,9 +18,10 @@ export const TOOLS: ToolDef[] = [
   defineTool({ id: 'avatar', group: 'motion', title: 'avatar', job: 'load any character file and inspect it', phase: 5, packages: ['avatar', 'avatar-host', 'tunables'], load: () => import('../avatar/AvatarView.vue') }),
   defineTool({ id: 'retarget', group: 'motion', title: 'retarget', job: 'put a bvh or vmd clip on your character', phase: 5, packages: ['retarget', 'rig', 'avatar-host'], load: () => import('../retarget/RetargetView.vue') }),
   defineTool({ id: 'ik', group: 'motion', title: 'ik', job: 'pose limbs by dragging targets', phase: 5, packages: ['ik', 'avatar-host'], load: () => import('../ik/IkView.vue') }),
-  defineTool({ id: 'gait', group: 'motion', title: 'gait', job: 'gait for 3d characters', phase: 5, packages: ['gait'], load: pending }),
+  defineTool({ id: 'gait', group: 'motion', title: 'gait', job: 'make a quadruped walk and tune it', phase: 5, packages: ['gait', 'rig', 'avatar-host'], load: () => import('../gait/GaitView.vue') }),
   defineTool({ id: 'lipsync', group: 'motion', title: 'lipsync', job: 'drive a mouth from text, audio or the mic', phase: 5, packages: ['lipsync', 'speak', 'avatar-host'], load: () => import('../lipsync/LipsyncView.vue') }),
-  ...['motion-match', 'motion-net'].map((id) =>
+  defineTool({ id: 'motion-match', group: 'motion', title: 'motion-match', job: 'steer a character through a clip set', phase: 5, packages: ['motion-match', 'ik', 'avatar-host'], load: () => import('../motionmatch/MotionMatchView.vue') }),
+  ...['motion-net'].map((id) =>
     defineTool({ id, group: 'motion', title: id, job: `${id} for 3d characters`, phase: 5, packages: [id], load: pending }),
   ),
   ...['senses', 'drives', 'cameras', 'mover', 'scenario'].map((id) =>
