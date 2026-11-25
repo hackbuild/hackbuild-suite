@@ -19,22 +19,39 @@ const unusedWasmUrl = {
   },
 }
 
-// Two outputs. Hosted (default): ES modules with one lazy chunk per tool,
+// A group single file (design D11) carries one group's tools: the registry
+// loses every other group's line before Rollup sees it, so their dynamic
+// imports, and the views behind them, never enter the bundle.
+const onlyGroup = (group: string) => ({
+  name: 'suite-only-group',
+  enforce: 'pre' as const,
+  transform(code: string, id: string) {
+    if (!id.endsWith('/src/tools/registry.ts')) return null
+    const lines = code.split('\n')
+    const kept = lines.filter((l) => !/^\s*defineTool\(\{ id: '[a-z-]+', group: '/.test(l) || l.includes(`group: '${group}'`))
+    if (kept.length === lines.length) throw new Error(`group ${group}: the registry has no lines to drop`)
+    return { code: kept.join('\n'), map: null }
+  },
+})
+
+// Three outputs. Hosted (default): ES modules with one lazy chunk per tool,
 // for GitHub Pages and any http host, relative paths so it works under
 // /hackbuild-suite/. Single (--mode single): one HTML file with every chunk
 // inlined, the only form Chrome opens from file:// because it blocks module
-// scripts on that origin.
+// scripts on that origin; the smokes run on it. Group (--mode group-<id>,
+// through tools/build-groups.mjs): the single file of one tool group.
 export default defineConfig(({ mode }) => {
-  const single = mode === 'single'
+  const group = mode.startsWith('group-') ? mode.slice(6) : ''
+  const single = mode === 'single' || !!group
   return {
     base: './',
-    plugins: single ? [unusedWasmUrl, vue(), viteSingleFile({ removeViteModuleLoader: true })] : [vue()],
+    plugins: single ? [unusedWasmUrl, ...(group ? [onlyGroup(group)] : []), vue(), viteSingleFile({ removeViteModuleLoader: true })] : [vue()],
     // a library's fold, packages/<name>/how.ts in its tarball (design D8);
     // the exports map leaves it out, so it resolves by path
     resolve: { alias: [{ find: /^@hackbuild\/([a-z-]+)\/how$/, replacement: `${HERE}node_modules/@hackbuild/$1/how.ts` }] },
-    define: { __SINGLE__: JSON.stringify(single) },
+    define: { __SINGLE__: JSON.stringify(single), __GROUP__: JSON.stringify(group) },
     build: {
-      outDir: single ? 'dist/single' : 'dist/hosted',
+      outDir: group ? `dist/groups/${group}` : single ? 'dist/single' : 'dist/hosted',
       emptyOutDir: true,
       target: 'es2022',
       assetsInlineLimit: single ? 100_000_000 : 4096,

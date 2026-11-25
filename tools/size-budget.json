@@ -1,15 +1,33 @@
 {
-  "about": "suite size budgets (design 5 item 11), gzip level 9 bytes unless stated. first-load is the entry html plus every js and css it loads before any route chunk; tool-chunk is any lazy js chunk, model runtimes and wasm cores excluded because they never enter the bundle; single is the raw size of the single file html. Check with node tools/check-size.mjs after a build.",
+  "about": "suite size budgets (design 5 item 11), gzip level 9 bytes unless stated. first-load is the entry html plus every js and css it loads before any route chunk; tool-chunk is any lazy js chunk, model runtimes and wasm cores excluded because they never enter the bundle; single is the raw size of the full single file html the smokes run on; group-raw is the raw size of each group single file in dist/groups, 8 MB each by design 5 item 11. Check with node tools/check-size.mjs after a build.",
   "measured": "2026-11-24",
   "budgets": {
     "first-load-gzip": 256000,
     "tool-chunk-gzip": 153600,
-    "single-raw": 8388608
+    "single-raw": 8388608,
+    "group-raw": {
+      "chat": 8388608,
+      "voice": 8388608,
+      "image": 8388608,
+      "character": 8388608,
+      "rooms": 8388608,
+      "motion": 8388608,
+      "agents": 8388608
+    }
   },
   "today": {
-    "note": "measured 2026-11-24 after 7.2: three in two chunks, single without the duplicate wasm cores; rewrite this block when a phase lands",
-    "first-load-gzip": 167347,
+    "note": "measured 2026-11-24 after 7.1: the seven group single files added; rewrite this block when a phase lands",
+    "first-load-gzip": 167344,
     "largest-chunk-gzip": 145845,
-    "single-raw": 4398501
+    "single-raw": 4398820,
+    "group-raw": {
+      "chat": 1347159,
+      "voice": 1495133,
+      "image": 1976077,
+      "character": 2558498,
+      "rooms": 2158220,
+      "motion": 3209318,
+      "agents": 2640132
+    }
   }
 }

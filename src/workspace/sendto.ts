@@ -134,8 +134,10 @@ export const TARGETS: Target[] = [
   },
 ]
 
-/** The tools that take a type, the sender left out. */
-export const targetsFor = (type: SendType, from: string): Target[] => TARGETS.filter((t) => t.tool !== from && t.takes.includes(type))
+/** The tools that take a type, the sender left out. A group single file
+ * holds one group's routes, so tools in other files drop out (design 5 item 9). */
+export const targetsFor = (type: SendType, from: string): Target[] =>
+  TARGETS.filter((t) => t.tool !== from && t.takes.includes(type) && router.hasRoute(t.tool))
 
 /** Send one result to one tool; the target opens on it. */
 export async function sendTo(tool: string, s: Sendable, from: string): Promise<void> {

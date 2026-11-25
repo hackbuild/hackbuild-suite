@@ -9,8 +9,12 @@ import { logEvent } from './shell'
 
 const props = defineProps<{ from: string; offers: SendOffer[] }>()
 
-const items = computed<HbDropdownItem[]>(() => props.offers.flatMap((o, i) =>
-  targetsFor(o.type, props.from).map((t) => ({ label: `${o.what} to ${t.tool}`, value: `${i}:${t.tool}`, disabled: !o.ready }))))
+// A group single file says where the other tools went: export, then import in their file.
+const items = computed<HbDropdownItem[]>(() => [
+  ...props.offers.flatMap((o, i) =>
+    targetsFor(o.type, props.from).map((t) => ({ label: `${o.what} to ${t.tool}`, value: `${i}:${t.tool}`, disabled: !o.ready }))),
+  ...(__GROUP__ ? [{ label: 'other groups: export this, import it in their file', value: 'none', disabled: true }] : []),
+])
 const any = computed(() => props.offers.some((o) => o.ready))
 
 async function pick(v: string | number): Promise<void> {

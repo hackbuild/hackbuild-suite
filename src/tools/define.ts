@@ -21,7 +21,7 @@ export interface ToolDef {
 
 export type GroupId = 'chat' | 'voice' | 'image' | 'character' | 'rooms' | 'motion' | 'agents'
 
-export const GROUPS: { id: GroupId; title: string }[] = [
+const ALL_GROUPS: { id: GroupId; title: string }[] = [
   { id: 'chat', title: 'chat' },
   { id: 'voice', title: 'voice' },
   { id: 'image', title: 'image' },
@@ -30,6 +30,9 @@ export const GROUPS: { id: GroupId; title: string }[] = [
   { id: 'motion', title: 'motion' },
   { id: 'agents', title: 'agents' },
 ]
+
+/** The groups this build carries: one in a group single file (design D11), else all. */
+export const GROUPS = __GROUP__ ? ALL_GROUPS.filter((g) => g.id === __GROUP__) : ALL_GROUPS
 
 export function defineTool(def: ToolDef): ToolDef {
   if (!/^[a-z][a-z0-9-]*$/.test(def.id)) throw new Error(`tool id "${def.id}" must be lowercase words joined by dashes`)

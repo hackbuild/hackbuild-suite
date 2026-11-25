@@ -3,9 +3,12 @@
 // Then the workspace (design 2.5): a saved document is renamed, saved with
 // ctrl+s, exported as a document file and as a workspace zip, deleted, and
 // imported back from both files through ctrl+o.
+// Then each group single file (design D11) from disk: one group tab, every
+// tool of the group opens, a tool of another group does not, rooms holds
+// only the lab stage page and says so.
 // Fails on any console error or a missing control. Usage:
-//   npm run build:single && node tools/smoke-file.mjs [--shots <dir>]
-import { mkdtempSync, rmSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
+//   npm run build:single && npm run build:groups && node tools/smoke-file.mjs [--shots <dir>]
+import { mkdtempSync, rmSync, mkdirSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,6 +17,13 @@ import puppeteer from 'puppeteer-core'
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const page_ = resolve('dist/single/index.html')
 if (!existsSync(page_)) throw new Error('no single build: run npm run build:single first')
+// The groups and their tool routes, read from the registry text (one tool
+// alone in its group routes to the group).
+const registry = readFileSync('src/tools/registry.ts', 'utf8')
+const GROUPS = ['chat', 'voice', 'image', 'character', 'rooms', 'motion', 'agents']
+const toolsOf = (g) => [...registry.matchAll(new RegExp(`defineTool\\(\\{ id: '([a-z-]+)', group: '${g}'`, 'g'))].map((m) => m[1])
+const routeOf = (g, id) => (toolsOf(g).length === 1 ? `/${g}` : `/${g}/${id}`)
+for (const g of GROUPS) if (!existsSync(resolve(`dist/groups/${g}.html`))) throw new Error(`no dist/groups/${g}.html: run npm run build:groups first`)
 const shotsAt = process.argv.indexOf('--shots')
 const shots = shotsAt > 0 ? resolve(process.argv[shotsAt + 1]) : null
 if (shots) mkdirSync(shots, { recursive: true })
@@ -165,6 +175,51 @@ try {
   if (shots) await page.screenshot({ path: join(shots, 'docs-1440.png') })
 
   if (errors.length) throw new Error(`console errors:\n${errors.join('\n')}`)
+  await page.close()
+
+  for (const g of GROUPS) {
+    // its own context: file:// is one origin, so the documents above would open in chat
+    const ctx = await browser.createBrowserContext()
+    const gp = await ctx.newPage()
+    gp.on('console', (m) => { if (m.type() === 'error') errors.push(`${g}.html: ${m.text()}`) })
+    gp.on('pageerror', (e) => errors.push(`${g}.html: ${e}`))
+    await gp.setViewport({ width: 1440, height: 900 })
+    await gp.goto(pathToFileURL(resolve(`dist/groups/${g}.html`)).href, { waitUntil: 'load' })
+    await gp.waitForSelector('.hb-tabs [role="tab"]', { timeout: 10000 })
+    const gt = await gp.$$eval('.hb-tabs [role="tab"]', (els) => els.map((e) => e.textContent.trim()))
+    if (gt.length !== 1 || gt[0] !== g) throw new Error(`${g}.html: expected the one tab ${g}, found ${gt.join(', ')}`)
+    for (const id of toolsOf(g)) {
+      const r = routeOf(g, id)
+      await gp.evaluate((h) => { location.hash = h }, '#' + r)
+      await gp.waitForFunction(async (want) => {
+        const v = await new Promise((res) => {
+          const q = indexedDB.open('hackbuild-suite')
+          q.onsuccess = () => { try { const x = q.result.transaction('kv').objectStore('kv').get('last-route'); x.onsuccess = () => { q.result.close(); res(x.result) } } catch { res(null) } }
+          q.onerror = () => res(null)
+        })
+        return v === want && !document.body.innerText.includes('no tool at this address')
+      }, { timeout: 10000 }, r).catch(() => { throw new Error(`${g}.html: ${id} did not open at #${r}`) })
+    }
+    const other = GROUPS.find((x) => x !== g)
+    await gp.evaluate((h) => { location.hash = h }, '#' + routeOf(other, toolsOf(other)[0]))
+    await gp.waitForFunction(() => document.body.innerText.includes('no tool at this address'), { timeout: 5000 })
+      .catch(() => { throw new Error(`${g}.html: a ${other} tool opened in the ${g} file`) })
+    const lab = async () => {
+      await gp.evaluate(() => { location.hash = '#/lab/phone-stage' })
+      return gp.waitForFunction(() => !!document.querySelector('.hb-viewport-host') || document.body.innerText.includes('no tool at this address'), { timeout: 10000 })
+        .then(() => gp.evaluate(() => !!document.querySelector('.hb-viewport-host')))
+    }
+    if (g === 'rooms') {
+      await gp.evaluate(() => { location.hash = '#/rooms' })
+      await gp.waitForFunction(() => document.body.innerText.includes('this file holds only the lab stage page until the room tools land'), { timeout: 5000 })
+        .catch(() => { throw new Error('rooms.html does not say it holds only the lab stage page') })
+      if (!(await lab())) throw new Error('rooms.html: the lab stage page did not open')
+    } else if (await lab()) throw new Error(`${g}.html carries the lab stage page`)
+    if (shots && (g === 'chat' || g === 'rooms')) await gp.screenshot({ path: join(shots, `group-${g}-1440.png`) })
+    await ctx.close()
+  }
+  if (errors.length) throw new Error(`console errors:\n${errors.join('\n')}`)
+  console.log(`smoke-file: ok. 7 group files from disk, each one tab with its own tools only, rooms with only the lab stage page.`)
   console.log(`smoke-file: ok. 7 tabs, two route changes, indexeddb write read back, keys , ? m / esc alt+4 and the log strip; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
 } finally {
   await browser.close()

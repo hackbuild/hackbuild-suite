@@ -31,8 +31,9 @@ const server = createServer(async (req, res) => {
   try {
     let p = join(dir, decodeURIComponent(new URL(req.url, 'http://x').pathname))
     if ((await stat(p)).isDirectory()) p = join(p, 'index.html')
+    const body = await readFile(p) // read first, so a missing index.html is a 404, not a second writeHead
     res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream' })
-    res.end(await readFile(p))
+    res.end(body)
   } catch { res.writeHead(404).end() }
 })
 await new Promise((r) => server.listen(0, '127.0.0.1', r))
