@@ -51,6 +51,8 @@ import { exportName, logCsv, newCast, type RoomBody } from './kind.ts'
 import { BELLOWS_ID, ENGINE_LABELS, POCKET_ID, RoomVoice, VOICE_ENGINES, drawMouth, engineTrade } from './voice.ts'
 import { BODY_ACCEPT } from '../stagekit/body'
 import { thumbFails, thumbs, wantClips } from '../stagekit/thumbs'
+import { setSpeaking } from '../chat/dictation.ts'
+import type { Ears } from '../character/ears.ts'
 import { exportDoc, type UseDocument } from '../workspace/state'
 import { DOCK, dock, logEvent } from '../shell/shell'
 
@@ -175,7 +177,12 @@ function said(text: string) {
 
 const voice = new RoomVoice({
   status: (t, f) => { voiceLine.value = t; voiceFail.value = !!f },
-  speaking: (on) => { hud.value = on ? 'talking' : 'idle' },
+  speaking: (on) => {
+    hud.value = on ? 'talking' : 'idle'
+    // the ears and any dictation do not hear the room's own voice
+    ears?.setTalking(on)
+    setSpeaking(on)
+  },
 })
 const paintMouth = () => { if (mouthCv.value) drawMouth(mouthCv.value, voice.phoneme, voice.level, { ink: tone('--hb-ink') || '#111', accent: tone('--hb-pink') || '#e0457b', paper: tone('--hb-paper') || '#fff' }) }
 // the resting mouth as the tab opens, before any frame draws it
@@ -560,7 +567,9 @@ function menuAt(at: { x: number; y: number }) {
 
 const mic = ref<MicState>('off')
 const micLevel = ref(0)
-let ears: { stop(): void } | null = null
+let ears: Ears | null = null
+/** The live row that shows the words heard so far, swapped in place. */
+let hearingRow: number | undefined
 async function micStart() {
   mic.value = 'asking'
   try {
@@ -575,8 +584,17 @@ async function micStart() {
     ears = await openEars(ctx, hubTranscriber(hub.hub(), { model: id }), {
       state: (s) => { mic.value = s },
       level: (v) => { micLevel.value = v },
-      heard: (t) => void send(t),
-      dropped: (why) => log('note', `the mic heard noise, not words: ${why}.`),
+      interim: (i) => { hearingRow = log('note', `hearing: ${i.text}`, { id: hearingRow, live: true }) },
+      heard: (t) => {
+        if (hearingRow !== undefined) log('note', `heard: ${t}`, { id: hearingRow })
+        hearingRow = undefined
+        void send(t)
+      },
+      dropped: (why) => {
+        if (hearingRow !== undefined) log('note', `heard noise, not words: ${why}.`, { id: hearingRow })
+        else log('note', `the mic heard noise, not words: ${why}.`)
+        hearingRow = undefined
+      },
       failed: (m) => log('fail', `the mic stopped: ${m}.`),
     }, true)
   } catch (e) {

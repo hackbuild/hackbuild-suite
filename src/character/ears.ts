@@ -2,16 +2,24 @@
 // package. Hands free, the energy gate finds each utterance and a pause
 // sends it; push to talk, the mic is heard only while the button is held
 // and the release ends the utterance. While the character speaks the gate
-// takes the stricter bar, so its own voice from the speakers is not heard.
+// takes the stricter bar, so its own voice from the speakers is not heard,
+// and an utterance that began while it spoke, or within GATE_MS after, is
+// dropped. Words heard so far come through `interim` every 0.8 s of new
+// audio (vendor default), replaced by the next, until the utterance ends.
 // The transcriber is the hub's speech to text row. Framework free.
 import type { MicState } from '@virgilvox/hackbuild-ui/vanilla'
-import type { Transcriber } from '@hackbuild/listen'
+import type { Interim, Transcriber } from '@hackbuild/listen'
+
+/** Drop an utterance that began this soon after the voice stopped, ms (inferred). */
+export const GATE_MS = 400
 
 export interface EarsHooks {
   state(s: MicState): void
   level(v: number): void
   /** The words of one utterance, after the phantom filter. */
   heard(text: string): void
+  /** Words heard so far in the utterance in progress. */
+  interim?(i: Interim): void
   /** An utterance the filter dropped, with the reason. */
   dropped(why: string): void
   failed(message: string): void
@@ -45,6 +53,10 @@ export async function openEars(ctx: AudioContext, transcribe: Transcriber, hooks
     transcribe,
     inputRate: ctx.sampleRate,
     machine: CONVERSATION,
+    dropWhileTalking: true,
+    gateMs: GATE_MS,
+    interim: { everySec: 0.8 },
+    onInterim: (i) => hooks.interim?.(i),
     onUtterance: (u) => {
       if (u.dropped) hooks.dropped(u.dropped)
       else if (u.text.trim()) hooks.heard(u.text.trim())

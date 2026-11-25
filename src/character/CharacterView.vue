@@ -41,6 +41,7 @@ import { addSpeakRuntimes, SYSTEM_ID } from '../speak/runtimes.ts'
 import { CHAT_STORE } from '../memory/kind.ts'
 import { EMBED_ID, knowLock } from '../memory/store.ts'
 import SealBox from '../memory/SealBox.vue'
+import { setSpeaking } from '../chat/dictation.ts'
 import { characterKind, CHARACTER_KIND, CHIPS, greetingOf, profileFor, systemOf, newCard } from './kind.ts'
 import type { CharacterStage } from './stage.ts'
 import { BUILT_IN, cardSink, EXT, extOf, LENGTHS, loadPresets, personaOf, planOf, REGISTERS, savePresets, setExt, withPersona, type Length, type Plan, type Register, type TierKey } from './sheet.ts'
@@ -144,6 +145,7 @@ async function makeSpeaker(): Promise<void> {
       speaking.value = s
       cs?.setSpeaking(s)
       ears?.setTalking(s)
+      setSpeaking(s)
     },
     onStatus: (s) => { if (s.kind === 'failed' || s.kind === 'watchdog') logEvent('warn', `character voice: ${s.text} the next voice takes over.`) },
   })
@@ -601,6 +603,8 @@ const micState = ref<MicState>('off')
 const micLevel = ref(0)
 const draft = ref('')
 let ears: Ears | null = null
+/** What the person had typed before the first live word of an utterance. */
+let typed: string | null = null
 let opening: Promise<Ears | null> | null = null
 async function openMicEars(): Promise<Ears | null> {
   opening ??= (async () => {
@@ -617,14 +621,24 @@ async function openMicEars(): Promise<Ears | null> {
       ears = await openEars(ctx, hubTranscriber(hub.hub(), { model: id }), {
         state: (s) => { micState.value = s },
         level: (v) => { micLevel.value = v },
+        // live words fill the composer while the person speaks, after what was typed
+        interim: (i) => {
+          typed ??= draft.value
+          draft.value = (typed ? `${typed} ` : '') + i.text
+        },
         heard: (t) => {
+          typed = null
           draft.value = t
           void nextTick(() => {
             draft.value = ''
             send(t)
           })
         },
-        dropped: (w) => logEvent('note', `character: the mic heard noise, not words: ${w}.`),
+        dropped: (w) => {
+          if (typed !== null) draft.value = typed
+          typed = null
+          logEvent('note', `character: the mic heard noise, not words: ${w}.`)
+        },
         failed: (m) => logEvent('warn', `character: the mic stopped: ${m}.`),
       }, handsFree.value)
       ears.setTalking(speaking.value)

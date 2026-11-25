@@ -179,10 +179,18 @@ try {
   // step 13: hands free on the stub mic; the stub transcript is sent and answered
   await page.waitForFunction(() => !/talking/.test(document.querySelector('.hb-viewport')?.textContent ?? ''), { timeout: 15000 }).catch(() => fail('the reply never ended'))
   await page.evaluate(() => [...document.querySelectorAll('.hb-togrow')].find((b) => b.querySelector('.hb-togrow-label')?.textContent.trim() === 'hands free').click())
+  // live words: every composer value seen while the stub stream plays
+  await page.evaluate(() => {
+    window.__seen = new Set()
+    const tick = () => { const v = document.querySelector('.hb-composer textarea')?.value; if (v) window.__seen.add(v); window.__tick = requestAnimationFrame(tick) }
+    tick()
+  })
   await page.click('.hb-mic-btn')
   await page.waitForFunction(() => /the level rail shows what the gate kept/.test(document.querySelector('.hb-chat-log')?.textContent ?? ''), { timeout: 20000 })
     .catch(() => fail('hands free heard nothing from the stub mic'))
   await page.waitForFunction(() => /heard you: the level rail/.test(document.querySelector('.hb-chat-log')?.textContent ?? ''), { timeout: 10000 }).catch(() => fail('no reply to the spoken turn'))
+  const seen = await page.evaluate(() => { cancelAnimationFrame(window.__tick); return [...window.__seen] })
+  if (!seen.some((v) => /the level rail/.test(v))) fail(`no live words in the composer while the stub stream played: ${JSON.stringify(seen)}`)
   await page.click('.hb-mic-btn')
 
   // step 10: a new character, its setup rows, a line, export with the talk, import back
@@ -246,7 +254,7 @@ try {
 
   if (errors.length) fail('console errors')
   if (off.length) fail(`requests off file://: ${off.slice(0, 5).join(', ')}`)
-  console.log(`smoke-character: ok. the gate names 4 subsystems, wake greets in ${greetBoxes} boxes and speaks, a typed message gets ${after - before} reply boxes, the mouth peaks at ${peak.toFixed(2)} with ${moves} changes in 6 s, a forced voice failure reads voice* with its reason and the browser voice speaks, 7 sheet tabs switch, the mind tab shows the last prompt, reply and plan with ${steps} step cards, the length dial reaches the next prompt, hands free on a stub mic is heard and answered, a new character is exported with its talk (${text.length} bytes) and imported back (${docs}), a forced brain failure names two fixes while 3 rows come up and no model then wakes and answers, 0 requests off file:// (measured)`)
+  console.log(`smoke-character: ok. the gate names 4 subsystems, wake greets in ${greetBoxes} boxes and speaks, a typed message gets ${after - before} reply boxes, the mouth peaks at ${peak.toFixed(2)} with ${moves} changes in 6 s, a forced voice failure reads voice* with its reason and the browser voice speaks, 7 sheet tabs switch, the mind tab shows the last prompt, reply and plan with ${steps} step cards, the length dial reaches the next prompt, hands free on a stub mic shows live words in the composer, is heard and answered, a new character is exported with its talk (${text.length} bytes) and imported back (${docs}), a forced brain failure names two fixes while 3 rows come up and no model then wakes and answers, 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

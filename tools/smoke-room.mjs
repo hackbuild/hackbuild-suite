@@ -306,6 +306,8 @@ try {
   await pickTab(page, 'talk')
   await page.click('[data-pane="talk"] .hb-mic-btn')
   await waitMind(page, (r) => r.live.log.some((e) => e.kind === 'you' && /the level rail/.test(e.text)), 'the mic heard nothing from the stub stream', 30000)
+  // the live row showed the words heard so far, then settled to what was heard
+  await waitMind(page, (r) => r.live.log.some((e) => e.kind === 'note' && /^heard: the level rail/.test(e.text) && !e.live), 'no live hearing row settled to the heard words', 5000)
   await page.click('[data-pane="talk"] .hb-mic-btn')
 
   // exports: room json, log csv and trace, each named with the seed
@@ -370,7 +372,7 @@ try {
 
   if (off.length) fail(`requests left file://: ${off.slice(0, 5).join(', ')}`)
   if (errors.length) fail('console errors')
-  console.log(`smoke-room: rack ${rack.rows} rows with the body organ, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs; a bad and a broken pmx named; reflexes first with no model call; persona addition, stub voice and mouth, stub depth model, injected event, free run idea and stub mic heard; room json, ${rows.length - 1} csv rows and trace named with seed ${seed}; a dropped room json reopened on seed ${seed3}; resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
+  console.log(`smoke-room: rack ${rack.rows} rows with the body organ, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs; a bad and a broken pmx named; reflexes first with no model call; persona addition, stub voice and mouth, stub depth model, injected event, free run idea and stub mic heard with a live hearing row; room json, ${rows.length - 1} csv rows and trace named with seed ${seed}; a dropped room json reopened on seed ${seed3}; resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })
