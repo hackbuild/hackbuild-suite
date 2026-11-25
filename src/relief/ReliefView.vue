@@ -11,10 +11,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  HbArtboard, HbButton, HbChipGroup, HbExportPanel, HbHow, HbImageSlot, HbMethodCard, HbPanel, HbParamRow, HbRange2, HbSlider, HbSplit,
+  HbArtboard, HbButton, HbChipGroup, HbExportPanel, HbHistoryStrip, HbHow, HbImageSlot, HbMethodCard, HbPanel, HbParamRow, HbRange2, HbSlider, HbSplit,
   HbStatusLine, HbTag, HbToolbar, HbViewport,
   type ArtLayer, type ArtStroke, type ArtTool, type HbExportCheck, type HbExportFormat, type HbExportReadout, type HbExportRequest,
-  type HbImageValue, type HbParamValue,
+  type HbHistoryItem, type HbImageValue, type HbParamValue,
 } from '@virgilvox/hackbuild-ui'
 import { applyStroke, saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import {
@@ -31,7 +31,7 @@ import { exportDoc, pickFiles, useDocument, ws } from '../workspace/state'
 import { readFrame, tone } from '../vision/frame.ts'
 import { addVisionRuntimes, drawScene } from '../vision/runtimes.ts'
 import { strokeInto } from '../masks/kind.ts'
-import { clampParams, newBody, RELIEF_KIND, withImage, type ReliefBody } from './kind.ts'
+import { clampParams, newBody, RELIEF_KIND, restoreDepthRun, withDepthRun, withImage, type ReliefBody } from './kind.ts'
 import { provideDepthMesh, registerRelief } from './register.ts'
 import type { ReliefPreview } from './preview3d.ts'
 import SendTo from '../shell/SendTo.vue'
@@ -136,8 +136,14 @@ async function runDepth(): Promise<void> {
     c.getContext('2d')!.putImageData(p, 0, 0)
     const m = await depth(hub.hub(), c, { model: r.id })
     const url = toPngUrl(m.width, m.height, depthToRgba(m))
-    doc.edit((b) => { b.depth = url; b.depthModel = r.id; b.source = 'depth' })
-    say(`depth took ${Math.round(performance.now() - t0)} ms (measured). the map is stored with the design.`, 'ok')
+    const ms = Math.round(performance.now() - t0)
+    const b0 = body.value
+    doc.edit((b) => {
+      Object.assign(b, withDepthRun({ ...b, depth: url, depthModel: r.id, source: 'depth' }, {
+        id: `d${Date.now().toString(36)}`, name: b0.name, image: b0.image!, width: b0.width, height: b0.height, depth: url, depthModel: r.id, at: Date.now(), ms,
+      }))
+    })
+    say(`depth took ${ms} ms (measured). the map is stored with the design.`, 'ok')
   } catch (err) {
     const why = err instanceof Error ? err.message : String(err)
     logEvent('fail', `relief: depth: ${why}`)
@@ -146,6 +152,19 @@ async function runDepth(): Promise<void> {
     depthBusy.value = false
   }
 }
+
+// Depth history (P-GEN-3): newest first; a press puts that photo and its map back.
+const depthHistory = computed<HbHistoryItem[]>(() => (body.value.runs ?? []).map((r) => ({
+  id: r.id, thumb: r.depth, label: r.name, meta: `${r.depthModel}, ${r.ms} ms (measured), ${new Date(r.at).toLocaleTimeString()}`,
+})))
+const currentRun = computed(() => (body.value.runs ?? []).find((r) => r.depth === body.value.depth && r.image === body.value.image)?.id ?? null)
+function restoreRun(it: HbHistoryItem): void {
+  const r = (body.value.runs ?? []).find((x) => x.id === it.id)
+  if (!r) return
+  doc.edit((b) => { Object.assign(b, restoreDepthRun(b, r)) })
+  say(`the depth map of ${r.name} is back.`, 'ok')
+}
+const removeRun = (it: HbHistoryItem) => doc.edit((b) => { b.runs = (b.runs ?? []).filter((r) => r.id !== it.id) })
 
 // Height source cards (P-DEPTH-3): the model beside two that need none.
 const sources = computed(() => HEIGHT_SOURCES.map((s) => {
@@ -445,6 +464,10 @@ onMounted(async () => {
           <template #right><img :src="rightUrl" :alt="body.source === 'depth' && body.depth ? 'the depth map' : 'the shaded relief'"></template>
         </HbSplit>
         <p v-else class="hb-hint">the photo and its depth compare here under a wipe once a photo is in.</p>
+      </HbPanel>
+
+      <HbPanel heading="depth runs">
+        <HbHistoryStrip :items="depthHistory" :current="currentRun" empty="depth runs appear here. a press puts the photo and its map back." @restore="restoreRun" @remove="removeRun" />
       </HbPanel>
 
       <HbPanel heading="export">

@@ -83,6 +83,14 @@ try {
   const checks = await page.$eval('.hb-export-checks', (e) => e.textContent)
   if (!/0 open edges/.test(checks)) fail(`the solid is not closed: ${checks}`)
 
+  // depth runs: each run lands in the strip; a press on the older one puts its map back
+  await page.waitForFunction(() => document.querySelectorAll('.hb-hist-item').length === 1, { timeout: 3000 }).catch(() => fail('the depth run is not in the strip'))
+  if (!(await click('^run depth$'))) fail('no run depth button')
+  await page.waitForFunction(() => document.querySelectorAll('.hb-hist-item').length === 2, { timeout: 8000 }).catch(() => fail('a second depth run did not join the strip'))
+  await page.evaluate(() => [...document.querySelectorAll('.hb-hist-item')].at(-1).querySelector('button')?.click())
+  await page.waitForFunction(() => /the depth map of .* is back/.test(document.body.textContent), { timeout: 3000 }).catch(() => fail('a press on the strip did not restore the depth map'))
+  await settle()
+
   // the height range: top to 6 mm, then undo and redo
   await page.evaluate(() => { const i = document.querySelector('.hb-r2-in.is-hi'); i.value = '6'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })) })
   await wait(400)
@@ -136,7 +144,7 @@ try {
 
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-relief: ok. the sample goes in from brightness with the consent line, "${load}" loads the stub and depth runs with no second click (${took} ms, measured), the 3d part, the compare wipe and a closed ${d0[0].toFixed(1)} by ${d0[1].toFixed(1)} by ${d0[2].toFixed(2)} mm solid show, the top moves to 6 mm and undo and redo take it, the 640 by 480 depth png and a ${tris} triangle stl export, the design exports and imports back with its depth map and range, a png imported here offers ${takers.filter((t) => /^(open|cut|make)/.test(t)).length} tools in the chooser and opens in relief, 0 requests off file:// (measured)`)
+  console.log(`smoke-relief: ok. the sample goes in from brightness with the consent line, "${load}" loads the stub and depth runs with no second click (${took} ms, measured), a second run joins the depth strip and a press restores the older map, the 3d part, the compare wipe and a closed ${d0[0].toFixed(1)} by ${d0[1].toFixed(1)} by ${d0[2].toFixed(2)} mm solid show, the top moves to 6 mm and undo and redo take it, the 640 by 480 depth png and a ${tris} triangle stl export, the design exports and imports back with its depth map and range, a png imported here offers ${takers.filter((t) => /^(open|cut|make)/.test(t)).length} tools in the chooser and opens in relief, 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

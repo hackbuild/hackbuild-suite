@@ -27,7 +27,37 @@ export interface ReliefBody {
   keepLargest: boolean
   /** Cells the brush left in the relief: run length at the photo's size, null for all of it. */
   keep: MaskRle | null
+  /** Earlier depth runs, newest first, each with its photo; a press restores one (P-GEN-3). */
+  runs?: DepthRun[]
 }
+
+/** One depth run in the history strip: the photo and the map it gave. */
+export interface DepthRun {
+  id: string
+  name: string
+  image: string
+  width: number
+  height: number
+  depth: string
+  depthModel: string
+  /** Wall clock ms of the run. */
+  at: number
+  /** Time the model took, ms (measured). */
+  ms: number
+}
+
+/** Runs the strip keeps; each holds a photo and a map, so the document stays small (inferred). */
+export const DEPTH_RUNS_CAP = 6
+
+/** Put a run at the head of the strip, dropping the oldest past the cap. */
+export const withDepthRun = (b: ReliefBody, r: DepthRun): ReliefBody =>
+  ({ ...b, runs: [r, ...(b.runs ?? []).filter((x) => x.id !== r.id)].slice(0, DEPTH_RUNS_CAP) })
+
+/** Put a run's photo and map back; the settings stay, the brush goes when the photo changes. */
+export const restoreDepthRun = (b: ReliefBody, r: DepthRun): ReliefBody => ({
+  ...b, name: r.name, image: r.image, width: r.width, height: r.height, depth: r.depth, depthModel: r.depthModel, source: 'depth',
+  keep: b.image === r.image ? b.keep : null,
+})
 
 export const newBody = (): ReliefBody => ({
   name: 'photo', image: null, width: 0, height: 0, depth: null, depthModel: null, source: 'brightness', params: { ...RELIEF_DEFAULTS }, keepLargest: false, keep: null,
@@ -60,6 +90,7 @@ function check(b: unknown): string | null {
   if (s.depth !== null && (typeof s.depth !== 'string' || !s.depth.startsWith('data:image/png'))) return 'its depth map is not a png data url.'
   if (!['depth', 'brightness', 'inflate'].includes(s.source as string)) return `${String(s.source)} is not a height source.`
   if (!s.params || typeof s.params.height !== 'number') return 'it has no relief settings.'
+  if (s.runs !== undefined && (!Array.isArray(s.runs) || s.runs.some((r) => typeof r?.depth !== 'string' || !r.depth.startsWith('data:image/png') || typeof r.image !== 'string'))) return 'a depth run has no map or photo.'
   if (s.keep && (s.keep.size?.[0] !== s.height || s.keep.size?.[1] !== s.width)) return 'the brush mask does not match the photo size.'
   return null
 }
