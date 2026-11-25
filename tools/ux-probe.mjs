@@ -54,7 +54,7 @@ export function judge(m, width, layout = 'stage-rack', cfg = {}) {
   if (!m.subject) v.subject = { pass: false, value: layout === 'home' ? 'no yard tile' : 'no subject' }
   else if (wide) v.subject = { pass: m.subject.share >= LIMITS.subjectShare, value: `${Math.round(m.subject.share * 100)} %` }
   else v.subject = { pass: m.subject.top <= m.viewport.height * LIMITS.phoneSubjectTop, value: `top ${Math.round(m.subject.top)} px` }
-  if (!wide || layout === 'gate' || layout === 'home') v.rack = { pass: null, value: 'n/a' }
+  if (!wide || layout === 'gate' || layout === 'home' || (layout === 'conversation' && !m.rack)) v.rack = { pass: null, value: 'n/a' } // clevis has no rack; a conversation rack is optional, judged when present
   else if (!m.rack) v.rack = { pass: false, value: 'no rack' }
   else {
     const ws = m.rack.widths.map(Math.round)

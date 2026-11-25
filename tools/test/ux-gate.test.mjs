@@ -33,6 +33,7 @@ test('verdicts follow the template numbers', () => {
   assert.equal(judge({ ...m, rack: { widths: [380, 380], tabs: 7, controls: 4 } }, 1440, 'stage-rack', { rackTabs: [3, 7] }).rack.pass, true)
   assert.equal(judge({ ...m, rack: { widths: [380], tabs: 4, controls: 21 } }, 1440).rack.pass, false)
   assert.equal(judge({ ...m, rack: null }, 1440, 'gate').rack.pass, null)
+  assert.equal(judge({ ...m, rack: null }, 1440, 'conversation').rack.pass, null)
   assert.equal(judge({ ...m, subject: null }, 1440, 'home').subject.value, 'no yard tile')
   assert.equal(judge({ ...m, modal: { label: 'welcome', dismissed: 'closed by escape' } }, 1440).modal.pass, false)
   assert.equal(slug('#/chat/chat'), 'chat-chat')
