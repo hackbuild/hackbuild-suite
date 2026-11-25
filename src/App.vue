@@ -9,7 +9,7 @@ import {
 import { resetValues, summarize, type ActivityTask } from '@virgilvox/hackbuild-ui/vanilla'
 import { GROUPS, toolPath } from './tools/define'
 import { TOOLS } from './tools/registry'
-import { events, focusComposer, jobs, logEvent, overlay, runPrimary, stopAll, type Overlay } from './shell/shell'
+import { dock, events, focusComposer, jobs, logEvent, overlay, runPrimary, stopAll, type Overlay } from './shell/shell'
 import { SCHEMA, SECTIONS, loadSettings, settings } from './shell/settings'
 import WorkspacePanels from './shell/WorkspacePanels.vue'
 import { loadModels, models } from './models/lazy'
@@ -191,6 +191,7 @@ const menuProjects = computed(() => projects.value.map((p) => ({ id: p.id, name:
       <HbSuiteNav v-model:route="navRoute" :groups="groups" keys />
     </template>
     <RouterView />
+    <template v-if="dock > 0" #dock />
     <template #statusbar>
       <HbStatusBar :cells="cells" action="open the event log" @press="open('log')" />
     </template>

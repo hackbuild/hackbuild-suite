@@ -12,7 +12,7 @@ const make = (seed = 7) => {
   const rng = seededRng(seed)
   const lines = []
   const world = new World(seededLayout(rng, ROOM_THINGS), rng, {
-    log: (kind, text, live) => { if (live) return live.id; lines.push(`${kind} ${text}`); return lines.length },
+    log: (kind, text, row) => { if (row?.id !== undefined) return row.id; lines.push(`${kind} ${text}`); return lines.length },
     said: (t) => lines.push(`me ${t}`),
   })
   return { world, lines }
@@ -119,4 +119,41 @@ test('body drops take pmx and pmd beside glb and vrm', () => {
   assert.ok(isMmdFile({ name: 'x.PMX' }))
   assert.ok(!isBodyFile({ name: 'x.fbx.txt' }))
   assert.match(BODY_ACCEPT, /\.pmx,\.pmd/)
+})
+
+test('a walk is one live row with its fraction done, ended in place', async () => {
+  const rng = seededRng(7)
+  const rows = []
+  const world = new World(seededLayout(rng, ROOM_THINGS), rng, {
+    log: (kind, text, row = {}) => {
+      const id = row.id ?? rows.length + 1
+      rows[id - 1] = { kind, text, live: !!row.live, fraction: row.fraction }
+      return id
+    },
+    said: () => {},
+  })
+  const p = world.walkTo('shelf', new AbortController().signal)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].live, true)
+  world.tick(0.5)
+  assert.ok(rows[0].fraction > 0 && rows[0].fraction < 1, JSON.stringify(rows[0]))
+  await settle(world, p)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].live, false)
+  assert.match(rows[0].text, /^walked to the shelf\./)
+})
+
+test('grab lifts the nearest small thing in reach, else puts down, else names the miss', () => {
+  const { world } = make()
+  const mug = world.thing('mug')
+  world.pose.x = mug.x
+  world.pose.z = mug.z - 0.4
+  assert.match(world.grab(), /i hold the mug in my right hand\./)
+  world.pose.x = 0
+  world.pose.z = 0
+  for (const t of world.things) if (!t.held) { t.x = 2.5; t.z = 2.5 }
+  assert.match(world.grab(), /the mug is on the floor in front of me\./)
+  world.thing('mug').x = 2.5
+  world.thing('mug').z = 2.5
+  assert.throws(() => world.grab(), /nothing small within 0\.9 m/)
 })

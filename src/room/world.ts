@@ -32,7 +32,14 @@ export interface Pose {
   yaw: number
 }
 
-export type LogKind = 'you' | 'me' | 'act' | 'fail' | 'eye' | 'note' | 'think'
+export type LogKind = 'you' | 'me' | 'act' | 'fail' | 'eye' | 'note' | 'think' | 'load'
+/** A log row replaced in place: the id of the row (none for a new one), live while it runs, the fraction done. */
+export interface LiveRow {
+  id?: number
+  live?: boolean
+  fraction?: number
+}
+
 export interface LogLine {
   id: number
   t: number
@@ -61,6 +68,8 @@ interface Walk {
   done: () => void
   fail: (e: Error) => void
   line: number
+  /** Meters to walk at the start, for the fraction done. */
+  total: number
 }
 interface Wait {
   kind: 'wait'
@@ -76,8 +85,8 @@ const r2 = (v: number) => Math.round(v * 100) / 100
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z)
 
 export interface WorldHooks {
-  /** A line for the talk log. */
-  log(kind: LogKind, text: string, live?: { id: number }): number
+  /** A line for the talk log; `row` updates one in place, live while the act runs, with its fraction done. */
+  log(kind: LogKind, text: string, row?: LiveRow): number
   /** The body said something: the bubble and the caption read it. */
   said(text: string): void
 }
@@ -132,7 +141,21 @@ export class World {
     const a = this.act
     this.act = null
     this.doing = 'standing'
+    if (a?.kind === 'walk') this.hooks.log('act', `stopped on the way to ${the(a.what)}.`, { id: a.line, live: false })
     a?.fail(new ToolError('i was stopped.'))
+  }
+
+  /** The pad's one button: lift the nearest small thing in reach, else put down what the hand holds. */
+  grab(): string {
+    const near = this.things
+      .filter((t) => !t.held && (SMALL as readonly string[]).includes(t.label))
+      .map((t) => ({ t, d: dist(this.pose, t) }))
+      .filter((x) => x.d <= REACH + 0.2)
+      .sort((x, y) => x.d - y.d)[0]
+    const free = !this.hands.right || !this.hands.left
+    if (near && free) return this.pickUp(near.t.label)
+    if (this.heldThing()) return this.drop()
+    throw new ToolError(`nothing small within ${REACH} m. drive up to the ${SMALL.slice(0, -1).join(', ')} or ${SMALL[SMALL.length - 1]}.`)
   }
 
   /** Advances the act and the drives by dt seconds. Returns true while the body moves. */
@@ -154,14 +177,14 @@ export class World {
     if (d <= step) {
       p.x = a.to.x
       p.z = a.to.z
-      this.hooks.log('act', `walked to ${the(a.what)}.`, { id: a.line })
+      this.hooks.log('act', `walked to ${the(a.what)}.`, { id: a.line, live: false })
       this.finish()
       return true
     }
     p.x += (dx / d) * step
     p.z += (dz / d) * step
     this.drives.rest = Math.min(1, this.drives.rest + 0.004 * dt)
-    this.hooks.log('act', `walking to ${the(a.what)}, ${(d - step).toFixed(1)} m left.`, { id: a.line })
+    this.hooks.log('act', `walking to ${the(a.what)}, ${(d - step).toFixed(1)} m left.`, { id: a.line, live: true, fraction: a.total > 0 ? Math.min(1, 1 - (d - step) / a.total) : 0 })
     this.carry()
     return true
   }
@@ -200,8 +223,9 @@ export class World {
     const k = (d - stop) / d
     const to = { x: clampRoom(this.pose.x + (s.x - this.pose.x) * k), z: clampRoom(this.pose.z + (s.z - this.pose.z) * k) }
     this.doing = `walking to ${the(s.what)}`
-    const line = this.hooks.log('act', `walking to ${the(s.what)}, ${d.toFixed(1)} m.`)
-    return this.start({ kind: 'walk', to, what: s.what, line }, signal).then(() => `i am at ${the(s.what)}.`)
+    const total = dist(this.pose, to)
+    const line = this.hooks.log('act', `walking to ${the(s.what)}, ${d.toFixed(1)} m.`, { live: true, fraction: 0 })
+    return this.start({ kind: 'walk', to, what: s.what, line, total }, signal).then(() => `i am at ${the(s.what)}.`)
   }
 
   lookAt(name: string): string {
@@ -282,8 +306,8 @@ export class World {
     }
     this.doing = 'exploring'
     this.drives.curiosity = Math.max(0, this.drives.curiosity - 0.3)
-    const line = this.hooks.log('act', `exploring, heading to ${to.x.toFixed(1)}, ${to.z.toFixed(1)}.`)
-    return this.start({ kind: 'walk', to, what: 'new spot', line }, signal).then(() => 'i looked around a new part of the room.')
+    const line = this.hooks.log('act', `exploring, heading to ${to.x.toFixed(1)}, ${to.z.toFixed(1)}.`, { live: true, fraction: 0 })
+    return this.start({ kind: 'walk', to, what: 'new spot', line, total: dist(this.pose, to) }, signal).then(() => 'i looked around a new part of the room.')
   }
 
   /** The body API the model sees (P-ROOM-8), the same list the prompt carries. */

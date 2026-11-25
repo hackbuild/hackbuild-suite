@@ -161,11 +161,13 @@ try {
     presets: document.querySelectorAll('[data-rack] .hb-rack-presets button').length,
     file: /opened from a file/.test(document.querySelector('[data-rack]').textContent),
     persona: !!document.querySelector('#room-persona'),
+    body: /mannequin, made in code/.test(document.querySelector('[data-rack] [data-slot="body"]')?.textContent ?? '') && !!document.querySelector('[data-body-organ]'),
   }))
   if (rack.rows < 3) fail(`the rack shows ${rack.rows} organ rows`)
   if (rack.presets < 2) fail('the rack has no presets with totals')
   if (!rack.file) fail('the opened from a file warning is missing on file://')
   if (!rack.persona) fail('no persona card on the rack')
+  if (!rack.body) fail('no body organ row with its source and a pick button on the rack')
   // the no webgpu warning shows only when the probe finds no adapter
   const adapter = await page.evaluate(async () => !!(await navigator.gpu?.requestAdapter().catch(() => null)))
   const gpuWarn = await page.waitForFunction((a) => /no webgpu adapter/.test(document.querySelector('[data-rack]').textContent) === !a, { timeout: 5000 }, adapter).then(() => true, () => false)
@@ -187,6 +189,9 @@ try {
   // an order through the model tier: the mug ends on the shelf
   await click(page, '[data-pane="talk"] .hb-chip', 'mug to the shelf')
   await waitMind(page, (r) => r.world().thing('mug').on === 'shelf', 'the mug did not reach the shelf', 40000)
+  // each walk was one live row, swapped in place and ended: no row is left live
+  const walks = await room(page, (r) => ({ ended: r.live.log.filter((e) => /^walked to the /.test(e.text)).length, live: r.live.log.filter((e) => e.live && e.kind === 'act').length }))
+  if (walks.ended < 2 || walks.live) fail(`the walk rows did not end in place: ${JSON.stringify(walks)}`)
   const tier1 = await room(page, (r) => r.mind().last.tier)
   if (tier1 !== 'model') fail(`the order ran on ${tier1}, not the model tier`)
   // a question through the scripted tier, said in the bubble
@@ -365,7 +370,7 @@ try {
 
   if (off.length) fail(`requests left file://: ${off.slice(0, 5).join(', ')}`)
   if (errors.length) fail('console errors')
-  console.log(`smoke-room: rack ${rack.rows} rows, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs; a bad and a broken pmx named; reflexes first with no model call; persona addition, stub voice and mouth, stub depth model, injected event, free run idea and stub mic heard; room json, ${rows.length - 1} csv rows and trace named with seed ${seed}; a dropped room json reopened on seed ${seed3}; resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
+  console.log(`smoke-room: rack ${rack.rows} rows with the body organ, ${rack.presets} presets, file warning shown, webgpu warning ${rack.gpu ? 'shown' : 'hidden'}; model, scripted and reflex tiers each planned; menu sentence, taught memory, 7 tabs; a bad and a broken pmx named; reflexes first with no model call; persona addition, stub voice and mouth, stub depth model, injected event, free run idea and stub mic heard; room json, ${rows.length - 1} csv rows and trace named with seed ${seed}; a dropped room json reopened on seed ${seed3}; resume kept ${lines} log lines; canvas ${stageW.canvas} px in ${stageW.host} px host; 0 requests off file:// (measured)`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

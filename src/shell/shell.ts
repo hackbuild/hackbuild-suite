@@ -38,6 +38,13 @@ onCore((e) => {
   }
 })
 
+/**
+ * Tools that pin an input in the shell's dock on a phone (P-PHONE-1). Above
+ * zero the shell draws its dock and a tool teleports into DOCK.
+ */
+export const dock = ref(0)
+export const DOCK = '.hb-app-foot > .hb-dock'
+
 /** The one overlay open at a time. */
 export type Overlay = '' | 'settings' | 'keys' | 'log' | 'models' | 'palette' | 'docs' | 'export'
 export const overlay = ref<Overlay>('')

@@ -20,22 +20,23 @@
 // bellows presets and the mouth canvas (P-VOUT-1, P-VOUT-9, P-VOUT-13).
 // Under the stage: inject an event (P-ROOM-13) and the exports, each named
 // with the seed (P-ROOM-16, P-SAVE-10). Keys: wasd drive, space pause, .
-// step, f follow (P-ROOM-14).
+// step, f follow (P-ROOM-14). Phone (design 3.10): the tabs in a bottom
+// sheet, the talk input pinned in the shell's dock, the pad with grab.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbExportPanel, HbField, HbFold, HbGauges, HbHudStat, HbInput, HbInset, HbKv, HbList,
+  HbBubble, HbButton, HbCausalLog, HbChat, HbChip, HbChoiceBars, HbCodeBlock, HbEventLog, HbExportPanel, HbField, HbFold, HbGauges, HbHudStat, HbIcon, HbInput, HbInset, HbKv, HbList,
   HbMemoryPanel, HbMicButton, HbNameHud, HbPanel, HbParamRow, HbPill, HbRadio, HbSeg, HbSelect, HbSparkRows, HbSwitch, HbTable, HbTabs, HbTextarea,
   usePersisted, type HbCausalEvent, type HbChoiceOption, type HbEventRow, type HbExportFormat, type HbExportReadout, type HbExportRequest, type HbGaugeRow,
   type HbMemoryEntry, type HbSparkRow, type HudState,
 } from '@virgilvox/hackbuild-ui'
-import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
+import { replaceRow, saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import { BELLOWS_VOICES } from '@hackbuild/speak'
 import { Vector2, Vector3 } from 'three'
 import type { Rng } from '@hackbuild/organic'
 import type { Memory } from '@hackbuild/memory'
 import type { MicState } from '@virgilvox/hackbuild-ui/vanilla'
 import StageTool from '../stagekit/StageTool.vue'
-import { useStageTool } from '../stagekit/useStageTool'
+import { sizeText, useStageTool } from '../stagekit/useStageTool'
 import { tone } from '../vision/frame'
 import { propDef, seededLayout } from '../agents/props.ts'
 import { INSETS, FEEDS, bearingDeg, depthFeed, feedText, inViewLine, seenEarlierLine, type Feed, type InsetMode } from '../senses/kind.ts'
@@ -44,18 +45,18 @@ import type { SenseRig } from '../senses/bind.ts'
 import { rememberLine, toEntries, traceEntries, ADD_KINDS } from '../memory/lines.ts'
 import * as hub from '../models/hub.ts'
 import { BRAINS, BRAIN_NOTES, DECIDES, DECIDE_NOTES, Mind, eventLine } from './brain.ts'
-import { DRIVES, FURNITURE, ROOM_THINGS, World, type LogKind } from './world.ts'
+import { DRIVES, FURNITURE, ROOM_THINGS, World, type LiveRow, type LogKind } from './world.ts'
 import * as room from './state.ts'
 import { exportName, logCsv, newCast, type RoomBody } from './kind.ts'
 import { BELLOWS_ID, ENGINE_LABELS, POCKET_ID, RoomVoice, VOICE_ENGINES, drawMouth, engineTrade } from './voice.ts'
 import { BODY_ACCEPT } from '../stagekit/body'
 import { exportDoc, type UseDocument } from '../workspace/state'
-import { logEvent } from '../shell/shell'
+import { DOCK, dock, logEvent } from '../shell/shell'
 
 const props = defineProps<{ doc: UseDocument<RoomBody> }>()
 
 const TABS = ['talk', 'mind', 'eyes', 'memory', 'body', 'brain', 'voice']
-const KINDS: LogKind[] = ['you', 'me', 'act', 'fail', 'eye', 'note', 'think']
+const KINDS: LogKind[] = ['you', 'me', 'act', 'fail', 'eye', 'note', 'think', 'load']
 const ORDERS = ['explore', 'mug to the shelf', 'tidy up', 'what are you doing', 'pick up the ball', 'put it on the table', 'bring me the box', 'what do you see', 'come here', 'remember that the mug lives on the shelf']
 const EMPTY = 'the agent is waking. give it an order, or switch to free run.'
 const failQ = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fail') ?? '' : ''
@@ -74,11 +75,14 @@ const tool = useStageTool({
   tick: (dt, t) => frame(dt, t),
   menu: (at) => menuAt(at),
   say: (s) => void send(s),
+  action: { label: 'grab', run: () => grab() },
+  sheet: true,
   hints: () => [
     { keys: 'wasd', label: 'drive' },
     { keys: 'space', label: 'pause' },
     { keys: '.', label: 'step' },
     { keys: 'f', label: 'follow' },
+    { keys: 'e', label: 'grab' },
     { keys: 'right click', label: 'a thing for things to say' },
   ],
 })
@@ -93,7 +97,6 @@ const feed = usePersisted<Feed>('suite-room-feed', 'three clearances')
 const insetMode = usePersisted<InsetMode>('suite-room-inset', 'what it sees')
 const insetOpen = ref(true)
 const depthSource = ref('own render')
-const follow = usePersisted('suite-room-follow', true)
 const event = ref('')
 const voiceLine = ref('')
 const voiceFail = ref(false)
@@ -136,17 +139,17 @@ const every = computed(() => tool.values['run.every'] ?? 6)
 
 // ------------------------------------------------------------- log
 
-function log(kind: LogKind, text: string, liveRow?: { id: number }): number {
+function log(kind: LogKind, text: string, row?: LiveRow): number {
   const t = tool.transport.time
-  if (liveRow) {
-    const row = live.log.find((e) => e.id === liveRow.id)
-    if (row) {
-      row.text = text
-      return liveRow.id
-    }
+  const state = row?.live ? { live: true, fraction: row.fraction ?? 0 } : {}
+  if (row?.id !== undefined && live.log.some((e) => e.id === row.id)) {
+    // a live row (a walk, a download) is swapped in place under its id; done, it drops live
+    live.log = replaceRow(live.log, row.id, { id: row.id, t, agent: room.name.value, kind, text, ...state })
+    if (!row.live && kind === 'act') tool.body.line = text
+    return row.id
   }
   const id = nextId++
-  live.log.push({ id, t, agent: room.name.value, kind, text })
+  live.log.push({ id, t, agent: room.name.value, kind, text, ...state })
   if (live.log.length > 160) live.log.splice(0, live.log.length - 160)
   if (kind === 'you' || kind === 'think' || kind === 'fail' || kind === 'note') {
     live.slow.push({ id, kind: kind === 'fail' ? 'fail' : kind === 'note' ? 'warn' : 'note', text, t: `${t.toFixed(1)} s` })
@@ -494,7 +497,7 @@ function readMind() {
 // ------------------------------------------------------------- bubble
 
 const head = new Vector3()
-/** The bubble over the head, projected each frame and clamped inside the stage. */
+/** The head point over the stage, projected each frame; HbBubble keeps the bubble inside the stage. */
 function placeBubble() {
   const w = tool.walk.value
   const wd = world.value
@@ -504,11 +507,8 @@ function placeBubble() {
   const box = cv.getBoundingClientRect()
   const outer = vp.getBoundingClientRect()
   head.set(wd.pose.x, 1.95, wd.pose.z).project(w.stage.camera)
-  const x = box.left - outer.left + ((head.x + 1) / 2) * box.width
-  const y = box.top - outer.top + ((1 - head.y) / 2) * box.height
-  const half = Math.min(150, outer.width / 2)
-  bubble.x = Math.round(Math.max(half, Math.min(outer.width - half, x)))
-  bubble.y = Math.round(Math.max(72, Math.min(outer.height - 8, y)))
+  bubble.x = Math.round(box.left - outer.left + ((head.x + 1) / 2) * box.width)
+  bubble.y = Math.round(box.top - outer.top + ((1 - head.y) / 2) * box.height)
 }
 
 // ------------------------------------------------------------- talk
@@ -639,6 +639,18 @@ function pickBody(e: Event) {
   input.value = ''
   if (files.length) void tool.showBody(files)
 }
+// the body row of the rack: a body picked there, and what stands now
+watch([room.bodyFiles, () => tool.walk.value], ([files, w]) => {
+  if (!files || !w) return
+  room.bodyFiles.value = null
+  void tool.showBody(files)
+}, { immediate: true })
+watch(() => [tool.body.name, tool.body.placeholder, tool.body.size], () => {
+  room.body.value = tool.body.placeholder
+    ? { source: 'mannequin, made in code', size: '0 mb (computed)' }
+    : { source: `${tool.body.name}${tool.body.local ? ', local only' : ''}`, size: `${sizeText(tool.body.size)} (measured)` }
+})
+
 function mannequin() {
   const w = tool.walk.value
   if (!w) return
@@ -653,18 +665,53 @@ function playClip(name: string) {
   else log('act', `playing ${name}`)
 }
 
-// ------------------------------------------------------------- follow
+// ------------------------------------------------------------- brain download
 
-/** The camera follows the body, or stays where it is (f). */
-let followStep: ((...a: never[]) => boolean) | null = null
-function applyFollow() {
-  const f = tool.walk.value?.stage.follow as unknown as { step: (...a: never[]) => boolean } | undefined
-  if (!f) return
-  followStep ??= f.step.bind(f)
-  const orig = followStep
-  f.step = (...a: never[]) => (follow.value ? orig(...a) : false)
+/** The brain download as one live load row, replaced in place until it is in. */
+let loadRow: number | undefined
+watch(() => {
+  const id = room.brainId.value
+  const st = id ? hub.states.value[id] : undefined
+  return { id, state: st?.state ?? 'none', f: st?.total ? Math.min(1, (st.loaded ?? 0) / st.total) : 0 }
+}, (s) => {
+  if (room.brain.value !== 'in tab' || !s.id) return
+  if (s.state === 'downloading') loadRow = log('load', `loading ${s.id}, ${Math.round(s.f * 100)} percent.`, { id: loadRow, live: true, fraction: s.f })
+  else if (loadRow !== undefined) {
+    log('load', s.state === 'loaded' ? `${s.id} is in. it plans from the next turn.` : `${s.id} did not load. reflexes go on.`, { id: loadRow, live: false })
+    loadRow = undefined
+  }
+})
+
+// ------------------------------------------------------------- dock
+
+/** On a phone the talk input pins in the shell's dock (P-PHONE-1); without a shell it sits under the stage. */
+const wantDock = computed(() => tool.phone.value && !room.rackOpen.value)
+const docked = ref(false)
+let held = false
+watch(wantDock, async (on) => {
+  if (on === held) return
+  held = on
+  docked.value = false
+  dock.value += on ? 1 : -1
+  if (!on) return
+  await nextTick()
+  docked.value = held && !!document.querySelector(DOCK)
+}, { immediate: true })
+onBeforeUnmount(() => { if (held) dock.value-- })
+
+// ------------------------------------------------------------- grab
+
+/** The pad's button and e: lift the nearest small thing, or put down what the hand holds. */
+function grab() {
+  const wd = world.value
+  if (!wd) return
+  try {
+    log('act', wd.grab())
+  } catch (e) {
+    log('fail', e instanceof Error ? e.message : String(e))
+  }
+  readMind()
 }
-watch([follow, () => tool.walk.value], applyFollow)
 
 // ------------------------------------------------------------- document
 
@@ -776,7 +823,7 @@ watch(rig, (r) => {
     const sc = bind.screenOf
     el.room = {
       live, bubble, world: () => world.value, mind: () => mind.value, send, screenOf: (x: number, z: number) => sc(x, z, w.stage.camera, w.stage.renderer.domElement),
-      voice, run, injected, follow, roomBody, ears: () => ears, every: () => every.value,
+      voice, run, injected, follow: tool.follow, roomBody, ears: () => ears, every: () => every.value,
     }
   }
 })
@@ -801,29 +848,42 @@ const setParam = (k: keyof typeof room.params.value, v: unknown) => { room.param
       <HbButton variant="secondary" @click="stop">stop</HbButton>
     </template>
     <template #tools-end>
-      <HbButton variant="secondary" @click="room.rackOpen.value = true">open rack</HbButton>
+      <HbButton variant="secondary" title="open rack" @click="room.rackOpen.value = true"><HbIcon name="circle-nodes" :size="14" /><span class="hb-bar-lbl">open rack</span></HbButton>
     </template>
 
     <template #tl><HbNameHud :name="room.name.value" :state="hud" /></template>
     <template #hud>
       <HbHudStat label="goal" :value="live.goal || 'none'" />
-      <HbHudStat label="think" :value="live.think || 'nothing yet'" />
-      <HbHudStat v-if="grippers" label="hands" :value="live.hands" />
+      <!-- one line on a phone: the thought reads in the log and the caption -->
+      <HbHudStat v-if="!tool.phone.value" label="think" :value="live.think || 'nothing yet'" />
+      <HbHudStat v-if="grippers && !tool.phone.value" label="hands" :value="live.hands" />
     </template>
     <template #cams>
       <div class="hb-cams" role="group" aria-label="stage tools">
         <HbChip v-model="stageMap" toggle>map</HbChip>
         <HbChip v-model="grippers" toggle>grippers</HbChip>
-        <HbChip v-model="follow" toggle hotkey="f" hotkey-label="camera follows the body" hotkey-group="stage">follow</HbChip>
+        <HbChip v-model="tool.follow.value" toggle title="camera follows the body (f)">follow</HbChip>
       </div>
     </template>
     <template #over>
-      <HbBubble v-model:show="bubble.show" :x="bubble.x" :y="bubble.y" :text="bubble.text" :lines="3" ttl="auto" :hold="hud === 'talking'" />
+      <HbBubble v-model:show="bubble.show" clamp :pad="8" :x="bubble.x" :y="bubble.y" :text="bubble.text" :lines="3" ttl="auto" :hold="hud === 'talking'" />
     </template>
     <template #br>
       <HbInset v-if="stageMap" title="map" aux="own depth" ratio="1 / 1"><canvas ref="mini" data-map="mini" /></HbInset>
     </template>
     <template #under>
+      <Teleport v-if="tool.phone.value && docked" :to="DOCK">
+        <HbChat :lines="[]" :log="false" :placeholder="`tell ${room.name.value} what to do`" label="talk to the agent" data-dock-talk @send="send">
+          <template #composer-start>
+            <HbMicButton v-model:state="mic" :level="micLevel" :listen="false" @start="micStart" @stop="micStop" />
+          </template>
+        </HbChat>
+      </Teleport>
+      <HbChat v-else-if="tool.phone.value" :lines="[]" :log="false" :placeholder="`tell ${room.name.value} what to do`" label="talk to the agent" data-dock-talk @send="send">
+        <template #composer-start>
+          <HbMicButton v-model:state="mic" :level="micLevel" :listen="false" @start="micStart" @stop="micStop" />
+        </template>
+      </HbChat>
       <div class="hb-stack" data-under>
         <div class="hb-acts" data-inject>
           <HbInput v-model="event" :placeholder="`inject an event, such as a ball rolls in`" aria-label="inject an event into the room" autocomplete="off" @keydown.enter="inject" />
@@ -846,7 +906,7 @@ const setParam = (k: keyof typeof room.params.value, v: unknown) => { room.param
             <div class="hb-acts">
               <button v-for="o in ORDERS" :key="o" type="button" class="hb-chip" @click="send(o)">{{ o }}</button>
             </div>
-            <HbChat :lines="[]" :log="false" :placeholder="`tell ${room.name.value} what to do`" label="talk to the agent" @send="send">
+            <HbChat v-if="!tool.phone.value" :lines="[]" :log="false" :placeholder="`tell ${room.name.value} what to do`" label="talk to the agent" @send="send">
               <template #composer-start>
                 <HbMicButton v-model:state="mic" :level="micLevel" :listen="false" @start="micStart" @stop="micStop" />
               </template>

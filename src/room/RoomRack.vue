@@ -11,6 +11,7 @@ import { HbApiKey, HbButton, HbCallout, HbField, HbInput, HbModelRack, HbPanel, 
 import * as hub from '../models/hub.ts'
 import { BRAINS, BRAIN_NOTES } from './brain.ts'
 import * as room from './state.ts'
+import { BODY_ACCEPT } from '../stagekit/body'
 
 const emit = defineEmits<{ wake: [] }>()
 
@@ -31,6 +32,13 @@ const gate = computed(() => {
   if (b === 'your endpoint') return { ok: true, note: `ready. ${room.endpoint.value} plans every turn.` }
   return { ok: true, note: 'ready. no model, no download: reflexes decide.' }
 })
+
+function pickBody(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  input.value = ''
+  if (files.length) room.bodyFiles.value = files
+}
 
 function preset(id: string) {
   const p = room.presets.value.find((x) => x.id === id)
@@ -67,7 +75,14 @@ function preset(id: string) {
       @load="(_s, id) => hub.load(id)"
       @preset="preset"
       @remove="hub.removeSlot"
-    />
+    >
+      <template #organ="{ row }">
+        <HbButton v-if="row.slot === 'body'" as="label" variant="secondary" size="sm">
+          pick a body
+          <input type="file" :accept="BODY_ACCEPT" hidden data-body-organ @change="pickBody">
+        </HbButton>
+      </template>
+    </HbModelRack>
 
     <HbPanel heading="persona" sunk>
       <HbField label="name" for="room-name"><HbInput id="room-name" v-model="room.name.value" autocomplete="off" /></HbField>

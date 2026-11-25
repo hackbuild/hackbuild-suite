@@ -47,14 +47,20 @@ export const rackOpen = ref(true)
 /** The brain engine when the tier has one ready. */
 export const engine = shallowRef<ChatEngine | null>(null)
 
+/** The body organ: what stands in the room and its file size (P-ROOM-8). */
+export const body = ref({ source: 'mannequin, made in code', size: '0 mb (computed)' })
+/** Files picked on the body row before the room is up; the stage shows them once it is. */
+export const bodyFiles = shallowRef<File[] | null>(null)
+
 export const origin = typeof location !== 'undefined' && location.protocol === 'file:' ? 'file' : 'http'
 
-export const slots = computed<HbRackSlot[]>(() =>
-  ORGANS.flatMap(({ slot, role }) => {
+export const slots = computed<HbRackSlot[]>(() => [
+  { slot: 'body', label: 'body', role: 'moves, holds and looks. not a model: no download.', kind: 'organ', source: body.value.source, size: body.value.size },
+  ...ORGANS.flatMap(({ slot, role }) => {
     const s = hub.rackSlots.value.find((x) => x.slot === slot)
     return s && s.options?.length ? [{ ...s, role, required: false }] : []
   }),
-)
+])
 
 /** The hub presets cut to the room organs, each with its summed download. */
 export const presets = computed<HbRackPreset[]>(() => {

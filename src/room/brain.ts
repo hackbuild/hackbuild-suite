@@ -250,9 +250,7 @@ export class Mind {
     this.drops = [...this.chain.log]
     for (const d of first ? [] : this.chain.lastDrops) {
       if (d.reason === 'absent' && (d.from !== 'model' || this.o.wantsModel?.() === false)) continue
-      // the scripted planner answers questions only; no answer is a step down, said plainly
-      if (d.from === 'scripted' && d.reason === 'invalid' && !d.raw) this.o.log('note', `the scripted planner had no answer for that.${d.to ? ' reflexes took over.' : ''}`)
-      else this.o.log('note', dropLine(d))
+      this.o.log('note', dropLine(d))
     }
     this.cost.ms = Math.round(performance.now() - t0)
     if (!r) {
