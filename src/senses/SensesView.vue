@@ -27,6 +27,7 @@ import {
 } from './kind.ts'
 import type { AgentPose, SenseCore } from './core.ts'
 import type { SenseRig } from './bind.ts'
+import how from '@hackbuild/senses/how'
 
 if (!kinds.get(SENSES_KIND)) registerKind(sensesKind)
 
@@ -52,7 +53,7 @@ const open = reactive({ view: true, earlier: true, feed: true, eyes: true, map: 
 const rig = shallowRef<SenseRig | null>(null)
 const core = shallowRef<SenseCore | null>(null)
 const picked = ref<string>('ball')
-const insetOpen = ref(typeof matchMedia === 'function' ? !matchMedia('(max-width: 560px)').matches : true)
+const insetOpen = ref(true)
 const live = reactive({
   view: [] as string[], earlier: [] as string[], feed: [] as HbCausalEvent[], fed: '', tokens: 0,
   clear: { left: 0, ahead: 0, right: 0 }, grid: [] as number[][], known: 0, edges: 0, passes: 0, whiff: 0, hash: '',
@@ -311,22 +312,6 @@ const gridRows = computed(() => live.grid.map((row, i) => ({ row: String(i + 1),
 const gridCols = [{ key: 'row', label: 'row' }, ...Array.from({ length: 8 }, (_, j) => ({ key: `c${j}`, label: String(j + 1), numeric: true }))]
 const insetTitle = computed(() => (opts.inset === 'what it sees' ? 'eye' : opts.inset))
 
-const HOW = `import { load, PerceptMemory, Saliency, OccupancyGrid, Looming, OdourField, Sniffer, seededRng } from "@hackbuild/senses";
-import { Eye, cameraFromThree } from "@hackbuild/senses/three";
-
-await load(); // the wasm core, inlined: works from file://
-const rng = seededRng(7);
-const memory = new PerceptMemory({ rng });
-const eye = new Eye(renderer, scene, { fov: 74 });
-function sense(t, agent) {
-  eye.place(head, agent.yaw, -0.42);
-  const pass = eye.pass(tracked, [agent.body]); // pixels per thing, depth
-  grid.integrate(pass.camera, pass.depth, pass.depthWidth, pass.depthHeight, 12, agent);
-  for (const [i, thing] of things.entries()) {
-    const px = pass.visible.find((v) => v.label === thing.label)?.pixels ?? 0;
-    memory.sense(i, head, agent.yaw, { pos: thing.pos, size: thing.size, occluded: px < floor }, 1, t);
-  }
-}`
 </script>
 
 <template>
@@ -399,7 +384,7 @@ function sense(t, agent) {
         <HbButton variant="secondary" size="sm" @click="tool.restart()">back to the seeded layout</HbButton>
       </HbFold>
 
-      <HbHow :packages="['@hackbuild/senses', '@hackbuild/avatar-host']" install="npm i @hackbuild/senses three" :code="HOW" persist-key="senses-how" />
+      <HbHow v-bind="how" persist-key="senses-how" />
     </template>
   </StageTool>
 </template>

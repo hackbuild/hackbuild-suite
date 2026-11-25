@@ -36,7 +36,8 @@ export function drawScene(c: HTMLCanvasElement, tone: (name: string) => string):
   const H = c.height
   x.fillStyle = tone('--hb-void')
   x.fillRect(0, 0, W, H)
-  x.fillStyle = tone('--hb-ink-3')
+  // the floor in the void line tone (hackbuild-ui 0.9.3 void scene tokens)
+  x.fillStyle = tone('--hb-void-line')
   x.fillRect(0, H * 0.82, W, H * 0.18)
   const [p, l, k] = SCENE
   // the figure: a head over a body

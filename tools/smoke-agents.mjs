@@ -260,8 +260,17 @@ try {
     const fx = Math.sin(a.yaw)
     const fz = Math.cos(a.yaw)
     const spots = (ds) => ds.flatMap((d) => [0, 0.25, -0.25, 0.5].map((l) => [a.x + fx * d - fz * l, a.z + fz * d + fx * l]))
-    const front = open(spots([1.1, 1.25, 1]))
-    const back = open(spots([-1.1, -1.25, -0.9]))
+    // open floor that shows on the stage, clear of the overlay frame
+    const shown = async (cands) => {
+      for (const c of cands) {
+        if (!open([c])) continue
+        const p = await h((s, x, z) => s.screenOf(x, z), c[0], c[1])
+        if (await page.evaluate((x, y) => !!document.elementFromPoint(x, y)?.closest('.hb-viewport-host'), p.x, p.y)) return c
+      }
+      return null
+    }
+    const front = await shown(spots([1.1, 1.25, 1]))
+    const back = await shown(spots([-1.1, -1.25, -0.9]))
     if (!front || !back) fail(`no open floor in front of or behind the agent: ${JSON.stringify(things)}`)
     await tapFloor(front)
     const line = /^ball \((ahead|\d+ deg (left|right)), \d+\.\d m\)$/
