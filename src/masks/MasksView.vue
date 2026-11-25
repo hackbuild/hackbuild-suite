@@ -206,8 +206,9 @@ async function onCommit(ps: Prompt[]): Promise<void> {
     const at = body.value.instances.findIndex((i) => i.id === selId.value) + 1
     say(`instance ${at}, ${scorePct(score) || 'no score'}, decoded in ${ms} ms (measured). add points to refine it, or press next instance.`, 'ok')
   } catch (err) {
-    logEvent('fail', `masks: decode: ${err instanceof Error ? err.message : String(err)}`)
-    say('the mask model failed. erase, restore and the mask operations still work.', 'err')
+    const why = err instanceof Error ? err.message : String(err)
+    logEvent('fail', `masks: decode: ${why}`)
+    say(`the mask model failed: ${why}. erase, restore and the mask operations still work.`, 'err')
   } finally {
     if (n === seq) busy.value = false
   }

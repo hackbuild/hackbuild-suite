@@ -41,7 +41,7 @@ function open(): Promise<IDBDatabase> {
       for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s)
     }
     req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error ?? new Error('indexeddb did not open'))
+    req.onerror = () => reject(req.error ?? new Error('indexeddb did not open and gave no reason. a private window may block it.'))
     req.onblocked = () => reject(new Error('the workspace database is open in an older tab. close it and reload.'))
   })
   return opening
@@ -53,7 +53,7 @@ function run<T>(store: StoreName, mode: IDBTransactionMode, fn: (s: IDBObjectSto
       new Promise<T>((resolve, reject) => {
         const req = fn(db.transaction(store, mode).objectStore(store))
         req.onsuccess = () => resolve(req.result as T)
-        req.onerror = () => reject(req.error ?? new Error('indexeddb request failed'))
+        req.onerror = () => reject(req.error ?? new Error(`indexeddb refused the ${mode} on ${store} and gave no reason.`))
       }),
   )
 }

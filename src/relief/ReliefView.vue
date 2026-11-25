@@ -139,8 +139,9 @@ async function runDepth(): Promise<void> {
     doc.edit((b) => { b.depth = url; b.depthModel = r.id; b.source = 'depth' })
     say(`depth took ${Math.round(performance.now() - t0)} ms (measured). the map is stored with the design.`, 'ok')
   } catch (err) {
-    logEvent('fail', `relief: depth: ${err instanceof Error ? err.message : String(err)}`)
-    say('depth failed: the model did not run. height from brightness and inflate still work.', 'err')
+    const why = err instanceof Error ? err.message : String(err)
+    logEvent('fail', `relief: depth: ${why}`)
+    say(`depth failed: ${why}. height from brightness and inflate still work.`, 'err')
   } finally {
     depthBusy.value = false
   }

@@ -333,7 +333,7 @@ async function swapBrain(): Promise<void> {
 
 // The agent inspector (P-TRACE-2, P-TRACE-4, P-TRACE-6): every model call
 // is recorded as it streams, with the prompt the model saw.
-interface Turn { n: number; prompt: PromptMessage[]; reply: string; plan: Plan; ms: number; in: number; out: number; state: StepState; recalled: number }
+interface Turn { n: number; prompt: PromptMessage[]; reply: string; plan: Plan; ms: number; in: number; out: number; state: StepState; recalled: number; why?: string }
 const turns = ref<Turn[]>([])
 const calls = ref(0)
 const fails = ref(0)
@@ -364,6 +364,7 @@ async function* traced(m: readonly ChatMessage[], o?: { signal?: AbortSignal }):
   } catch (err) {
     fails.value++
     turn.state = 'fail'
+    turn.why = err instanceof Error ? err.message : String(err)
     throw err
   } finally {
     turn.ms = Math.round(performance.now() - t0)
@@ -978,7 +979,7 @@ onBeforeUnmount(() => {
               :title="t.plan.do.length ? t.plan.do.join(', ') : 'say'"
               :text="t.plan.say.join(' / ')"
               :thought="`${t.recalled} notes recalled, ${t.in} tokens in (inferred)`"
-              :result="t.state === 'fail' ? 'the call failed' : `${t.plan.say.length} boxes, ${t.out} tokens out`"
+              :result="t.state === 'fail' ? `the call failed: ${t.why || 'the engine gave no reason'}` : `${t.plan.say.length} boxes, ${t.out} tokens out`"
               :ms="t.ms"
               :state="t.state"
               :clip="160"
