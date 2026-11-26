@@ -123,6 +123,7 @@ export function bindIsolationSwitch(on: Ref<unknown>): void {
     store.set(local(), OFF_KEY, off ? '1' : null)
     store.set(session(), RELOADED, null)
     if (off) void removeWorker().finally(() => location.reload())
-    else void startIsolation()
+    // the switch asked for the reload: the press that flipped it does not count
+    else { touched = false; void startIsolation() }
   }, { immediate: true })
 }
