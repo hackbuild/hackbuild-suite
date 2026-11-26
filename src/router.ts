@@ -24,6 +24,11 @@ export const router = createRouter({
     { path: '/', name: 'home', component: () => import('./views/HomeView.vue'), meta: { full: true } },
     // an example, one job in one file (rebuild plan 4); a group single file carries none
     ...(__GROUP__ ? [] : [{ path: '/examples/:job/:id', name: 'example', component: () => import('./examples/ExampleView.vue'), meta: { full: true } }]),
+    // the explorers (rebuild plan 4), one folder each; a group single file carries none
+    ...(__GROUP__ ? [] : [
+      { path: '/x/chat', name: 'x-chat', component: () => import('./explorers/chat/ChatStudio.vue'), meta: { full: true, explorer: 'chat' } },
+      { path: '/x/transcribe', name: 'x-transcribe', component: () => import('./explorers/transcribe/Transcribe.vue'), meta: { full: true, explorer: 'transcribe' } },
+    ]),
     ...toolRoutes,
     ...groupRoutes,
     // Lab pages are layout checks, not tools: they stay out of the nav and

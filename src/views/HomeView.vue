@@ -7,7 +7,7 @@ import { useRouter } from 'vue-router'
 import { HbTile, HbTiles } from '@virgilvox/hackbuild-ui'
 import { toolPath } from '../tools/define'
 import { TOOLS } from '../tools/registry'
-import { EXPLORERS } from '../shell/explorers'
+import { EXPLORERS, explorerPath, type Explorer } from '../shell/explorers'
 import { EXAMPLES, JOBS, examplePath } from '../examples/registry'
 import yard from '../assets/yard.jpg'
 
@@ -15,6 +15,11 @@ const DOG = 'https://hackbuild.github.io/dog-simulator/'
 const playing = ref(false)
 const play = () => { playing.value = true }
 const router = useRouter()
+const openExplorer = (e: Explorer) => {
+  const p = explorerPath(e)
+  if (p) router.push(p)
+  else openTool(e.tool)
+}
 const openTool = (id: string) => {
   const t = TOOLS.find((x) => x.id === id)
   if (t) router.push(toolPath(t, TOOLS))
@@ -41,7 +46,7 @@ const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job ===
     <section class="sx-home-sec" aria-labelledby="h-explorers">
       <h2 id="h-explorers" class="hb-panel-hd">explorers</h2>
       <HbTiles>
-        <HbTile v-for="e in EXPLORERS" :key="e.id" :name="e.title" :sub="e.line" @click="openTool(e.tool)">
+        <HbTile v-for="e in EXPLORERS" :key="e.id" :name="e.title" :sub="e.line" @click="openExplorer(e)">
           <template #media><span class="sx-pic" v-html="e.picture" /></template>
         </HbTile>
       </HbTiles>

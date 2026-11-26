@@ -1,7 +1,7 @@
 // smoke-home: home and the shell bar (rebuild plan 2.1 and 4) from the
 // single file build on file://. Home opens with no modal on the line on what
 // this is, the yard still and its one pink action that plays it in place, eight explorer tiles
-// that open their tools, every example grouped by job and the parts. The
+// that open their explorers or, until rebuilt, their tools, every example grouped by job and the parts. The
 // bar holds the mark, the name, the menu and nothing else; the name opens
 // the switcher with explorers first, then the jobs, then the parts. Any
 // request off file:// fails the run.
@@ -79,9 +79,9 @@ try {
   errors.splice(0, errors.length, ...errors.filter((e) => !/ERR_FAILED|net::/.test(e)))
   await page.goto(`${pathToFileURL(file).href}#/`, { waitUntil: 'load' })
   await page.waitForSelector('.sx-home .hb-tile', { timeout: 5000 })
-  // a tile opens its tool for now
+  // a rebuilt explorer's tile opens its own route
   await page.evaluate(() => [...document.querySelectorAll('.sx-home .hb-tile')].find((t) => t.textContent.includes('transcribe')).click())
-  await page.waitForFunction(() => location.hash === '#/voice/transcribe', { timeout: 3000 }).catch(() => fail('the transcribe tile did not open transcribe'))
+  await page.waitForFunction(() => location.hash === '#/x/transcribe', { timeout: 3000 }).catch(() => fail('the transcribe tile did not open the transcribe explorer'))
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
   console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the line on what this is, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink that plays it in a frame (the request is aborted in the smoke), tiles from ${Math.round(home.tilesTop)} px, 8 explorers, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)

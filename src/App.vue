@@ -13,7 +13,7 @@ import { resetValues } from '@virgilvox/hackbuild-ui/vanilla'
 import type { ModelPick } from '@hackbuild/ai-views'
 import { toolPath } from './tools/define'
 import { TOOLS } from './tools/registry'
-import { EXPLORERS } from './shell/explorers'
+import { EXPLORERS, explorerPath } from './shell/explorers'
 import { EXAMPLES, JOBS, examplePath, findExample } from './examples/registry'
 import { dock, events, focusComposer, logEvent, overlay, runPrimary, stopAll, type Overlay } from './shell/shell'
 import { SCHEMA, SECTIONS, loadSettings, settings } from './shell/settings'
@@ -35,7 +35,8 @@ const example = computed(() => (route.name === 'example' ? findExample(String(ro
 // a lab page draws its own shell; home and the examples draw edge to edge under the bar
 const bare = computed(() => route.meta.bare === true)
 const full = computed(() => route.meta.full === true)
-const name = computed(() => tool.value?.title ?? (example.value ? example.value.id.replace(/-/g, ' ') : route.name === 'home' ? 'suite' : 'not found'))
+const explorer = computed(() => EXPLORERS.find((e) => e.id === route.meta.explorer))
+const name = computed(() => tool.value?.title ?? explorer.value?.title ?? (example.value ? example.value.id.replace(/-/g, ' ') : route.name === 'home' ? 'suite' : 'not found'))
 
 // the chip: an example hands its own pick over; a tool gets one for its job
 const toolChip = shallowRef<ModelPick | null>(null)
@@ -43,8 +44,10 @@ watch(() => tool.value?.model, (job) => {
   toolChip.value = null
   if (job) void toolPick(job).then((p) => { if (tool.value?.model === job) toolChip.value = p })
 }, { immediate: true })
-watch(() => route.name, () => { if (route.name !== 'example') chipPick.value = null })
-const pick = computed(() => (route.name === 'example' ? chipPick.value : toolChip.value))
+// an example or an explorer hands its own pick to the chip, and clears it when it closes
+const ownChip = () => route.name === 'example' || !!route.meta.explorer
+watch(() => route.name, () => { if (!ownChip()) chipPick.value = null })
+const pick = computed(() => (ownChip() ? chipPick.value : toolChip.value))
 
 const shown = (o: Overlay) =>
   computed({ get: () => overlay.value === o, set: (v: boolean) => (overlay.value = v ? o : overlay.value === o ? '' : overlay.value) })
@@ -88,14 +91,15 @@ const COMMANDS: Record<string, { label: string; kbd?: string; run: () => void }>
 }
 const explorerTools = new Set(EXPLORERS.map((e) => e.tool))
 const sections: HbPaletteSection[] = [
-  { label: 'explorers', items: EXPLORERS.map((e) => ({ key: `tool:${e.tool}`, label: e.title, hint: e.line, words: e.id })) },
+  { label: 'explorers', items: EXPLORERS.map((e) => ({ key: explorerPath(e) ? `route:${explorerPath(e)}` : `tool:${e.tool}`, label: e.title, hint: e.line, words: e.id })) },
   ...JOBS.map((j) => ({ label: j.title, items: EXAMPLES.filter((e) => e.job === j.id).map((e) => ({ key: `example:${e.job}/${e.id}`, label: e.title, hint: e.line })) })).filter((s) => s.items.length),
   { label: 'parts', items: TOOLS.filter((t) => !explorerTools.has(t.id)).map((t) => ({ key: `tool:${t.id}`, label: t.title, hint: t.job })) },
   { label: 'commands', items: Object.entries(COMMANDS).map(([key, c]) => ({ key, label: c.label, kbd: c.kbd })) },
 ]
 function runPalette(key: string) {
   overlay.value = ''
-  if (key.startsWith('tool:')) {
+  if (key.startsWith('route:')) router.push(key.slice(6))
+  else if (key.startsWith('tool:')) {
     const t = TOOLS.find((x) => x.id === key.slice(5))
     if (t) router.push(toolPath(t, TOOLS))
   } else if (key.startsWith('example:')) {
