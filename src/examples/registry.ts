@@ -3,7 +3,22 @@
 // time, so the source on screen is the file that runs.
 import type { Job } from '@hackbuild/ai-views'
 import index from '../../examples/index.json'
-import type { Example } from '../../examples/shared/fixtures'
+import type { Env } from '@hackbuild/ai-env'
+import type { Loader, ModelPick } from '@hackbuild/ai-views'
+
+/** What an example hands back: how to stop, the pick its bar chip shows, and its built in sample. */
+export interface Example {
+  dispose(): void
+  pick?: ModelPick
+  sample?: () => Promise<void>
+}
+/** Stand ins the gate and the smokes pass in; a visitor's page passes nothing. */
+export interface Hooks {
+  env?: Env
+  loaderFor?: (job: Job) => Loader
+}
+/** The one switch for stand ins: ?stub in the page address, set only by the gate and the smokes. */
+export const STUB = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stub')
 
 export interface ExampleDef {
   job: string
@@ -19,7 +34,7 @@ export interface ExampleDef {
 
 // a group single file carries no examples
 type Lazy<T> = Record<string, () => Promise<T>>
-const modules: Lazy<{ default: (host: HTMLElement) => Example }> = __GROUP__ ? {} : import.meta.glob<{ default: (host: HTMLElement) => Example }>('../../examples/*/*/example.ts')
+const modules: Lazy<{ default: (host: HTMLElement, hooks?: Hooks) => Example }> = __GROUP__ ? {} : import.meta.glob<{ default: (host: HTMLElement, hooks?: Hooks) => Example }>('../../examples/*/*/example.ts')
 const sources: Lazy<string> = __GROUP__ ? {} : import.meta.glob<string>('../../examples/*/*/example.ts', { query: '?raw', import: 'default' })
 const key = (e: { job: string; id: string }) => `../../examples/${e.job}/${e.id}/example.ts`
 
@@ -34,4 +49,5 @@ export const loadSource = (e: ExampleDef) => sources[key(e)]!()
 
 /** The install line: the packages the example imports, and the kit. */
 export const installLine = (e: ExampleDef) => `npm install ${[...e.packages, '@virgilvox/hackbuild-ui'].join(' ')}`
-export const readmeUrl = (e: ExampleDef) => `https://www.npmjs.com/package/${e.readme}`
+export const npmUrl = (pkg: string) => `https://www.npmjs.com/package/${pkg}`
+export const readmeUrl = (e: ExampleDef) => npmUrl(e.readme)

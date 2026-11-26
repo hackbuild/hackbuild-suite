@@ -80,87 +80,87 @@
     ],
     "entry": "setup"
   },
-  "#/examples/talk/chat": {
+  "?stub#/examples/talk/chat": {
     "layout": "conversation",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/talk/think": {
+  "?stub#/examples/talk/think": {
     "layout": "conversation",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/talk/json": {
+  "?stub#/examples/talk/json": {
     "layout": "form-frame",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/talk/memory": {
+  "?stub#/examples/talk/memory": {
     "layout": "conversation",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/talk/character-card": {
+  "?stub#/examples/talk/character-card": {
     "layout": "form-frame",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/listen/transcribe": {
+  "?stub#/examples/listen/transcribe": {
     "layout": "drop-first",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/listen/dictate": {
+  "?stub#/examples/listen/dictate": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/listen/speak": {
+  "?stub#/examples/listen/speak": {
     "layout": "form-frame",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/listen/lipsync": {
+  "?stub#/examples/listen/lipsync": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/see/detect": {
+  "?stub#/examples/see/detect": {
     "layout": "canvas-rail",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/see/cut-out": {
+  "?stub#/examples/see/cut-out": {
     "layout": "canvas-rail",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/see/depth": {
+  "?stub#/examples/see/depth": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/see/ask": {
+  "?stub#/examples/see/ask": {
     "layout": "canvas-rail",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/make/image": {
+  "?stub#/examples/make/image": {
     "layout": "form-frame",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/make/relief": {
+  "?stub#/examples/make/relief": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/move/avatar": {
+  "?stub#/examples/move/avatar": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/move/retarget": {
+  "?stub#/examples/move/retarget": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/move/ik": {
+  "?stub#/examples/move/ik": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/move/gait": {
+  "?stub#/examples/move/gait": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/think/drives": {
+  "?stub#/examples/think/drives": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
-  "#/examples/think/cameras": {
+  "?stub#/examples/think/cameras": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   }

@@ -1,5 +1,6 @@
 // smoke-examples: every built example of one job (rebuild plan 4) from the
-// single file build on file://. Each opens under the one bar with its layout
+// single file build on file://, with ?stub (stand ins for this machine and
+// the network, never weights). Each opens under the one bar with its layout
 // and no modal, runs its built in sample (stub providers, never weights),
 // and its source toggle shows the example's own file, byte for byte, with a
 // copy button, the install line and the readme link. Any console error or
@@ -32,7 +33,7 @@ try {
     page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) off.push(r.url()) })
     await page.setViewport({ width: 1440, height: 900 })
     const fail = (m) => { throw new Error(`${e.job}/${e.id}: ${m}`) }
-    await page.goto(`${pathToFileURL(file).href}#/examples/${e.job}/${e.id}`, { waitUntil: 'load' })
+    await page.goto(`${pathToFileURL(file).href}?stub#/examples/${e.job}/${e.id}`, { waitUntil: 'load' })
     await page.waitForSelector(`.sx-ex-live .hb-lay.is-${e.layout}`, { timeout: 10000 }).catch(() => fail(`no ${e.layout} layout drawn`))
     await page.waitForFunction(() => !!window.hbExample, { timeout: 5000 }).catch(() => fail('the example did not mount'))
     const first = await page.evaluate(() => ({
@@ -42,6 +43,7 @@ try {
     }))
     if (first.bars !== 1) fail(`${first.bars} bars`)
     if (first.modal) fail('a dialog is open on entry')
+    if (e.model && !(await page.evaluate(() => document.querySelector('.sx-ex-live').innerText.includes('sample, no model loaded')))) fail('the first view does not label its sample: sample, no model loaded')
     const sampled = await page.evaluate(async () => { if (!window.hbExample.sample) return false; await window.hbExample.sample(); return true })
     await wait(600)
     // the source is the file itself

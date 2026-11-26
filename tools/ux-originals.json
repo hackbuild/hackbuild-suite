@@ -123,25 +123,25 @@
     "original": "~/Downloads/hackle (10).html",
     "note": "hackle yard, the first screen"
   },
-  "#/examples/talk/chat": {
+  "?stub#/examples/talk/chat": {
     "original": "~/Downloads/clevis.html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-390.png",
     "note": "the chat example in clevis's shape"
   },
-  "#/examples/listen/transcribe": {
+  "?stub#/examples/listen/transcribe": {
     "original": "~/Downloads/scribe (12).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png",
     "note": "drop first, after scribe"
   },
-  "#/examples/see/cut-out": {
+  "?stub#/examples/see/cut-out": {
     "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam (6).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-empty-390.png",
     "note": "canvas and rail, after mask studio"
   },
-  "#/examples/think/drives": {
+  "?stub#/examples/think/drives": {
     "original": "~/Downloads/hackle (10).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-390.png",
