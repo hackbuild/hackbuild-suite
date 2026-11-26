@@ -24,7 +24,6 @@ try {
     await page.goto('about:blank')
     await page.goto(`${server.base}?stub#/x/room`, { waitUntil: 'load' })
     await page.waitForSelector('.hb-gate-card select', { timeout: 10000 }).catch(() => fail(`no gate with a preset select on open ${n}`))
-    await wait(800)
   }
   await open(1)
   const gate = await page.evaluate(() => ({
@@ -54,12 +53,21 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[data-verb]')].find((b) => b.textContent.trim() === 'map').click())
   await wait(500)
   if ((await page.$$('figure canvas')).length < 2) fail('the map verb did not open the map inset')
+  const mapTitle = await page.$$eval('.hb-inset-title', (t) => t.map((x) => x.textContent))
+  if (!mapTitle.includes('map')) fail(`no map inset title: ${mapTitle.join(', ')}`)
+  const mind = await page.$eval('.hb-rack-pane:not([hidden])', (p) => p.textContent)
+  for (const w of ['last plan', 'rules', 'mutters']) if (!mind.includes(w)) fail(`mind tab lacks ${w}`)
+  if (!(await page.$('.sx-x-compose button[aria-label]'))) fail('talk has no mic')
 
   // memory takes a rule
   await tab('memory')
   await page.type('.hb-rack-pane:not([hidden]) input[type=text]', 'rule: mugs live on the shelf')
   await page.keyboard.press('Enter')
-  await page.waitForFunction(() => /mugs live on the shelf/.test(document.querySelector('.hb-rack-pane:not([hidden]) .hb-list').textContent), { timeout: 4000 }).catch(() => fail('the rule did not land in memory'))
+  await page.waitForFunction(() => /mugs live on the shelf/.test(document.querySelector('.hb-rack-pane:not([hidden]) .hb-mempanel').textContent), { timeout: 4000 }).catch(() => fail('the rule did not land in memory'))
+  const mem = await page.$eval('.hb-rack-pane:not([hidden])', (p) => p.textContent)
+  for (const w of ['rules', 'consolidate', 'bake into a file']) if (!mem.includes(w)) fail(`memory tab lacks ${w}`)
+  await tab('setup')
+  if (!/voice clone/.test(await page.$eval('.hb-rack-pane:not([hidden])', (p) => p.textContent))) fail('setup has no voice clone')
 
   // a preset wakes with its stand ins; the brain decides in json
   await open(2)
@@ -70,7 +78,7 @@ try {
   await page.click('.sx-x-compose .hb-btn-go')
   await page.waitForFunction(() => /stand in reply/.test(document.body.textContent), { timeout: 15000 }).catch(() => fail('the brain did not answer in json'))
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-x-room: ok. gate with ${gate.presets.length} choices (${gate.presets[0]}) and one pink, rules only woke with no download, ${tabs.length} tabs, orders ran through the rules to the steps log, the eye drew ${eye} lit pixels, the map opened, a rule landed in memory, standard woke and the brain answered in json (measured)`)
+  console.log(`smoke-x-room: ok. gate with ${gate.presets.length} choices (${gate.presets[0]}) and one pink, rules only woke with no download, ${tabs.length} tabs, orders ran through the rules to the steps log, the eye drew ${eye} lit pixels, the map opened, the plan log and mic are there, a rule landed in memory by kind, standard woke and the brain answered in json (measured)`)
 } finally {
   await chrome.close()
   server.close?.()
