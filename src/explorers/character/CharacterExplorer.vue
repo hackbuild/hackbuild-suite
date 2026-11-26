@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// character (rebuild plan 4; originals ferrule, live2d-companion, sonic): a
+// character (rebuild plan 4; originals ferrule, the live2d bench, sonic): a
 // gate over the live stage, then the stage and a rack of five tabs. A body
 // on the stage talks with a chat model loaded in this tab, speaks its replies
 // with the mouth on the audio's word times, recalls notes from a memory you
