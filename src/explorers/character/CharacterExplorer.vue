@@ -358,6 +358,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .sx-x { height: calc(100svh - 52px); grid-template-rows: minmax(0, 1fr); }
 .sx-x > .hb-lay-body { grid-row: 1; }
+/* the doing chip in ink: the one pink in view is the action */
+.sx-x :deep(.hb-stage-tag > span) { background: var(--hb-paper); color: var(--hb-ink); box-shadow: inset 0 0 0 1.5px var(--hb-ink); }
 .sx-x-pad { display: grid; gap: var(--hb-s3); }
 .sx-x-row { display: flex; flex-wrap: wrap; gap: var(--hb-s2); margin: 0; }
 .sx-x-talk { display: flex; flex-direction: column; height: 100%; min-height: 0; }
