@@ -147,8 +147,6 @@ try {
   if (placeholder === true) fail('the stage still shows the placeholder')
   await page.waitForFunction((c) => [...document.querySelectorAll('.hb-toolpage .hb-pill')].some((p) => (p.getAttribute('title') ?? '').includes(`cloned from ${c}`)), { timeout: 15000 }, CLIP)
     .catch(async () => fail(`the voice was not cloned: ${JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.hb-toolpage .hb-pill')].map((p) => p.getAttribute('title'))))}`))
-  const tag = await page.evaluate(() => [...document.querySelectorAll('.hb-tag')].some((t) => t.textContent.trim() === 'local only' && t.checkVisibility()))
-  if (!tag) fail('no local only tag after wake')
   await page.waitForFunction(() => /talking/.test(document.querySelector('.hb-viewport')?.textContent ?? ''), { timeout: 8000 }).catch(() => fail('the cloned voice did not speak the greeting'))
   if (shots) await page.screenshot({ path: join(shots, 'twin-awake-390.png') })
 

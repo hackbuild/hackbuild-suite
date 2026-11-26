@@ -74,7 +74,7 @@ async function session(run) {
     const cdp = await page.createCDPSession()
     await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: keep })
     await page.goto(url, { waitUntil: 'load' })
-    await page.waitForSelector('.hb-tabs')
+    await page.waitForSelector('.hb-header')
     const mod = (await page.evaluate(() => /Mac/.test(navigator.platform))) ? 'Meta' : 'Control'
     const ctrl = async (key, shift = false) => {
       await page.keyboard.down(mod); if (shift) await page.keyboard.down('Shift')
@@ -122,7 +122,7 @@ try {
       await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error) })
       r.close()
     })
-    await page.click('.hb-statusbar'); await page.keyboard.press('Escape')
+    await page.evaluate(() => document.activeElement?.blur())
     await ctrl('KeyS')
     await new Promise((r) => setTimeout(r, 300))
     const snap = await snapshot(page)
@@ -142,7 +142,7 @@ try {
   // profile two, fresh: nothing stored until the zip comes in
   const after = await session(async ({ page, ctrl, clickText }) => {
     if (Object.keys(await snapshot(page)).length) throw new Error('the second profile is not empty')
-    await page.click('.hb-statusbar'); await page.keyboard.press('Escape')
+    await page.evaluate(() => document.activeElement?.blur())
     await ctrl('KeyO')
     const [chooser] = await Promise.all([page.waitForFileChooser({ timeout: 3000 }), clickText('button', 'import')])
     await chooser.accept([join(keep, zip)])

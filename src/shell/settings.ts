@@ -2,7 +2,7 @@
 // kept in the workspace database. Each tool adds its own section in the
 // item that builds it.
 import { computed, ref, watch } from 'vue'
-import { defaultsOf, type SettingDef, type SettingLevel, type SettingValues } from '@virgilvox/hackbuild-ui/vanilla'
+import { defaultsOf, type SettingDef, type SettingValues } from '@virgilvox/hackbuild-ui/vanilla'
 import type { HbSettingsSection } from '@virgilvox/hackbuild-ui'
 import { kvGet, kvPut } from '../workspace/db'
 import { bindIsolationSwitch } from './isolation'
@@ -17,7 +17,6 @@ export const SECTIONS: HbSettingsSection[] = [
 ]
 
 export const SCHEMA: SettingDef[] = [
-  { section: 'suite', key: 'level', type: 'seg', label: 'disclosure', why: 'guided hides sampling, device and model ladder controls. raising it changes nothing until you change a control.', default: 'guided', options: ['guided', 'standard', 'expert'] },
   { section: 'suite', key: 'view', type: 'seg', label: 'default view', why: 'where a tool with a stage and a chat opens.', default: 'split', options: ['stage', 'split', 'chat'] },
   { section: 'suite', key: 'reducedMotion', type: 'switch', label: 'reduce motion', why: 'stages stop idle motion and draw on change only. on by itself when the system asks for it.', default: false },
   ...(single ? [] : [{ section: 'suite', key: 'isolation', type: 'switch', label: 'wasm threads', why: 'a service worker adds the cross origin isolation headers this host leaves out, so wasm runs on several threads. it never caches weights. changing it reloads the page once.', default: true } satisfies SettingDef]),
@@ -36,7 +35,6 @@ export const SCHEMA: SettingDef[] = [
 const KEY = 'settings'
 
 export const settings = ref<SettingValues>(defaultsOf(SCHEMA))
-export const level = () => settings.value.level as SettingLevel
 
 let loaded = false
 /** Read saved values over the defaults, then save every change. */

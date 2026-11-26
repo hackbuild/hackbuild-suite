@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import type { Job } from '@hackbuild/ai-views'
 
 /** One tool in the suite. The view loads through a dynamic import, so a
  * route never pulls another tool's code, runtime or weights (design 2.9). */
@@ -13,6 +14,8 @@ export interface ToolDef {
   job: string
   /** Build phase the tool lands in (design 6.2); 0 means built. */
   phase: number
+  /** The model job its bar chip picks for, when the tool loads a model. */
+  model?: Job
   /** Libraries the tool uses, for the needs chips and the fold. */
   packages: string[]
   /** Loads the tool view. */

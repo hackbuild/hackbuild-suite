@@ -48,9 +48,10 @@ try {
   await page.setViewport({ width: 1440, height: 900 })
   const url = pathToFileURL(page_).href
   await page.goto(url, { waitUntil: 'load' })
-  await page.waitForSelector('.hb-tabs [role="tab"]', { timeout: 10000 })
-  const tabs = await page.$$eval('.hb-tabs [role="tab"]', (els) => els.map((e) => e.textContent.trim()))
-  if (tabs.length !== 7) throw new Error(`expected 7 group tabs, found ${tabs.length}: ${tabs.join(', ')}`)
+  // home: the yard first, then the eight explorers
+  await page.waitForSelector('.sx-yard img', { timeout: 10000 })
+  const tiles = await page.$$eval('.sx-home .hb-tile', (els) => els.length)
+  if (tiles !== 8) throw new Error(`expected 8 explorer tiles, found ${tiles}`)
   if (shots) await page.screenshot({ path: join(shots, 'home-1440.png') })
 
   for (const [hash, expect] of [['#/character', 'wake mannequin up.'], ['#/rooms', 'wake the agent']]) {
@@ -63,23 +64,27 @@ try {
   // The shell key map (design 2.7): each key opens its overlay, esc closes it.
   const dialog = (t) => page.waitForFunction((x) => [...document.querySelectorAll('[role="dialog"]')].some((d) => d.checkVisibility() && d.textContent.includes(x)), { timeout: 3000 }, t)
   const closed = () => page.waitForFunction(() => ![...document.querySelectorAll('[role="dialog"]')].some((d) => d.checkVisibility()), { timeout: 3000 })
-  await page.click('body')
-  for (const [key, expect] of [[',', 'disclosure'], ['?', 'focus the composer'], ['m', 'this machine'], ['/', 'commands']]) {
+  await page.evaluate(() => document.activeElement?.blur())
+  for (const [key, expect] of [[',', 'reduce motion'], ['?', 'focus the composer'], ['m', 'this machine'], ['/', 'explorers']]) {
     await page.keyboard.type(key)
-    try { await dialog(expect) } catch { throw new Error(`key ${key} did not open the overlay with "${expect}"`) }
+    try { await dialog(expect) } catch { throw new Error(`key ${key} did not open the overlay with "${expect}": ${await page.evaluate(() => [...document.querySelectorAll(`[role="dialog"]`)].filter((d) => d.checkVisibility()).map((d) => d.textContent.slice(0, 120)).join(" | "))}`) }
     await page.keyboard.press('Escape')
     try { await closed() } catch { throw new Error(`esc did not close the overlay opened by ${key}`) }
   }
-  await page.click('.hb-statusbar')
-  try { await dialog('shell ready') } catch { throw new Error('the status strip did not open the event log') }
+  // the bar's menu opens the event log
+  await page.click('.hb-header button[aria-label="menu"]')
+  await page.evaluate(() => [...document.querySelectorAll('.hb-menu-item')].find((b) => b.textContent.trim() === 'log')?.click())
+  try { await dialog('shell ready') } catch { throw new Error('the menu did not open the event log') }
   await page.keyboard.press('Escape')
-  await page.keyboard.down('Alt'); await page.keyboard.press('Digit4'); await page.keyboard.up('Alt')
-  // alt+4, the character group: every image tool is built now and makes a document on mount; character makes one at wake
-  await page.waitForFunction(() => location.hash.startsWith('#/character'), { timeout: 3000 }).catch(() => { throw new Error('alt+4 did not open the character group') })
+  // the switcher opens the character explorer: every image tool makes a document on mount; character makes one at wake
+  await page.click('.sx-name')
+  await page.keyboard.type('character')
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => location.hash.startsWith('#/character'), { timeout: 3000 }).catch(() => { throw new Error('the switcher did not open character') })
   if (shots) {
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     await page.reload({ waitUntil: 'load' })
-    await page.waitForSelector('.hb-tabs')
+    await page.waitForSelector('.hb-header')
     const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
     if (wide > 0) errors.push(`sideways scroll of ${wide} px at 390`)
     await page.screenshot({ path: join(shots, 'room-390.png') })
@@ -92,8 +97,8 @@ try {
   const t = Date.now()
   await idb(page, 'docs', 'put', 'smoke1', { id: 'smoke1', project: 'scratch', tool: 'chat', kind: 'chat.session', name: 'smoke doc', version: 1, created: t, updated: t, body: { turns: ['hello'] } })
   await page.reload({ waitUntil: 'load' })
-  await page.waitForSelector('.hb-tabs')
-  await page.click('.hb-statusbar'); await page.keyboard.press('Escape')
+  await page.waitForSelector('.hb-header')
+  await page.evaluate(() => document.activeElement?.blur())
   // ctrl in the key map reads cmd on a Mac, as the page sees it.
   const mod = (await page.evaluate(() => /Mac/.test(navigator.platform))) ? 'Meta' : 'Control'
   const ctrl = async (key, shift = false) => {
@@ -185,9 +190,9 @@ try {
     gp.on('pageerror', (e) => errors.push(`${g}.html: ${e}`))
     await gp.setViewport({ width: 1440, height: 900 })
     await gp.goto(pathToFileURL(resolve(`dist/groups/${g}.html`)).href, { waitUntil: 'load' })
-    await gp.waitForSelector('.hb-tabs [role="tab"]', { timeout: 10000 })
-    const gt = await gp.$$eval('.hb-tabs [role="tab"]', (els) => els.map((e) => e.textContent.trim()))
-    if (gt.length !== 1 || gt[0] !== g) throw new Error(`${g}.html: expected the one tab ${g}, found ${gt.join(', ')}`)
+    await gp.waitForSelector('.sx-yard img', { timeout: 10000 })
+    const shelf = await gp.$$eval('.sx-home .hb-tile, .sx-parts a', (els) => els.length)
+    if (shelf !== toolsOf(g).length) throw new Error(`${g}.html: home offers ${shelf} tools, the group has ${toolsOf(g).length}`)
     for (const id of toolsOf(g)) {
       const r = routeOf(g, id)
       await gp.evaluate((h) => { location.hash = h }, '#' + r)
@@ -219,8 +224,8 @@ try {
     await ctx.close()
   }
   if (errors.length) throw new Error(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-file: ok. 7 group files from disk, each one tab with its own tools only, rooms with the room tool and the lab stage page.`)
-  console.log(`smoke-file: ok. 7 tabs, two route changes, indexeddb write read back, keys , ? m / esc alt+4 and the log strip; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
+  console.log(`smoke-file: ok. 7 group files from disk, each home offering its own tools only, rooms with the room tool and the lab stage page.`)
+  console.log(`smoke-file: ok. home with the yard and 8 explorers, two route changes, indexeddb write read back, keys , ? m / esc, the switcher and the log from the menu; a document renamed, saved with ctrl+s, exported as .hbdoc.json and .hbsuite.zip, deleted and imported back from both, from ${url}`)
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

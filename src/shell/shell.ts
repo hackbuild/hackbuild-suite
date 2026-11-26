@@ -46,7 +46,7 @@ export const dock = ref(0)
 export const DOCK = '.hb-app-foot > .hb-dock'
 
 /** The one overlay open at a time. */
-export type Overlay = '' | 'settings' | 'keys' | 'log' | 'models' | 'palette' | 'docs' | 'export'
+export type Overlay = '' | 'settings' | 'keys' | 'log' | 'models' | 'palette' | 'docs' | 'export' | 'project'
 export const overlay = ref<Overlay>('')
 
 /** A tool with a composer registers it; "/" focuses it in place of the palette. */
