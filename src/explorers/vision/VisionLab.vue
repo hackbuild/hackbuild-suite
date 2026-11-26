@@ -369,7 +369,6 @@ onBeforeUnmount(() => {
       <input ref="fileIn" type="file" accept="image/*" hidden @change="openFile(($event.target as HTMLInputElement).files?.[0])">
     </div>
     <template v-if="frame || live" #verbs>
-      <HbSeg v-if="tool === 'detect'" v-model="size" toggle :options="SIZES" aria-label="detector size" />
       <HbSeg v-if="tool === 'caption' && live" v-model="capEvery" toggle :options="CAP_EVERY" aria-label="live captions" />
       <HbButton variant="go" :loading="loading || busy" @click="pinkAct">{{ live && ready ? 'keep this frame' : pinkLabel }}</HbButton>
       <HbButton v-if="hasResult && !live" @click="clearFound">clear</HbButton>
@@ -410,6 +409,10 @@ onBeforeUnmount(() => {
       <p v-else class="hb-note">exports appear once something is found.</p>
     </template>
     <template #detail>
+      <template v-if="tool === 'detect'">
+        <p class="hb-note">detector size: bigger finds more, slower.</p>
+        <HbSeg v-model="size" toggle :options="SIZES" aria-label="detector size" />
+      </template>
       <label class="xv-floor">confidence floor {{ Math.round(minScore * 100) }}%
         <input v-model.number="minScore" type="range" min="0.1" max="0.9" step="0.05" aria-label="confidence floor">
       </label>

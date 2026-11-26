@@ -43,7 +43,8 @@ try {
   await page.waitForFunction(() => window.hbExplorer.state().found.boxes.length === 2, { timeout: 8000 }).catch(() => fail('the nano detector found no boxes'))
   if ((await pinks())[0] !== 'look again') fail('the pink did not turn to look again')
   // the medium size: load it and it finds the cup too
-  await page.evaluate(() => [...document.querySelectorAll('.hb-lay-verbs button')].find((b) => b.textContent.trim().startsWith('medium')).click())
+  // the size choice sits in the detail fold: open it, pick medium
+  await page.evaluate(() => { document.querySelectorAll('details').forEach((d) => (d.open = true)); [...document.querySelectorAll('button')].find((b) => b.textContent.trim().startsWith('medium')).click() })
   await wait(200)
   await page.evaluate(() => document.querySelector('.hb-lay-verbs .hb-btn-go').click())
   await page.waitForFunction(() => window.hbExplorer.state().found.boxes.length === 3, { timeout: 8000 }).catch(() => fail('the medium detector did not find three'))
