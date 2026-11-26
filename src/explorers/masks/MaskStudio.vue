@@ -5,14 +5,14 @@
 // the mask settings with the no model modes, the saved masks and every
 // export. The click and segment everything models load from the chip, or
 // on their own the first time a tool needs one.
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { HbButton, HbCanvasRail, HbCheckbox, HbFold, HbSlider, HbToolRail, type HbRailTool } from '@virgilvox/hackbuild-ui'
 import { MASK_TOOLS, saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import { probe } from '@hackbuild/ai-env'
 import { openWeightStore } from '@hackbuild/weights'
 import { autoThresholdMask, clusterMasks, colourClusters, edgeMask, exportInstances, thresholdMask, type Instance } from '@hackbuild/vision'
 import { jobLoader, jobRecords, storedIds, useModelPick } from '@hackbuild/ai-views'
-import { MaskRack, MaskStudio, MaskVerbs } from '@hackbuild/ai-views/vue'
+import { MaskRack, MaskStudio, MaskVerbs, ModelSelect } from '@hackbuild/ai-views/vue'
 import type { MaskModels, MaskStudio as Studio, StudioState } from '@hackbuild/ai-views/elements'
 import { chipPick } from '../../shell/chip'
 import { sampleCanvas } from './scene'
@@ -57,6 +57,10 @@ function setStudio(s: Studio) {
     previewT = window.setTimeout(paintPreview, 250)
   })
 }
+// a newcomer starts on the click cut the empty state promises: once the first
+// picture is in, unless a tool was already picked (that load is the model's)
+let picked = false
+watch(() => st.value?.ready, (r) => { if (r && !picked) { picked = true; studio.value?.setTool('point' as StudioState['tool']) } })
 // the live result: the cutout, small
 function paintPreview() {
   const img = studio.value?.mask('cutout')
@@ -79,6 +83,7 @@ const TOOLS: HbRailTool[] = [
 ]
 const tool = ref('wand')
 const setTool = (t: string) => {
+  picked = true
   tool.value = t
   studio.value?.setTool(t as StudioState['tool'])
 }
@@ -189,6 +194,7 @@ onBeforeUnmount(() => {
     </template>
 
     <template #tab-found>
+      <ModelSelect :pick="pick" variant="line" :go="false" />
       <img v-if="preview" class="xm-preview" :src="preview" alt="the cutout so far">
       <p v-if="note" class="hb-note" role="status">{{ note }}</p>
       <MaskRack v-if="studio" :studio="studio" part="found" />
