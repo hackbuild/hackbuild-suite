@@ -7,7 +7,7 @@
 // puts the picture, prompt and seed back. SD-Turbo, SD 1.5 and SDXL-Turbo
 // come from @hackbuild/imagegen through the shared model pick.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { HbButton, HbField, HbFormFrame, HbHistoryStrip, HbInput, HbLicence, HbReadouts, HbSeed, HbSelect, HbSlider, HbTextarea, type HbHistoryItem, type HbReadoutRow } from '@virgilvox/hackbuild-ui'
+import { HbButton, HbField, HbFormFrame, HbHistoryStrip, HbInput, HbKv, HbLicence, HbSeed, HbSelect, HbSlider, HbTextarea, type HbHistoryItem } from '@virgilvox/hackbuild-ui'
 import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import { probe } from '@hackbuild/ai-env'
 import { openWeightStore, type WeightStore } from '@hackbuild/weights'
@@ -108,19 +108,13 @@ async function generate() {
     stop = null
   }
 }
-const pinkLabel = computed(() => (job.value ? (busy.value ? stage.value || 'generating' : 'generate') : loading.value ? `loading ${rec.value.label ?? rec.value.id}` : `load ${rec.value.label ?? rec.value.id}, ${row.value?.size ?? 'size unknown'}`))
-const pinkAct = () => (job.value ? void generate() : void load())
+// one press: the first loads the model (its size on the button), then makes the picture
+const pinkLabel = computed(() => (busy.value ? stage.value || 'making it' : loading.value ? `loading ${rec.value.label ?? rec.value.id}` : job.value ? 'make it' : `make it, downloads ${row.value?.size ?? 'the model'} once`))
+const pinkAct = async () => {
+  if (!job.value) await load()
+  if (job.value) void generate()
+}
 
-const timing = computed<HbReadoutRow[]>(() => {
-  const m = current.value?.ms
-  const v = (n?: number) => (n === undefined ? '-' : n)
-  return [
-    { label: 'text enc', value: v(m?.text), unit: 'ms' },
-    { label: 'unet', value: v(m?.unet), unit: 'ms' },
-    { label: 'vae', value: v(m?.vae), unit: 'ms' },
-    { label: 'total', value: v(m?.total), unit: 'ms', focal: true },
-  ]
-})
 const history = computed<HbHistoryItem[]>(() => runs.value.map((r) => ({ id: r.id, thumb: r.image, label: r.prompt, meta: `${RECORDS.find((x) => x.id === r.model)?.label ?? r.model}, seed ${r.seed}, ${r.steps} steps` })))
 function restore(it: HbHistoryItem) {
   const r = runs.value.find((x) => x.id === it.id)
@@ -195,7 +189,7 @@ onBeforeUnmount(() => {
       <img v-if="current" :src="current.image" :alt="`made from: ${current.prompt}`">
       <div v-else class="hb-lay-empty xg-empty">
         <span class="hb-lay-empty-name">no signal</span>
-        <p class="hb-lay-empty-note">{{ job ? 'type a prompt, then generate. ctrl enter works from anywhere.' : 'pick a model, load it, then generate. the first load fetches the weights and keeps them on this machine.' }}</p>
+        <p class="hb-lay-empty-note">write what you want to see, then press make it. the picture appears here, made on this machine.</p>
       </div>
       <figcaption v-if="busy" class="xg-busy" role="status">{{ stage || 'generating' }}</figcaption>
       <figcaption v-else-if="failed" class="xg-busy is-err" role="alert">{{ note }}</figcaption>
@@ -216,17 +210,17 @@ onBeforeUnmount(() => {
         <HbTextarea id="xg-neg" v-model="negative" :rows="2" placeholder="what to keep out" />
       </HbField>
       <HbSlider v-if="form.guidance" v-model="guidance" label="guidance scale" :min="form.guidance.min" :max="form.guidance.max" :step="form.guidance.step" />
-      <HbSlider v-model="steps" :label="`steps, ${form.steps.min} fastest, ${form.steps.max} most detail`" :min="form.steps.min" :max="form.steps.max" :step="1" />
-      <HbSeed v-model="seed" v-model:locked="locked" label="seed" />
+      <HbSlider v-model="steps" :label="`quality: ${form.steps.min} is fastest, ${form.steps.max} has the most detail`" :min="form.steps.min" :max="form.steps.max" :step="1" />
       <HbButton variant="go" class="xg-desk" block :loading="loading" @click="pinkAct">{{ pinkLabel }}</HbButton>
       <HbButton v-if="busy" class="xg-desk" @click="stop?.abort()">stop</HbButton>
       <p v-if="note && !failed" class="hb-note" role="status">{{ note }}</p>
-      <HbReadouts v-if="current" :rows="timing" />
+      <HbKv v-if="current" label="took" :value="`${current.ms.total} ms`" />
     </template>
     <template #tab-runs>
       <HbHistoryStrip :items="history" :current="current?.id ?? null" removable empty="runs appear here. a press puts the picture, prompt and seed back." @restore="restore" @remove="removeRun" />
     </template>
     <template #tab-more>
+      <HbSeed v-model="seed" v-model:locked="locked" label="seed: the same seed and prompt make the same picture" />
       <HbField label="load this model from another hugging face repo" for="xg-repo">
         <HbInput id="xg-repo" v-model="repo" :placeholder="rec.source?.repo ?? 'owner/name'" @keydown.enter="useRepo" />
       </HbField>
