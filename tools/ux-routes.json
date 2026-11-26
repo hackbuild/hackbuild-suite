@@ -171,5 +171,15 @@
   "?stub#/x/transcribe": {
     "layout": "drop-first",
     "setup": "window.hbExplorer.sample()"
+  },
+  "?stub#/x/character": {
+    "layout": "gate",
+    "loadedLayout": "stage-rack",
+    "setup": "(async () => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase().startsWith('wake him up')); if (!b) throw new Error('no wake him up button'); b.click(); await new Promise((r) => setTimeout(r, 1500)) })()"
+  },
+  "?stub#/x/room": {
+    "layout": "gate",
+    "loadedLayout": "stage-rack",
+    "setup": "(async () => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase().startsWith('wake him up')); if (!b) throw new Error('no wake him up button'); b.click(); await new Promise((r) => setTimeout(r, 1500)) })()"
   }
 }

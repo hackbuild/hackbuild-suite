@@ -157,5 +157,15 @@
     "original": "~/Downloads/scribe (12).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png"
+  },
+  "?stub#/x/character": {
+    "original": "~/Downloads/ferrule (13).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-390.png"
+  },
+  "?stub#/x/room": {
+    "original": "~/Downloads/arbor (10).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-390.png"
   }
 }

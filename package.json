@@ -59,7 +59,9 @@
     "smoke:home": "node tools/smoke-home.mjs",
     "smoke:examples": "node tools/smoke-examples.mjs",
     "smoke:x-chat": "node tools/smoke-x-chat.mjs",
-    "smoke:x-transcribe": "node tools/smoke-x-transcribe.mjs"
+    "smoke:x-transcribe": "node tools/smoke-x-transcribe.mjs",
+    "smoke:x-character": "node tools/smoke-x-character.mjs",
+    "smoke:x-room": "node tools/smoke-x-room.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
