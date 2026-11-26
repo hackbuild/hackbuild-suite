@@ -25,7 +25,8 @@ html, body, #app { height: 100%; margin: 0; }
 /* an example: the layout fills, the foot holds source, install and readme */
 .sx-ex { display: flex; flex-direction: column; height: calc(100dvh - 52px); }
 .sx-ex-live { flex: 1 1 auto; min-height: 0; }
-.sx-ex-live > .hb-lay { height: 100%; grid-template-rows: minmax(0, 1fr); }
+/* hackbuild-ui 0.10.3 puts the body in row 2 always, so row 1 stays an empty auto row */
+.sx-ex-live > .hb-lay { height: 100%; grid-template-rows: auto minmax(0, 1fr); }
 .sx-ex-src { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px; display: grid; gap: 16px; align-content: start; }
 .sx-ex-foot { flex: 0 0 auto; flex-wrap: nowrap; }
 .sx-ex-install a { color: inherit; }
