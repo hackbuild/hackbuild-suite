@@ -42,8 +42,8 @@ if (!existsSync(join(site, 'assets/dog.glb'))) throw new Error(`no dog site at $
       link: document.querySelector('.sx-yard a')?.textContent.trim(),
       share: (() => { const r = document.querySelector('.sx-yard').getBoundingClientRect(); return (r.width * (Math.min(r.bottom, innerHeight) - r.top)) / (innerWidth * innerHeight) })(),
     }))
-    if (first.pink.length !== 1 || first.pink[0] !== 'play the dog simulator') fail(`pink: ${first.pink.join(', ')}`)
-    if (first.link !== 'open the dog simulator') fail(`link: ${first.link}`)
+    if (first.pink.length !== 1 || first.pink[0] !== 'play here') fail(`pink: ${first.pink.join(', ')}`)
+    if (first.link !== 'open in its own tab') fail(`link: ${first.link}`)
     if (first.share < 0.9) fail(`the yard takes ${Math.round(first.share * 100)} percent of the page`)
     await page.click('.sx-yard .hb-btn-go')
     await page.waitForSelector('.sx-yard .hb-yard #stage canvas', { timeout: 30000 }).catch(() => fail('the press did not mount the yard'))

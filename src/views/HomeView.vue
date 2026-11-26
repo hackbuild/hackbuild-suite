@@ -29,7 +29,7 @@ const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job ===
 
 <template>
   <main class="sx-home">
-    <p class="hb-note sx-home-line">browser ai and 3d characters that run in this tab. nothing is uploaded.</p>
+    <p class="sx-home-line">ai that runs in your browser. play with the dog first, or pick a tool below. nothing you open is uploaded.</p>
     <YardFrame />
 
     <section class="sx-home-sec" aria-labelledby="h-explorers">

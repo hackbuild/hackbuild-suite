@@ -51,8 +51,8 @@ defineExpose({ play, DOG })
     <template v-if="!playing">
       <button type="button" class="sx-yard-pic" aria-label="play the dog simulator here" @click="play"><img :src="yard" alt="a dog and his person in a low poly yard" width="1440" height="601" /></button>
       <div class="hb-lay-verbs">
-        <button type="button" class="hb-btn hb-btn-go" @click="play">play the dog simulator</button>
-        <a class="hb-btn" :href="DOG" target="_blank" rel="noopener">open the dog simulator</a>
+        <button type="button" class="hb-btn hb-btn-go" @click="play">play here</button>
+        <a class="hb-btn" :href="DOG" target="_blank" rel="noopener">open in its own tab</a>
       </div>
       <p v-if="fault" class="hb-note sx-yard-fault" role="status">{{ fault }}</p>
     </template>
@@ -60,7 +60,7 @@ defineExpose({ play, DOG })
 </template>
 
 <style scoped>
-.sx-yard { position: relative; height: calc(100svh - 52px - 40px - 170px); min-height: 280px; overflow: hidden; background: var(--hb-paper-sunk); border-bottom: 2px solid var(--hb-ink); }
+.sx-yard { position: relative; height: calc(100svh - 52px - 44px - 250px); min-height: 280px; overflow: hidden; background: var(--hb-paper-sunk); border-bottom: 2px solid var(--hb-ink); }
 .sx-yard.is-full { height: calc(100dvh - 52px); border-bottom: 0; }
 .sx-yard.is-live:not(.is-full) { height: calc(100svh - 52px - 40px); }
 .sx-yard-live { height: 100%; }
