@@ -40,5 +40,7 @@ export default function mount(host: HTMLElement): Example {
     if (s.row?.state === "loaded") list.setEngine(s.loaded as ChatEngine);
   });
   const lay = layout(root);
-  return { pick, dispose: () => (off(), lay.dispose(), (host.innerHTML = "")) };
+  // the built in sample: one message, answered by the script
+  const sample = () => list.thread.send("what can you do?");
+  return { pick, sample, dispose: () => (off(), lay.dispose(), (host.innerHTML = "")) };
 }

@@ -81,66 +81,87 @@
     "entry": "setup"
   },
   "#/examples/talk/chat": {
-    "layout": "conversation"
+    "layout": "conversation",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/talk/think": {
-    "layout": "conversation"
+    "layout": "conversation",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/talk/json": {
-    "layout": "form-frame"
+    "layout": "form-frame",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/talk/memory": {
-    "layout": "conversation"
+    "layout": "conversation",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/talk/character-card": {
-    "layout": "form-frame"
+    "layout": "form-frame",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/listen/transcribe": {
-    "layout": "drop-first"
+    "layout": "drop-first",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/listen/dictate": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/listen/speak": {
-    "layout": "form-frame"
+    "layout": "form-frame",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/listen/lipsync": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/see/detect": {
-    "layout": "canvas-rail"
+    "layout": "canvas-rail",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/see/cut-out": {
-    "layout": "canvas-rail"
+    "layout": "canvas-rail",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/see/depth": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/see/ask": {
-    "layout": "canvas-rail"
+    "layout": "canvas-rail",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/make/image": {
-    "layout": "form-frame"
+    "layout": "form-frame",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/make/relief": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/move/avatar": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/move/retarget": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/move/ik": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/move/gait": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/think/drives": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "#/examples/think/cameras": {
-    "layout": "stage-rack"
+    "layout": "stage-rack",
+    "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   }
 }

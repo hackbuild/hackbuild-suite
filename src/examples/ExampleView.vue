@@ -22,6 +22,7 @@ let run = 0
 function stop() {
   ex?.dispose()
   ex = null
+  ;(window as unknown as { hbExample: Example | null }).hbExample = null
   chipPick.value = null
 }
 watch([def, host], async ([d, h]) => {
@@ -36,6 +37,8 @@ watch([def, host], async ([d, h]) => {
     if (mine !== run) return
     ex = mount(h)
     chipPick.value = ex.pick ?? null
+    // the screen gate and the smokes run the example's sample through this
+    ;(window as unknown as { hbExample: Example | null }).hbExample = ex
   } catch (err) {
     failed.value = `this example did not start. ${err instanceof Error ? err.message : String(err)}`
     logEvent('fail', `${d.job}/${d.id}: ${failed.value}`)

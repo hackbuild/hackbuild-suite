@@ -55,7 +55,8 @@
     "smoke:room": "node tools/smoke-room.mjs",
     "smoke:seal": "node tools/smoke-seal.mjs",
     "smoke:isolation": "node tools/smoke-isolation.mjs",
-    "smoke:home": "node tools/smoke-home.mjs"
+    "smoke:home": "node tools/smoke-home.mjs",
+    "smoke:examples": "node tools/smoke-examples.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",

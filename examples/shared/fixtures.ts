@@ -6,10 +6,15 @@
 import type { Env } from "@hackbuild/ai-env";
 import type { Loader, ModelPick } from "@hackbuild/ai-views";
 
-/** An example draws into a host and hands back how to stop, and the model pick its bar chip shows. */
+/**
+ * An example draws into a host and hands back how to stop, the model pick
+ * its bar chip shows, and `sample`, which puts the example's built in
+ * sample through it (the screen gate and the smokes press it; never weights).
+ */
 export interface Example {
   dispose(): void;
   pick?: ModelPick;
+  sample?: () => Promise<void>;
 }
 
 /** Writes markup into a host and returns its first element. */
