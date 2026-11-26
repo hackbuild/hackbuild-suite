@@ -16,18 +16,18 @@
     }
   },
   "today": {
-    "note": "measured 2026-11-25 after phase E: one bar, home with the yard, 21 examples; budgets unchanged",
-    "first-load-gzip": 197127,
+    "note": "measured 2026-11-25 after the phase E review fixes: real loaders, sample photos, 21 examples; budgets unchanged",
+    "first-load-gzip": 197573,
     "largest-chunk-gzip": 145845,
-    "single-raw": 5626123,
+    "single-raw": 6723516,
     "group-raw": {
-      "chat": 1716870,
-      "voice": 1838797,
-      "image": 2321710,
-      "character": 3073702,
-      "rooms": 3355313,
-      "motion": 3852431,
-      "agents": 3155726
+      "chat": 1920092,
+      "voice": 1901978,
+      "image": 2489509,
+      "character": 3129643,
+      "rooms": 3387543,
+      "motion": 4053134,
+      "agents": 3368728
     }
   }
 }

@@ -89,7 +89,7 @@
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/talk/json": {
-    "layout": "form-frame",
+    "layout": "conversation",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/talk/memory": {
@@ -97,7 +97,7 @@
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/talk/character-card": {
-    "layout": "form-frame",
+    "layout": "conversation",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/listen/transcribe": {
@@ -109,7 +109,7 @@
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/listen/speak": {
-    "layout": "form-frame",
+    "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/listen/lipsync": {
@@ -125,7 +125,7 @@
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/see/depth": {
-    "layout": "stage-rack",
+    "layout": "canvas-rail",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/see/ask": {
@@ -133,7 +133,7 @@
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/make/image": {
-    "layout": "form-frame",
+    "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
   },
   "?stub#/examples/make/relief": {

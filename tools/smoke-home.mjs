@@ -1,6 +1,6 @@
 // smoke-home: home and the shell bar (rebuild plan 2.1 and 4) from the
-// single file build on file://. Home opens with no modal on the yard still
-// and its one pink action, the line about this tab, eight explorer tiles
+// single file build on file://. Home opens with no modal on the line on what
+// this is, the yard still and its one pink action that plays it in place, eight explorer tiles
 // that open their tools, every example grouped by job and the parts. The
 // bar holds the mark, the name, the menu and nothing else; the name opens
 // the switcher with explorers first, then the jobs, then the parts. Any
@@ -37,7 +37,8 @@ try {
       barHeight: bar.getBoundingClientRect().height,
       pink: [...document.querySelectorAll('.hb-btn-go')].filter(vis).map((b) => b.textContent.trim()),
       yardShare: (() => { const r = document.querySelector('.sx-yard').getBoundingClientRect(); return (r.width * Math.min(r.bottom, innerHeight) - r.width * r.top) / (innerWidth * innerHeight) })(),
-      line: document.body.innerText.includes('everything runs in this tab. nothing is uploaded.'),
+      line: document.querySelector('.sx-home-line')?.textContent.trim() ?? '',
+      tilesTop: document.querySelector('.sx-home .hb-tile')?.getBoundingClientRect().top ?? 9999,
       tiles: [...document.querySelectorAll('.sx-home .hb-tile .n')].map((n) => n.textContent.trim()),
       examples: [...document.querySelectorAll('.sx-cards a')].map((a) => a.getAttribute('href')),
       parts: document.querySelectorAll('.sx-parts a').length,
@@ -47,9 +48,10 @@ try {
   if (home.modal) fail(`home opens with ${home.modal} dialog`)
   if (home.barHeight > 52) fail(`the bar is ${home.barHeight} px`)
   if (home.barControls.length !== 2) fail(`the bar on home should hold the name and the menu: ${home.barControls.join(', ')}`)
-  if (home.pink.length !== 1 || home.pink[0] !== 'open the dog simulator') fail(`home pink: ${home.pink.join(', ')}`)
+  if (home.pink.length !== 1 || home.pink[0] !== 'play the dog simulator') fail(`home pink: ${home.pink.join(', ')}`)
   if (home.yardShare < 0.6) fail(`the yard takes ${Math.round(home.yardShare * 100)} percent of the first view`)
-  if (!home.line) fail('the line about this tab is missing')
+  if (!/^browser ai and 3d characters that run in this tab/.test(home.line)) fail(`the line under the bar says: ${home.line}`)
+  if (home.tilesTop >= 900) fail(`the explorer tiles start at ${home.tilesTop} px, under the fold`)
   if (home.tiles.length !== 8) fail(`explorer tiles: ${home.tiles.join(', ')}`)
   if (home.examples.length !== built.length) fail(`home lists ${home.examples.length} examples, ${built.length} are built`)
   if (!home.parts) fail('home lists no parts')
@@ -64,12 +66,25 @@ try {
   if (at.some((i) => i < 0) || at.some((i, k) => k && i < at[k - 1])) fail(`switcher sections ${heads.join(', ')}, expected ${order.join(', ')} in order`)
   await page.keyboard.press('Escape')
 
+  // the press plays the dog simulator here, in a frame; the open link stays
+  const link = await page.$eval('.sx-yard a', (a) => a.href)
+  if (link !== 'https://hackbuild.github.io/dog-simulator/') fail(`the open link goes to ${link}`)
+  await page.setRequestInterception(true)
+  page.on('request', (r) => (r.url().startsWith('https://hackbuild.github.io/dog-simulator') ? r.abort() : r.continue()))
+  await page.click('.sx-yard .hb-btn-go')
+  const frame = await page.waitForSelector('.sx-yard iframe', { timeout: 3000 }).catch(() => fail('the press did not mount the dog simulator'))
+  if ((await frame.evaluate((f) => f.src)) !== 'https://hackbuild.github.io/dog-simulator/') fail('the frame plays something else')
+  const dog = (u) => u.startsWith('https://hackbuild.github.io/dog-simulator')
+  off.splice(0, off.length, ...off.filter((u) => !dog(u)))
+  errors.splice(0, errors.length, ...errors.filter((e) => !/ERR_FAILED|net::/.test(e)))
+  await page.goto(`${pathToFileURL(file).href}#/`, { waitUntil: 'load' })
+  await page.waitForSelector('.sx-home .hb-tile', { timeout: 5000 })
   // a tile opens its tool for now
   await page.evaluate(() => [...document.querySelectorAll('.sx-home .hb-tile')].find((t) => t.textContent.includes('transcribe')).click())
   await page.waitForFunction(() => location.hash === '#/voice/transcribe', { timeout: 3000 }).catch(() => fail('the transcribe tile did not open transcribe'))
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink, 8 explorers, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)
+  console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the line on what this is, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink that plays it in a frame (the request is aborted in the smoke), tiles from ${Math.round(home.tilesTop)} px, 8 explorers, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)
 } finally {
   await chrome.close()
 }
