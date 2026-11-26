@@ -161,7 +161,7 @@ async function run(t: Look, src: HTMLCanvasElement | HTMLVideoElement, prev: Fou
   const { w, h } = dims(src)
   let next = prev
   if (t === 'detect') next = { ...prev, boxes: await (m as DetectFn)(src) }
-  else if (t === 'caption') next = { ...prev, caption: (await (m as AskFn)(src)).trim() }
+  else if (t === 'caption') next = { ...prev, caption: (await (m as AskFn)(src instanceof HTMLVideoElement ? fit(src, w, h) : src)).trim() }
   else if (t !== 'ask') {
     const l = await (m as { detect(i: unknown): Promise<{ points: [number, number, number][][]; gestures?: ({ name: string; score: number } | null)[] }> }).detect(src)
     const g = (l.gestures ?? []).filter(Boolean).map((x) => `${x!.name.replace(/_/g, ' ').toLowerCase()} ${Math.round(x!.score * 100)}%`).join(', ')
@@ -183,11 +183,15 @@ async function look() {
     busy.value = false
   }
 }
-let stepping = false
+// live captions: off, or one line every few seconds, as the original's live captions
+const capEvery = ref(0)
+const CAP_EVERY = [{ label: 'captions off', value: 0 }, { label: 'every 3 s', value: 3 }, { label: 'every 10 s', value: 10 }]
+let stepping = false, lastCap = 0
 async function step(v: HTMLVideoElement) {
-  if (stepping || tool.value === 'caption' || tool.value === 'ask' || !ready.value) return
+  if (stepping || tool.value === 'ask' || !ready.value) return
+  if (tool.value === 'caption' && (!capEvery.value || performance.now() - lastCap < capEvery.value * 1000)) return
   stepping = true
-  try { found.value = await run(tool.value, v, found.value) } catch { /* a dropped frame */ } finally { stepping = false }
+  try { found.value = await run(tool.value, v, found.value); if (tool.value === 'caption') lastCap = performance.now() } catch { /* a dropped frame */ } finally { stepping = false }
 }
 async function load() {
   note.value = `loading ${row.value?.name ?? 'the model'}, ${row.value?.size ?? 'size unknown'}.`
@@ -212,15 +216,23 @@ const timing = computed<HbReadoutRow[]>(() => Object.entries(ms.value).map(([k, 
 // ask: a question about the frame; the answer joins the caption on the frame
 const question = ref('')
 const answers = ref<{ q: string; a: string; ms: number }[]>([])
+// the still to ask about: the picture, or the live frame as it is now
+function still() {
+  const v = feed?.video
+  return live.value && v?.videoWidth ? fit(v, v.videoWidth, v.videoHeight) : frame.value
+}
 async function askNow() {
   const q = question.value.trim()
-  const src = frame.value
-  if (!q || !src) return
+  if (!q || !(frame.value || live.value)) return
+  tab.value = 'ask'
   if (!picks.vision.snapshot().loaded) {
     tool.value = 'ask'
     chipPick.value = picks.vision
-    return void load()
+    await load()
+    if (!picks.vision.snapshot().loaded) return
   }
+  const src = still()
+  if (!src) return
   busy.value = true
   const t0 = performance.now()
   try {
@@ -336,13 +348,14 @@ onBeforeUnmount(() => {
       <input ref="fileIn" type="file" accept="image/*" hidden @change="openFile(($event.target as HTMLInputElement).files?.[0])">
     </div>
     <template v-if="frame || live" #verbs>
-      <HbSeg v-if="tool === 'detect'" v-model="size" :options="SIZES" aria-label="detector size" />
+      <HbSeg v-if="tool === 'detect'" v-model="size" toggle :options="SIZES" aria-label="detector size" />
+      <HbSeg v-if="tool === 'caption' && live" v-model="capEvery" toggle :options="CAP_EVERY" aria-label="live captions" />
       <HbButton variant="go" :loading="loading || busy" @click="pinkAct">{{ live && ready ? 'keep this frame' : pinkLabel }}</HbButton>
       <HbButton @click="live ? stopCamera() : startCamera()">{{ live ? 'camera off' : 'camera' }}</HbButton>
     </template>
 
     <template #tab-found>
-      <p v-if="note" class="hb-note" role="status">{{ note }}</p>
+      <p v-if="note && tool !== 'ask'" class="hb-note" role="status">{{ note }}</p>
       <p v-if="found.caption" class="xv-caption">{{ found.caption }}</p>
       <p v-if="found.gestures" class="hb-note">gesture: {{ found.gestures }}</p>
       <HbInstanceList :items="items" bare :empty="frame || live ? 'nothing found yet. pick a tool on the left, or look again.' : 'open an image, try the sample, or turn the camera on.'" />
@@ -352,8 +365,9 @@ onBeforeUnmount(() => {
     </template>
     <template #tab-ask>
       <HbInput v-model="question" aria-label="a question about the picture" placeholder="what is on the desk" @keydown.enter="askNow" />
-      <HbButton v-if="frame && question.trim()" :loading="busy" @click="askNow">ask</HbButton>
-      <p v-if="!frame" class="hb-note">open an image first. the answer comes from {{ picks.vision.snapshot().row?.name ?? 'a vision model' }}, {{ picks.vision.snapshot().row?.size ?? 'size unknown' }}.</p>
+      <HbButton v-if="(frame || live) && question.trim()" :loading="busy || loading" @click="askNow">ask</HbButton>
+      <p v-if="note && tool === 'ask'" class="hb-note" role="status">{{ note }}</p>
+      <p v-if="!frame && !live" class="hb-note">open an image first. the answer comes from {{ picks.vision.snapshot().row?.name ?? 'a vision model' }}, {{ picks.vision.snapshot().row?.size ?? 'size unknown' }}.</p>
       <dl class="xv-answers">
         <template v-for="a in answers" :key="a.q + a.ms"><dt>{{ a.q }}</dt><dd>{{ a.a }} <span class="hb-note">{{ a.ms }} ms</span></dd></template>
       </dl>
