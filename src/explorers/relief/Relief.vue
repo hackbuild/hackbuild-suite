@@ -468,7 +468,7 @@ onBeforeUnmount(() => {
     <div v-if="!img" class="hb-lay-drop" @dragover.prevent @drop.prevent="takeFile($event.dataTransfer?.files[0])">
       <div class="hb-lay-empty">
         <p class="hb-lay-empty-name">a photo to a relief</p>
-        <p class="hb-lay-empty-note">drop a photo or a glb model. depth, brightness or the model's own shape lifts it into a solid you can print in up to four colours. nothing leaves this tab.</p>
+        <p class="hb-lay-empty-note">drop a photo and it becomes a raised tile you can 3d print, in up to four colours. a 3d model (glb) works too. nothing leaves this tab.</p>
         <div class="hb-lay-empty-acts">
           <HbButton variant="go" @click="fileIn?.click()">open a photo or model</HbButton>
           <HbButton variant="secondary" @click="sample">try the sample</HbButton>
@@ -505,7 +505,7 @@ onBeforeUnmount(() => {
         <HbChipGroup v-if="kind !== 'model'" :model-value="source" :options="SOURCES" label="height from" @update:model-value="setSource" />
         <HbButton v-if="needDepth" variant="go" size="sm" :loading="depthLoading" @click="wantDepth">{{ depthLabel }}</HbButton>
       </template>
-      <p v-else class="hb-note">open a photo or a glb on the stage, or try the sample.</p>
+      <p v-else class="hb-note">open a photo on the stage first. the settings show here once there is something to shape.</p>
       <template v-if="kind === 'model'">
         <HbChipGroup v-model="pose.up" :options="[{ label: 'y up', value: 'y' }, { label: 'z up', value: 'z' }]" label="up axis" />
         <HbSlider v-model="pose.yaw" label="turn" :min="-180" :max="180" :step="5" unit=" deg" />
@@ -513,7 +513,6 @@ onBeforeUnmount(() => {
         <HbSlider v-model="pose.roll" label="roll" :min="-180" :max="180" :step="5" unit=" deg" />
       </template>
       <HbButton v-if="img" variant="secondary" size="sm" @click="fileIn?.click()">open another</HbButton>
-      <HbButton v-if="!img" variant="secondary" size="sm" @click="sample">try the sample</HbButton>
     </template>
     <template #tab-relief>
       <HbSlider v-model="params.width" label="width" :min="6" :max="100" :step="0.5" unit=" mm" @commit="commit" />
