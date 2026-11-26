@@ -21,7 +21,9 @@ const groupRoutes: RouteRecordRaw[] = GROUPS.filter((g) => TOOLS.filter((t) => t
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'home', component: () => import('./views/HomeView.vue') },
+    { path: '/', name: 'home', component: () => import('./views/HomeView.vue'), meta: { full: true } },
+    // an example, one job in one file (rebuild plan 4); a group single file carries none
+    ...(__GROUP__ ? [] : [{ path: '/examples/:job/:id', name: 'example', component: () => import('./examples/ExampleView.vue'), meta: { full: true } }]),
     ...toolRoutes,
     ...groupRoutes,
     // Lab pages are layout checks, not tools: they stay out of the nav and

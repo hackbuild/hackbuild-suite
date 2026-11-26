@@ -74,7 +74,73 @@
   },
   "dog-simulator-public.html": {
     "layout": "stage-rack",
-    "rackTabs": [3, 7],
+    "rackTabs": [
+      3,
+      7
+    ],
     "entry": "setup"
+  },
+  "#/examples/talk/chat": {
+    "layout": "conversation"
+  },
+  "#/examples/talk/think": {
+    "layout": "conversation"
+  },
+  "#/examples/talk/json": {
+    "layout": "form-frame"
+  },
+  "#/examples/talk/memory": {
+    "layout": "conversation"
+  },
+  "#/examples/talk/character-card": {
+    "layout": "form-frame"
+  },
+  "#/examples/listen/transcribe": {
+    "layout": "drop-first"
+  },
+  "#/examples/listen/dictate": {
+    "layout": "stage-rack"
+  },
+  "#/examples/listen/speak": {
+    "layout": "form-frame"
+  },
+  "#/examples/listen/lipsync": {
+    "layout": "stage-rack"
+  },
+  "#/examples/see/detect": {
+    "layout": "canvas-rail"
+  },
+  "#/examples/see/cut-out": {
+    "layout": "canvas-rail"
+  },
+  "#/examples/see/depth": {
+    "layout": "stage-rack"
+  },
+  "#/examples/see/ask": {
+    "layout": "canvas-rail"
+  },
+  "#/examples/make/image": {
+    "layout": "form-frame"
+  },
+  "#/examples/make/relief": {
+    "layout": "stage-rack"
+  },
+  "#/examples/move/avatar": {
+    "layout": "stage-rack"
+  },
+  "#/examples/move/retarget": {
+    "layout": "stage-rack"
+  },
+  "#/examples/move/ik": {
+    "layout": "stage-rack"
+  },
+  "#/examples/move/gait": {
+    "layout": "stage-rack"
+  },
+  "#/examples/think/drives": {
+    "layout": "stage-rack"
+  },
+  "#/examples/think/cameras": {
+    "layout": "stage-rack"
   }
 }

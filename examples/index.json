@@ -1,0 +1,34 @@
+{
+  "about": "the suite examples: one job each, one file each at examples/<job>/<id>/example.ts. the suite shows the file as its source; the library repos copy the same files into their examples folders. layout is the hackbuild-ui layout the example draws; model is the ai-views job its model chip picks for, when it has one.",
+  "jobs": [
+    { "id": "talk", "title": "talk" },
+    { "id": "listen", "title": "listen" },
+    { "id": "see", "title": "see" },
+    { "id": "make", "title": "make" },
+    { "id": "move", "title": "move" },
+    { "id": "think", "title": "think" }
+  ],
+  "examples": [
+    { "job": "talk", "id": "chat", "title": "chat with a small model", "line": "a reply streams from a model in this tab", "layout": "conversation", "model": "chat", "readme": "@hackbuild/chat", "packages": ["@hackbuild/chat", "@hackbuild/converse", "@hackbuild/models", "@hackbuild/weights", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "talk", "id": "think", "title": "a reply with its thinking folded", "line": "reasoning streams into a fold, the answer under it", "layout": "conversation", "model": "chat", "readme": "@hackbuild/chat", "packages": ["@hackbuild/chat", "@hackbuild/converse", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "talk", "id": "json", "title": "answer as json to a schema", "line": "a model fills a schema, checked before you see it", "layout": "form-frame", "model": "chat", "readme": "@hackbuild/structured", "packages": ["@hackbuild/structured", "@hackbuild/chat", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "talk", "id": "memory", "title": "remember facts across chats", "line": "what it recalls for each reply, and why", "layout": "conversation", "model": "embed", "readme": "@hackbuild/memory", "packages": ["@hackbuild/memory", "@hackbuild/embed", "@hackbuild/chat", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "talk", "id": "character-card", "title": "a character card in and out", "line": "read a card, edit it, write it back", "layout": "form-frame", "readme": "@hackbuild/character", "packages": ["@hackbuild/character"], "repo": "hackbuild-browser-ai" },
+    { "job": "listen", "id": "transcribe", "title": "transcribe a file", "line": "drop a recording, get lines with their times", "layout": "drop-first", "model": "transcribe", "readme": "@hackbuild/transcribe", "packages": ["@hackbuild/transcribe", "@hackbuild/media", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "listen", "id": "dictate", "title": "push to talk dictation", "line": "hold to talk, let go to get the words", "layout": "stage-rack", "model": "transcribe", "readme": "@hackbuild/listen", "packages": ["@hackbuild/listen", "@hackbuild/transcribe", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "listen", "id": "speak", "title": "speak a line", "line": "text to speech with the words timed", "layout": "form-frame", "model": "voice", "readme": "@hackbuild/speak", "packages": ["@hackbuild/speak", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "listen", "id": "lipsync", "title": "speak with lip sync", "line": "a body says a line and its mouth follows", "layout": "stage-rack", "model": "voice", "readme": "@hackbuild/lipsync", "packages": ["@hackbuild/speak", "@hackbuild/lipsync", "@hackbuild/avatar-host", "@hackbuild/motion-views"], "repo": "hackbuild-motion" },
+    { "job": "see", "id": "detect", "title": "find objects on the webcam", "line": "boxes and labels drawn on the frame", "layout": "canvas-rail", "model": "detect", "readme": "@hackbuild/vision", "packages": ["@hackbuild/vision", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "see", "id": "cut-out", "title": "cut out a subject with a click", "line": "press a thing, get its mask", "layout": "canvas-rail", "model": "masks", "readme": "@hackbuild/vision", "packages": ["@hackbuild/vision", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "see", "id": "depth", "title": "depth from a photo", "line": "a photo becomes a surface you can turn", "layout": "stage-rack", "model": "depth", "readme": "@hackbuild/depth-mesh", "packages": ["@hackbuild/depth-mesh", "@hackbuild/vision", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "see", "id": "ask", "title": "ask about a picture", "line": "a question about an image, answered in words", "layout": "canvas-rail", "model": "vision", "readme": "@hackbuild/vision", "packages": ["@hackbuild/vision", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "make", "id": "image", "title": "text to image", "line": "a prompt becomes a picture", "layout": "form-frame", "model": "image", "readme": "@hackbuild/imagegen", "packages": ["@hackbuild/imagegen", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "make", "id": "relief", "title": "photo to relief", "line": "a photo becomes a printable relief", "layout": "stage-rack", "model": "depth", "readme": "@hackbuild/depth-mesh", "packages": ["@hackbuild/depth-mesh", "@hackbuild/ai-views"], "repo": "hackbuild-browser-ai" },
+    { "job": "move", "id": "avatar", "title": "load a vrm, glb or fbx and pose it", "line": "drop a character and it stands, looks and waves", "layout": "stage-rack", "readme": "@hackbuild/avatar", "packages": ["@hackbuild/avatar", "@hackbuild/avatar-host", "@hackbuild/motion-views"], "repo": "hackbuild-motion" },
+    { "job": "move", "id": "retarget", "title": "retarget a clip", "line": "a clip made for one body plays on another", "layout": "stage-rack", "readme": "@hackbuild/retarget", "packages": ["@hackbuild/retarget", "@hackbuild/rig", "@hackbuild/motion-views"], "repo": "hackbuild-motion" },
+    { "job": "move", "id": "ik", "title": "reach with two bone ik", "line": "drag the target, the arm follows", "layout": "stage-rack", "readme": "@hackbuild/ik", "packages": ["@hackbuild/ik"], "repo": "hackbuild-motion" },
+    { "job": "move", "id": "gait", "title": "a dog that walks", "line": "four legs, a gait and a speed", "layout": "stage-rack", "readme": "@hackbuild/gait", "packages": ["@hackbuild/gait"], "repo": "hackbuild-motion" },
+    { "job": "think", "id": "drives", "title": "a creature with drives", "line": "needs rise, a choice is made, the bars show why", "layout": "stage-rack", "readme": "@hackbuild/drives", "packages": ["@hackbuild/drives", "@hackbuild/agents-views"], "repo": "hackbuild-agents" },
+    { "job": "think", "id": "cameras", "title": "a camera that follows", "line": "five rigs on one moving target", "layout": "stage-rack", "readme": "@hackbuild/cameras", "packages": ["@hackbuild/cameras"], "repo": "hackbuild-agents" }
+  ]
+}
