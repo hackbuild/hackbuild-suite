@@ -1,28 +1,32 @@
 // answer as json to a schema: the engine asks the model for json that fits
 // a schema (grammar constrained where the runtime can, the schema in the
 // prompt where it cannot), and @hackbuild/structured repairs what small
-// models get wrong before the answer is checked against the schema.
-import { scripted, type ChatEngine, type JsonSchema } from "@hackbuild/chat";
+// models get wrong before the answer is checked against the schema. load a
+// model from the chip in the bar; until then a written sample shows the shape.
+import { probe, type Env } from "@hackbuild/ai-env";
+import type { ChatEngine, JsonSchema } from "@hackbuild/chat";
 import { parseLooseJSON, sanitizeSchema } from "@hackbuild/structured";
-import { useModelPick } from "@hackbuild/ai-views";
-import { define } from "@hackbuild/ai-views/elements";
+import { jobLoader, useModelPick, type Job, type Loader } from "@hackbuild/ai-views";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { FIXTURE_ENV, draw, stubLoaderOf, type Example } from "../../shared/fixtures.js";
+
+/** Stand ins a test may pass for this machine and the network. A page passes nothing. */
+export interface Hooks {
+  env?: Env;
+  loaderFor?: (job: Job) => Loader;
+}
 
 const SCHEMA = {
   type: "object",
   properties: { project: { type: "string" }, parts: { type: "array", items: { type: "string" } }, hours: { type: "number" } },
   required: ["project", "parts", "hours"],
 };
-// stands in for a small model: right shape, with the trailing comma they often leave
-const script = scripted({
-  schema: true,
-  replies: (req) => {
-    const ask = req.messages.at(-1)?.content.toLowerCase() ?? "";
-    const lamp = ask.includes("lamp");
-    return `{"project": "${lamp ? "desk lamp" : "plant sensor"}", "parts": ${lamp ? '["led strip", "switch", "usb cable",]' : '["soil probe", "esp32", "battery",]'}, "hours": ${lamp ? 3 : 5},}`;
-  },
-});
+const SAMPLE_ASK = "a weekend project: a plant sensor that tells me when to water";
+const SAMPLE_JSON = { project: "plant sensor", parts: ["soil probe", "esp32", "battery"], hours: 5 };
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+// json as light text on paper: one line per line, indents kept
+const lines = (s: string) => `<p>${esc(s).replace(/^( +)/gm, (m) => "&nbsp;".repeat(m.length)).replace(/\n/g, "<br>")}</p>`;
+const turn = (who: "you" | "json", body: string) =>
+  `<div class="hb-msg${who === "you" ? " is-user" : ""}"><span class="hb-msg-who"><span class="hb-msg-name">${who}</span></span><div class="hb-msg-parts">${body}</div></div>`;
 
 /** Problems with a value against the schema's required keys and their types; empty when it fits. */
 function check(v: unknown, s: typeof SCHEMA): string[] {
@@ -35,41 +39,48 @@ function check(v: unknown, s: typeof SCHEMA): string[] {
   });
 }
 
-export default function mount(host: HTMLElement): Example {
-  define();
-  const root = draw(host, `
-    <div class="hb-lay hb is-form-frame">
+export default function mount(host: HTMLElement, hooks: Hooks = {}) {
+  host.innerHTML = `
+    <div class="hb-lay hb is-conversation has-rack">
       <div class="hb-lay-body">
-        <section class="hb-lay-stage"><div class="hb-lay-subject">
-          <section class="hb-panel">
-            <div class="hb-panel-hd-inst">the answer</div>
-            <div class="hb-codeblock"><pre><code id="json-out">asking.</code></pre></div>
-            <p class="hb-note" id="json-check"></p>
-          </section>
-        </div></section>
+        <section class="hb-lay-stage">
+          <div class="hb-lay-subject" role="log" aria-live="polite">
+            <div class="hb-lay-thread" id="json-thread"><p class="hb-note">sample, no model loaded</p>${turn("you", `<p>${esc(SAMPLE_ASK)}</p>`)}${turn("json", lines(JSON.stringify(SAMPLE_JSON, null, 2)))}</div>
+          </div>
+          <div class="hb-lay-composer"><div class="hb-lay-thread"><form class="hb-convbox" id="json-form"><textarea rows="1" aria-label="what you want as json" placeholder="ask for a project as json" id="json-ask"></textarea><button type="submit" class="hb-btn hb-btn-go">send</button></form></div></div>
+        </section>
         <aside class="hb-rack" aria-label="json">
-          <nav class="hb-tabs" role="tablist" aria-label="json tabs"><button type="button" class="hb-tab" role="tab" aria-selected="true">ask</button><button type="button" class="hb-tab" role="tab" aria-selected="false">schema</button><button type="button" class="hb-tab" role="tab" aria-selected="false">raw</button><button type="button" class="hb-tab" role="tab" aria-selected="false">model</button></nav>
-          <section class="hb-rack-pane"><label class="hb-field"><span class="hb-label">what you want</span><textarea class="hb-input" rows="4" id="json-ask">a weekend project: a plant sensor that tells me when to water</textarea></label>
-            <p><button type="button" class="hb-btn hb-btn-go" id="json-go">answer as json</button></p></section>
+          <nav class="hb-tabs" role="tablist" aria-label="json tabs"><button type="button" class="hb-tab" role="tab" aria-selected="true">check</button><button type="button" class="hb-tab" role="tab" aria-selected="false">schema</button><button type="button" class="hb-tab" role="tab" aria-selected="false">raw</button></nav>
+          <section class="hb-rack-pane"><p class="hb-note" id="json-check">the sample fits the schema.</p></section>
           <section class="hb-rack-pane" hidden><label class="hb-field"><span class="hb-label">json schema</span><textarea class="hb-input" rows="12" id="json-schema" spellcheck="false"></textarea></label></section>
-          <section class="hb-rack-pane" hidden><p class="hb-note">what the model wrote, before repair:</p><div class="hb-codeblock"><pre><code id="json-raw">nothing yet.</code></pre></div></section>
-          <section class="hb-rack-pane" hidden><model-select job="chat" id="json-model"></model-select></section>
-          <details class="hb-rack-detail" data-ux="detail"><summary>detail</summary><div><p class="hb-fixture">fixture: replies are scripted, with a trailing comma left in so the repair has work to do. no model runs here.</p></div></details>
+          <section class="hb-rack-pane" hidden><p class="hb-note">what the model wrote, before repair:</p><p class="hb-note" id="json-raw">nothing yet.</p></section>
+          <details class="hb-rack-detail" data-ux="detail"><summary>detail</summary><div><p class="hb-note">the schema goes to the runtime as a grammar where it takes one, and into the prompt where it does not. the repair fixes trailing commas, quotes and fences.</p></div></details>
         </aside>
       </div>
-    </div>`);
+    </div>`;
+  const root = host.firstElementChild as HTMLElement;
   const $ = <T extends HTMLElement>(id: string) => root.querySelector(`#${id}`) as T;
+  const thread = $("json-thread");
   $<HTMLTextAreaElement>("json-schema").value = JSON.stringify(SCHEMA, null, 2);
 
-  // a real page passes weightsLoader(store) or its runtime's loader here
-  const pick = useModelPick("chat", { env: FIXTURE_ENV, loader: stubLoaderOf(script) });
-  ($("json-model") as HTMLElement & { pick: typeof pick }).pick = pick;
-  let engine: ChatEngine = script;
+  // every chat model the catalogue knows; jobLoader fetches the runtime and weights on load
+  const pick = useModelPick("chat", { ...(hooks.env ? { env: hooks.env } : {}), loader: hooks.loaderFor?.("chat") ?? jobLoader("chat") });
+  if (!hooks.env) void probe().then((env) => pick.update({ env }));
+  let engine: ChatEngine | null = null;
   const off = pick.subscribe((s) => {
     if (s.row?.state === "loaded") engine = s.loaded as ChatEngine;
   });
 
-  async function ask(): Promise<void> {
+  let fresh = true;
+  async function ask(text: string): Promise<void> {
+    if (!text.trim()) return;
+    if (fresh) (thread.innerHTML = ""), (fresh = false);
+    thread.insertAdjacentHTML("beforeend", turn("you", `<p>${esc(text)}</p>`));
+    if (!engine) {
+      thread.insertAdjacentHTML("beforeend", turn("json", "<p>no model loaded yet. load one from the chip in the bar, then send again.</p>"));
+      $("json-check").textContent = "nothing to check: no model answered.";
+      return;
+    }
     let schema: typeof SCHEMA;
     try {
       schema = JSON.parse($<HTMLTextAreaElement>("json-schema").value);
@@ -77,24 +88,35 @@ export default function mount(host: HTMLElement): Example {
       $("json-check").textContent = "the schema is not valid json. fix it in the schema tab.";
       return;
     }
-    $("json-out").textContent = "asking.";
     const r = await engine.complete(
-      [{ role: "system", content: "answer with json only." }, { role: "user", content: $<HTMLTextAreaElement>("json-ask").value }],
+      [{ role: "system", content: "answer with json only." }, { role: "user", content: text }],
       { schema: sanitizeSchema(schema as JsonSchema) },
     );
     $("json-raw").textContent = r.text;
     const value = parseLooseJSON(r.text);
-    $("json-out").textContent = value === null ? r.text : JSON.stringify(value, null, 2);
+    thread.insertAdjacentHTML("beforeend", turn("json", lines(value === null ? r.text : JSON.stringify(value, null, 2))));
     const problems = value === null ? ["nothing in the reply parses as json"] : check(value, schema);
     $("json-check").textContent = problems.length ? problems.join(". ") + "." : "fits the schema.";
   }
-  $("json-go").addEventListener("click", () => void ask());
+  const box = $<HTMLTextAreaElement>("json-ask");
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) (e.preventDefault(), $<HTMLFormElement>("json-form").requestSubmit());
+  });
+  $("json-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const t = box.value;
+    box.value = "";
+    void ask(t);
+  });
   const lay = layout(root);
-  void ask();
-  // the built in sample: a second request through the same schema
-  const sample = async () => {
-    $<HTMLTextAreaElement>("json-ask").value = "a desk lamp i can build in an evening";
-    await ask();
+  // the conversation is the thread and its composer together, beside the rack
+  root.querySelector<HTMLElement>(".hb-lay-subject")!.removeAttribute("data-ux");
+  root.querySelector<HTMLElement>(".hb-lay-stage")!.dataset.ux = "subject";
+  root.querySelector<HTMLElement>(".hb-lay-composer")!.dataset.ux = "verbs";
+  return {
+    pick,
+    // what the gate runs: one request, answered by whatever is loaded
+    sample: () => ask("a desk lamp i can build in an evening"),
+    dispose: () => (off(), lay.dispose(), (host.innerHTML = "")),
   };
-  return { pick, sample, dispose: () => (off(), lay.dispose(), (host.innerHTML = "")) };
 }
