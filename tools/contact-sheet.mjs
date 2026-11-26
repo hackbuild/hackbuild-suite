@@ -9,7 +9,11 @@
 // (click390 at 390 when it differs), and kept under --originals for the next
 // run. Original HTML is untrusted data: it is only loaded and shot.
 //
-//   node tools/contact-sheet.mjs --gate <ux-gate out dir> --out <dir> [--map tools/ux-originals.json] [--originals <dir>]
+// With --loaded the sheets pair each route's loaded row (ux-gate's -loaded
+// shots) with the map entry's "loaded": { "shot1440", "shot390", "note" },
+// a matching loaded shot of the original, as <name>-<slug>-loaded.png.
+//
+//   node tools/contact-sheet.mjs --gate <ux-gate out dir> --out <dir> [--map tools/ux-originals.json] [--originals <dir>] [--loaded]
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -29,6 +33,8 @@ mkdirSync(originals, { recursive: true })
 
 const chrome = await launch({ prefix: 'contact-sheet-', blockModels: true })
 const unmapped = []
+const loaded = process.argv.includes('--loaded')
+let sheets = 0
 
 /**
  * Shoots an original HTML file at one width, after pressing the buttons or
@@ -65,7 +71,9 @@ try {
   const page = await chrome.browser.newPage()
   await page.setViewport({ width: 1488, height: 900 })
   for (const route of report.routes) {
-    const entry = map[route]
+    const tag = loaded ? '-loaded' : ''
+    const entry = loaded ? (map[route]?.loaded ? { original: map[route].original, ...map[route].loaded } : null) : map[route]
+    if (loaded && (!entry || !existsSync(join(gate, `${report.name}-${slug(route)}-loaded-1440.png`)))) continue
     let o1440 = null
     let o390 = null
     if (entry) {
@@ -74,7 +82,7 @@ try {
       if (!o1440) o1440 = await shootOriginal(home(entry.original), 1440, entry.click)
       if (!o390) o390 = await shootOriginal(home(entry.original), 390, entry.click390 ?? entry.click)
     } else unmapped.push(route)
-    const mine = (w) => join(gate, `${report.name}-${slug(route)}-${w}.png`)
+    const mine = (w) => join(gate, `${report.name}-${slug(route)}${tag}-${w}.png`)
     const origLabel = entry ? `original: ${basename(home(entry.original))}${entry.note ? `, ${entry.note}` : ''}` : 'no original mapped'
     const html = `<!doctype html><meta charset="utf-8"><style>
       body { margin: 0; padding: 16px; background: #f3efe6; font: 14px/1.3 ui-monospace, Menlo, monospace; color: #111; width: 1456px; }
@@ -84,18 +92,19 @@ try {
       .w1440 { width: 720px; height: 450px; object-fit: cover; object-position: top; border: 2px solid #111; display: block; }
       .w390 { width: 260px; height: 563px; object-fit: cover; object-position: top; border: 2px solid #111; display: block; margin-top: 12px; }
       .none { display: grid; place-items: center; background: #ddd; color: #555; box-sizing: border-box; }
-    </style><h1>${esc(report.name)} ${esc(route)}</h1><div class="grid">
+    </style><h1>${esc(report.name)} ${esc(route)}${loaded ? ', loaded' : ''}</h1><div class="grid">
       <div><p class="lab">rebuild, 1440 and 390</p>${img(mine(1440), 'w1440')}${img(mine(390), 'w390')}</div>
       <div><p class="lab">${esc(origLabel)}</p>${img(o1440, 'w1440')}${img(o390, 'w390')}</div>
     </div>`
     const tmp = join(out, '.sheet.html')
     writeFileSync(tmp, html)
     await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' })
-    await page.screenshot({ path: join(out, `${report.name}-${slug(route)}.png`), fullPage: true })
+    await page.screenshot({ path: join(out, `${report.name}-${slug(route)}${tag}.png`), fullPage: true })
     rmSync(tmp)
+    sheets++
     console.log(`contact-sheet: ${route}`)
   }
 } finally {
   await chrome.close()
 }
-console.log(`contact-sheet: ${report.routes.length} sheets in ${out}${unmapped.length ? `; no original for ${unmapped.join(' ')}` : ''}`)
+console.log(`contact-sheet: ${sheets} sheets in ${out}${unmapped.length ? `; no original for ${unmapped.join(' ')}` : ''}`)

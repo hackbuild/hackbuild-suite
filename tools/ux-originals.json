@@ -151,28 +151,53 @@
     "original": "~/Downloads/clevis.html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-390.png",
-    "note": "clevis with chatbot-forge folded in; the chat list moved from a rail to a rack tab to keep the conversation at 60 percent"
+    "note": "clevis with chatbot-forge folded in; the chat list moved from a rail to a rack tab to keep the conversation at 60 percent",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-memory-search-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-memory-search-390.png",
+      "note": "clevis with a search in its memory; it keeps no reply shot"
+    }
   },
   "?stub#/x/transcribe": {
     "original": "~/Downloads/scribe (12).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-1440.png",
-    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png"
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-done-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-done-390.png",
+      "note": "scribe with a transcript"
+    }
   },
   "?stub#/x/character": {
     "original": "~/Downloads/ferrule (13).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-1440.png",
-    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-390.png"
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-gate-390.png",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-chat-greeting-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/ferrule-chat-greeting-390.png",
+      "note": "ferrule awake"
+    }
   },
   "?stub#/x/room": {
     "original": "~/Downloads/arbor (10).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-1440.png",
-    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-390.png"
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-390.png",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-awake-talk-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-awake-talk-390.png",
+      "note": "arbor awake"
+    }
   },
   "?stub#/x/masks": {
     "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam (6).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-sam-instances-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-image-loaded-390.png",
-    "note": "the loaded row is the original with its instances found"
+    "note": "the loaded row is the original with its instances found",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-sam-instances-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-image-loaded-390.png",
+      "note": "the original with an image and its instances"
+    }
   },
   "?stub#/x/yard": {
     "original": "~/Downloads/hackle (10).html",
