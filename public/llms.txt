@@ -19,8 +19,8 @@ Live site: https://hackbuild.github.io/hackbuild-suite/. Every example is at htt
 - [room](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/room/RoomExplorer.vue): an agent living in a room, and its mind. source `src/explorers/room/RoomExplorer.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/room
 - [transcribe](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/transcribe/Transcribe.vue): recordings to text you can edit. source `src/explorers/transcribe/Transcribe.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/transcribe
 - [mask studio](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/masks/MaskStudio.vue): cut things out, by hand or by model. source `src/explorers/masks/MaskStudio.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/masks
-- [find](https://github.com/hackbuild/hackbuild-suite/blob/main/src/vision/VisionView.vue): what is in a picture or a camera. source `src/vision/VisionView.vue`, live https://hackbuild.github.io/hackbuild-suite/#/image/vision
-- [make an image](https://github.com/hackbuild/hackbuild-suite/blob/main/src/generate/GenerateView.vue): a prompt becomes a picture. source `src/generate/GenerateView.vue`, live https://hackbuild.github.io/hackbuild-suite/#/image/generate
+- [find](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/vision/VisionLab.vue): what is in a picture or a camera. source `src/explorers/vision/VisionLab.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/vision
+- [make an image](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/generate/Generate.vue): a prompt becomes a picture. source `src/explorers/generate/Generate.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/generate
 - [relief](https://github.com/hackbuild/hackbuild-suite/blob/main/src/explorers/relief/Relief.vue): a photo to a relief you can print. source `src/explorers/relief/Relief.vue`, live https://hackbuild.github.io/hackbuild-suite/#/x/relief
 
 ## Examples: talk

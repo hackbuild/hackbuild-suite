@@ -30,8 +30,8 @@ Each explorer is a full tool built from a proven original. Its source is one fol
 | room | an agent living in a room, and its mind | `#/x/room` | [src/explorers/room/RoomExplorer.vue](src/explorers/room/RoomExplorer.vue) |
 | transcribe | recordings to text you can edit | `#/x/transcribe` | [src/explorers/transcribe/Transcribe.vue](src/explorers/transcribe/Transcribe.vue) |
 | mask studio | cut things out, by hand or by model | `#/x/masks` | [src/explorers/masks/MaskStudio.vue](src/explorers/masks/MaskStudio.vue) |
-| find | what is in a picture or a camera | `#/image/vision` | [src/vision/VisionView.vue](src/vision/VisionView.vue) |
-| make an image | a prompt becomes a picture | `#/image/generate` | [src/generate/GenerateView.vue](src/generate/GenerateView.vue) |
+| find | what is in a picture or a camera | `#/x/vision` | [src/explorers/vision/VisionLab.vue](src/explorers/vision/VisionLab.vue) |
+| make an image | a prompt becomes a picture | `#/x/generate` | [src/explorers/generate/Generate.vue](src/explorers/generate/Generate.vue) |
 | relief | a photo to a relief you can print | `#/x/relief` | [src/explorers/relief/Relief.vue](src/explorers/relief/Relief.vue) |
 <!-- /explorers -->
 
