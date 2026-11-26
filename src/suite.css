@@ -12,9 +12,9 @@ html, body, #app { height: 100%; margin: 0; }
 .sx-full { min-height: 100%; background: var(--hb-paper); }
 
 /* home: the yard fills the first screen, the shelf follows */
-.sx-yard { position: relative; height: calc(100svh - 52px - 48px); min-height: 280px; overflow: hidden; background: var(--hb-paper-sunk); border-bottom: 2px solid var(--hb-ink); }
-.sx-yard-pic, .sx-yard-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 58% 50%; }
-.sx-home-line { padding: 14px 16px; }
+.sx-yard { position: relative; height: calc(100svh - 52px - 40px - 170px); min-height: 280px; overflow: hidden; background: var(--hb-paper-sunk); border-bottom: 2px solid var(--hb-ink); }
+.sx-yard-pic, .sx-yard-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 55% 60%; border: 0; padding: 0; margin: 0; background: none; cursor: pointer; }
+.sx-home-line { padding: 10px 16px; min-height: 40px; box-sizing: border-box; }
 .sx-home-sec { padding: 8px 16px 24px; max-width: 1280px; }
 .sx-home-sec > h2 { margin: 8px 0 12px; }
 .sx-pic > svg { display: block; width: 100%; height: 100%; }
@@ -31,9 +31,14 @@ html, body, #app { height: 100%; margin: 0; }
 .sx-ex-live > .hb-lay { height: 100%; grid-template-rows: minmax(0, 1fr); }
 .sx-ex-src { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px; display: grid; gap: 16px; align-content: start; }
 .sx-ex-foot { flex: 0 0 auto; flex-wrap: nowrap; }
+.sx-ex-install a { color: inherit; }
 .sx-ex-install { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sx-ex-none { padding: 24px 16px; }
 @media (max-width: 900px) {
   .sx-ex { height: auto; }
   .sx-ex-live > .hb-lay { height: auto; min-height: 0; }
+  /* on a phone the foot stays on screen: source and install without hunting */
+  .sx-ex-foot { position: sticky; bottom: 0; z-index: 4; }
+  /* a full screen stage leaves the sticky foot its row */
+  .sx-ex-live .hb-lay.is-conversation .hb-lay-stage, .sx-ex-live .hb-lay.is-gate .hb-lay-stage { height: calc(100svh - 52px - 52px); }
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Home (rebuild plan 4): the yard first at full width, the explorers as
-// pictures, the examples by job, the parts, and one line about privacy.
-// The yard is a still of the dog simulator for now; the press opens it.
+// Home (rebuild plan 4): one line on what this is, the yard at full width,
+// the explorers as pictures, the examples by job and the parts. The yard is
+// a still of the dog simulator until a press plays it here, in a frame.
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { HbTile, HbTiles } from '@virgilvox/hackbuild-ui'
 import { toolPath } from '../tools/define'
@@ -11,7 +12,8 @@ import { EXAMPLES, JOBS, examplePath } from '../examples/registry'
 import yard from '../assets/yard.jpg'
 
 const DOG = 'https://hackbuild.github.io/dog-simulator/'
-const openDog = () => window.location.assign(DOG)
+const playing = ref(false)
+const play = () => { playing.value = true }
 const router = useRouter()
 const openTool = (id: string) => {
   const t = TOOLS.find((x) => x.id === id)
@@ -24,13 +26,17 @@ const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job ===
 
 <template>
   <main class="sx-home">
+    <p class="hb-note sx-home-line">browser ai and 3d characters that run in this tab. nothing is uploaded.</p>
     <section class="sx-yard" data-ux="subject" aria-label="the dog simulator">
-      <a :href="DOG" class="sx-yard-pic" tabindex="-1" aria-hidden="true"><img :src="yard" alt="" width="1440" height="672" /></a>
-      <div class="hb-lay-verbs">
-        <button type="button" class="hb-btn hb-btn-go" @click="openDog">open the dog simulator</button>
-      </div>
+      <iframe v-if="playing" class="sx-yard-pic" :src="DOG" title="the dog simulator" allow="autoplay; microphone; camera; fullscreen" />
+      <template v-else>
+        <button type="button" class="sx-yard-pic" aria-label="play the dog simulator here" @click="play"><img :src="yard" alt="a dog and its person in a low poly yard" width="1440" height="601" /></button>
+        <div class="hb-lay-verbs">
+          <button type="button" class="hb-btn hb-btn-go" @click="play">play the dog simulator</button>
+          <a class="hb-btn" :href="DOG" target="_blank" rel="noopener">open it in a new tab</a>
+        </div>
+      </template>
     </section>
-    <p class="hb-note sx-home-line">everything runs in this tab. nothing is uploaded.</p>
 
     <section class="sx-home-sec" aria-labelledby="h-explorers">
       <h2 id="h-explorers" class="hb-panel-hd">explorers</h2>
