@@ -1,5 +1,5 @@
 // smoke-x-chat: the chat studio explorer (rebuild plan 4) on ?stub, no
-// weights. The empty state fills the conversation, the rack has six tabs
+// weights. The empty state fills the conversation, the rack has five tabs
 // with memory first, a stand in model loads from the chip's pick, a message
 // gets a streamed reply with memory used under it and the recall trace in
 // the rack, a note added in memory shows in the list, the persona trims its
@@ -28,7 +28,7 @@ try {
     modes: [...document.querySelectorAll('.hb-lay-verbs .hb-seg button')].map((b) => b.textContent.trim()),
   }))
   if (first.name !== 'what are we working on?') fail(`empty state: ${first.name}`)
-  if (first.tabs.join(',') !== 'memory,chats,persona,reply,tools,voice') fail(`rack tabs: ${first.tabs.join(', ')}`)
+  if (first.tabs.join(',') !== 'memory,chats,persona,reply,tools') fail(`rack tabs: ${first.tabs.join(', ')}`)
   if (first.modes.join(',') !== 'quick,default,complex') fail(`modes: ${first.modes.join(', ')}`)
   await page.waitForFunction(() => document.querySelectorAll('.hb-mempanel .hb-mem').length === 3, { timeout: 8000 }).catch(() => fail('the memory pane did not list the 3 stand in facts'))
 
@@ -51,7 +51,7 @@ try {
     return { chats: d.chats.length, turns: d.chats[0].turns.length }
   })
   if (state.turns < 2) fail(`the chat dump holds ${state.turns} turns`)
-  for (const t of ['chats', 'persona', 'reply', 'voice']) {
+  for (const t of ['chats', 'persona', 'reply']) {
     await page.evaluate((name) => [...document.querySelectorAll('.hb-rack [role=tab]')].find((x) => x.textContent.trim() === name).click(), t)
     await wait(150)
   }
@@ -72,7 +72,7 @@ try {
   if (!/recall/.test(step) || !/petg/.test(step)) fail(`tools on: the call reads ${step}`)
   await page.waitForFunction(() => [...document.querySelectorAll('.hb-msg')].some((m) => m.textContent.includes('you print in petg')), { timeout: 5000 }).catch(() => fail('tools on: the agent reply did not show'))
   if (errors.length) fail(`page errors: ${errors.join(' | ')}`)
-  console.log(`smoke-x-chat: ok. empty state, 6 rack tabs with memory first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders, ${listed} tools and an agent turn logging "${step.slice(0, 60)}" (measured, ?stub, no weights)`)
+  console.log(`smoke-x-chat: ok. empty state, 5 rack tabs with memory first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders, ${listed} tools and an agent turn logging "${step.slice(0, 60)}" (measured, ?stub, no weights)`)
 } finally {
   await chrome.close()
   server.close()

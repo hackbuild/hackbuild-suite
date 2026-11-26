@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // chat studio (rebuild plan 4): clevis and chatbot-forge as one page. The
 // conversation fills; the rack holds what the reply used and the store
-// (memory), the chats, the persona, the reply settings and the voice. Every
+// (memory), the chats, the persona, the reply settings with the voice, and
+// the tools. Every
 // model in the catalogue comes from the chip in the bar, loaded in this tab.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { HbCheckbox, HbConversationLayout, HbSeg, HbSlider, HbTextarea } from '@virgilvox/hackbuild-ui'
@@ -154,7 +155,6 @@ const TABS = [
   { id: 'persona', label: 'persona' },
   { id: 'reply', label: 'reply' },
   { id: 'tools', label: 'tools' },
-  { id: 'voice', label: 'voice' },
 ]
 
 // the conversation is the thread, its verbs and its composer together, beside the rack
@@ -224,6 +224,8 @@ onBeforeUnmount(() => {
         <HbTextarea v-if="json" v-model="schemaText" :rows="6" :invalid="!!schemaError" aria-label="json schema" />
         <p v-if="schemaError" class="hb-error" role="alert">{{ schemaError }}</p>
       </section>
+      <VoiceRow :row="voice" />
+      <p class="hb-note">spoken by this browser's own voices. volume follows the system.</p>
     </template>
     <template #tab-tools>
       <section class="hb-panel xc-toolset" aria-label="tools">
@@ -236,10 +238,6 @@ onBeforeUnmount(() => {
       </section>
       <PlanLog :state="plan" empty="turn tools on and send a message; each plan, call and result shows here." />
       <button type="button" class="hb-btn" @click="clearLog">clear the log</button>
-    </template>
-    <template #tab-voice>
-      <VoiceRow :row="voice" />
-      <p class="hb-note">spoken by this browser's own voices. volume follows the system.</p>
     </template>
     <template #detail>
       <p class="hb-note">memory: keyword and vector recall in a wasm core, kept in this browser's storage. sources are cut into parts and kept as documents, which cleanup never drops. the persona goes first, then memory, then notes, then rules; the last parts drop when a request runs out of room.</p>
