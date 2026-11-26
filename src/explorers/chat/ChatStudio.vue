@@ -141,7 +141,15 @@ const TABS = [
   { id: 'voice', label: 'voice' },
 ]
 
+// the conversation is the thread, its verbs and its composer together, beside the rack
+const lay = ref<{ $el: HTMLElement } | null>(null)
 onMounted(async () => {
+  const root = lay.value?.$el
+  root?.querySelector<HTMLElement>('.hb-lay-subject')?.removeAttribute('data-ux')
+  const stage = root?.querySelector<HTMLElement>('.hb-lay-stage')
+  if (stage) stage.dataset.ux = 'subject'
+  const comp = root?.querySelector<HTMLElement>('.hb-lay-composer')
+  if (comp) comp.dataset.ux = 'verbs'
   chipPick.value = pick
   const w = window as unknown as { hbExplorer?: unknown }
   w.hbExplorer = { list, pick, sample: () => list.thread.send('what filament do i print with?') }
@@ -164,7 +172,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <HbConversationLayout v-model:tab="tab" class="xc" :tabs="TABS" rack-label="chat studio">
+  <HbConversationLayout ref="lay" v-model:tab="tab" class="xc" :tabs="TABS" rack-label="chat studio">
     <ChatPane :thread="list.thread" name="reply" empty-name="what are we working on?" empty-note="your persona rides along with every message, and memory fills in the specifics. pick a model in the bar to answer; until then a written reply shows what memory found." />
     <template #verbs>
       <HbSeg v-model="mode" :options="['quick', 'default', 'complex']" toggle aria-label="reply mode" />
