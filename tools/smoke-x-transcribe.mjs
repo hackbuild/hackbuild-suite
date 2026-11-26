@@ -51,7 +51,7 @@ try {
   })
   await page.waitForSelector('.hb-lay-verbs [data-undo]', { timeout: 3000 }).catch(() => fail('no undo after an edit'))
 
-  for (const t of ['engine', 'capture']) await page.evaluate((name) => [...document.querySelectorAll('.hb-rack [role=tab]')].find((x) => x.textContent.trim() === name).click(), t)
+  for (const t of ['model', 'sound']) await page.evaluate((name) => [...document.querySelectorAll('.hb-rack [role=tab]')].find((x) => x.textContent.trim() === name).click(), t)
   const rack = await page.evaluate(() => ({
     sliders: document.querySelectorAll('.xt-cap input[type=range]').length,
     checks: document.querySelectorAll('.xt-cap input[type=checkbox]').length,

@@ -88,9 +88,9 @@ const setDrop = (d: TranscribeDropHandle) => (drop = d)
 
 const tab = ref('files')
 const TABS = [
-  { id: 'files', label: 'channels' },
-  { id: 'engine', label: 'engine' },
-  { id: 'capture', label: 'capture' },
+  { id: 'files', label: 'files' },
+  { id: 'engine', label: 'model' },
+  { id: 'capture', label: 'sound' },
   { id: 'log', label: 'log' },
 ]
 watch(empty, (e) => { if (!e) tab.value = 'files' })
@@ -140,9 +140,10 @@ onBeforeUnmount(() => {
     </template>
 
     <template #tab-files>
+      <ModelSelect :pick="pick" variant="line" :go="false" />
       <TranscribeQueue :queue="queue" />
       <HbLevelRail v-if="picked?.rail" :env="picked.rail.db" :vad="picked.rail.kept" :noise-db="picked.stats?.noiseDb ?? null" :thr-db="picked.stats?.thrDb ?? null" :segments="picked.segments" :duration="picked.duration ?? picked.stats?.dur ?? 1" />
-      <p v-if="empty" class="hb-note">each file becomes a channel here, with its levels and how fast it ran.</p>
+      <p v-if="empty" class="hb-note">each file you drop shows here with its progress.</p>
     </template>
     <template #tab-engine>
       <ModelSelect :pick="pick" />
