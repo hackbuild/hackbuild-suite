@@ -5,6 +5,10 @@
 // never register it. The settings switch turns it off: the worker is
 // removed and the page reloads once without isolation.
 //
+// The one reload is skipped once the visitor has pressed or typed anything:
+// a press in the first second used to land on the page the reload threw
+// away. That page runs unisolated; the next load is isolated.
+//
 // The switch lives in the workspace database with every setting, and is
 // mirrored into localStorage so the next load knows it before that
 // database opens.
@@ -18,6 +22,10 @@ const RELOADED = 'hb-isolation-reloaded'
 const SCRIPT = 'coi-sw.js'
 
 const single = typeof __SINGLE__ !== 'undefined' && __SINGLE__
+
+// a press or a key since this page loaded: the reload would lose it
+let touched = false
+if (typeof addEventListener === 'function') for (const t of ['pointerdown', 'keydown']) addEventListener(t, () => (touched = true), { capture: true, once: true, passive: true })
 const isolatedNow = () => typeof self !== 'undefined' && self.crossOriginIsolated === true
 
 function first(): IsolationState {
@@ -66,7 +74,7 @@ async function removeWorker(): Promise<boolean> {
 }
 
 function reloadOnce(): boolean {
-  if (store.get(session(), RELOADED)) return false
+  if (touched || store.get(session(), RELOADED)) return false
   store.set(session(), RELOADED, '1')
   location.reload()
   return true
@@ -91,12 +99,14 @@ export async function startIsolation(): Promise<void> {
       await sw.ready
       if (!sw.controller) await new Promise<void>((res) => { sw.addEventListener('controllerchange', () => res(), { once: true }); setTimeout(res, 3000) })
       if (sw.controller && reloadOnce()) return
+      if (sw.controller && touched) { isolation.value = 'pending'; return }
     } else if (mode === 'credentialless' && store.get(local(), COEP_KEY) === null) {
       // served by the worker and still not isolated: no credentialless here
       store.set(local(), COEP_KEY, 'require-corp')
       store.set(session(), RELOADED, null)
       await sw.register(`./${SCRIPT}?coep=require-corp`, { scope: './' })
       if (reloadOnce()) return
+      if (touched) { isolation.value = 'pending'; return }
     }
     isolation.value = 'failed'
   } catch {
