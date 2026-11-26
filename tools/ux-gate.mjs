@@ -50,7 +50,7 @@
 // "loadedLayout" judges the loaded row by another layout: a gate that opens
 // on its stage and rack once the setup has woken it.
 //
-//   node tools/ux-gate.mjs --dir dist/hosted --routes "#/,#/chat/chat" --out <dir> [--name suite] [--report-only] [--dog-site ../dog-simulator/dist/site]
+//   node tools/ux-gate.mjs [--url https://host/path/] --dir dist/hosted --routes "#/,#/chat/chat" --out <dir> [--name suite] [--report-only] [--dog-site ../dog-simulator/dist/site]
 // For a non hash site pass file routes, like --routes "index.html".
 // Writes <out>/<name>-<slug>[-loaded]-<width>.png, <out>/report.json and <out>/report.md.
 // Exit code 1 on any failed check, 0 with --report-only.
@@ -91,7 +91,9 @@ async function dismissModal(page, target) {
 }
 
 mkdirSync(out, { recursive: true })
-const server = await serveDir(dir)
+// --url <base>: gate a live site (the release check) instead of serving --dir
+const url = arg('url', null)
+const server = url ? { base: url.endsWith('/') ? url : `${url}/`, close: () => {} } : await serveDir(dir)
 const chrome = await launch({ prefix: 'ux-gate-', blockModels: true })
 const results = []
 const log = (r) => {
