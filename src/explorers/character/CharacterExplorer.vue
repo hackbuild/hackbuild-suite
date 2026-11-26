@@ -7,18 +7,18 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import { probe, type Env } from '@hackbuild/ai-env'
 import type { ChatEngine } from '@hackbuild/chat'
-import { chatList, jobLoader, useModelPick, type Job, type Loader, type MemoryUsed, type ModelPick, type PickSnapshot, type RecallLike } from '@hackbuild/ai-views'
-import { ChatPane, Composer, MemoryInspector, ModelSelect } from '@hackbuild/ai-views/vue'
+import { canClone, chatList, jobLoader, personaRack, speaker, useModelPick, type Job, type Loader, type MemoryUsed, type ModelPick, type PersonaPresetX, type PickSnapshot } from '@hackbuild/ai-views'
+import type { MemoryPaneHandle } from '@hackbuild/ai-views/elements'
+import { ChatPane, Composer, MemoryPane, ModelSelect, PersonaRack, SessionMenu, SourcesDrop, VoiceClone } from '@hackbuild/ai-views/vue'
 import { hashedEmbedder, loadCore, open, type Embedder, type Memory, type StoredItem } from '@hackbuild/memory'
 import { MEMORY_WASM_BASE64 } from '@hackbuild/memory/inline'
-import { SegmentCutter } from '@hackbuild/speak'
-import { characterStage, type CharacterStageHandle, type Verb } from '@hackbuild/motion-views/vanilla'
+import { SegmentCutter, type Engine } from '@hackbuild/speak'
+import { characterStage, type CharacterStageHandle, type Speech, type Verb } from '@hackbuild/motion-views/vanilla'
 import { AvatarDrop } from '@hackbuild/motion-views/vue'
-import { HbGateCheck, HbRack, HbSelect, HbSlider, HbToggleRow } from '@virgilvox/hackbuild-ui'
-import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
+import { HbGateCheck, HbMicButton, HbRack, HbSelect, HbSlider, HbToggleRow } from '@virgilvox/hackbuild-ui'
 import { chipPick } from '../../shell/chip'
+import { HUMAN_GLB } from '../../shell/dog'
 import { FLAWS, LENGTHS, brain as makeBrain, type BrainSettings } from './brain'
-import { canClone, voice as makeVoice } from './voice'
 
 // the gate and the smokes, and only they, open ?stub: stand ins for this machine and the network
 const STUB = new URLSearchParams(location.search).has('stub')
@@ -55,16 +55,24 @@ const memoryState = ref<'wait' | 'load' | 'ok' | 'err'>('load')
 // --- the brain tab
 const settings = reactive<BrainSettings>({ temperature: 0.8, register: 'slack', length: 2, flaws: 1 })
 const REGISTERS = [{ value: 'slack', label: 'a person, chat register' }, { value: 'terminal', label: 'a developer, terminal register' }]
-const brain = makeBrain(() => settings, () => SYSTEM)
+// character presets: one press loads a persona; saved ones stay in this browser
+const PRESETS: PersonaPresetX[] = [
+  { label: 'twin', persona: { name: 'twin', profile: SYSTEM, notes: '', rules: '' } },
+  { label: 'shop hand', persona: { name: 'shop hand', profile: 'you run the front desk of a small maker space. you know the tools, the bookings and the rules, and you answer in a line or two.', notes: '', rules: 'never promise a booking. say who to ask.' } },
+  { label: 'night owl', persona: { name: 'night owl', profile: 'you are up late in a quiet workshop, half working on a build. you talk slow and dry and get to the point.', notes: '', rules: '' } },
+]
+const SAVED = 'character-presets'
+const savedPresets = (): PersonaPresetX[] => { try { return JSON.parse(localStorage.getItem(SAVED) ?? '[]') as PersonaPresetX[] } catch { return [] } }
+const rack = personaRack({ presets: PRESETS, saved: savedPresets(), onSave: (p) => { try { localStorage.setItem(SAVED, JSON.stringify(p)) } catch { /* storage blocked: kept for this visit */ } } })
+const brain = makeBrain(() => settings, () => rack.system([], 3000).text)
 
 // --- memory
 let mem: Memory | null = null
+const memRef = shallowRef<Memory | null>(null)
 const notes = shallowRef<StoredItem[]>([])
-const query = ref('')
-const found = shallowRef<RecallLike | null>(null)
-const note = ref('')
+const pane = shallowRef<MemoryPaneHandle | null>(null)
 const core = loadCore({ base64: MEMORY_WASM_BASE64 })
-const openMemory = (embed: Embedder) => core.then((c) => open('character', { core: c, embed })).then((m) => ((mem = m), (notes.value = m.all()), m))
+const openMemory = (embed: Embedder) => core.then((c) => open('character', { core: c, embed })).then((m) => ((mem = m), (memRef.value = m), (notes.value = m.all()), m))
 const ready = openMemory(hashedEmbedder()).then(() => (memoryState.value = 'ok')).catch(() => (memoryState.value = 'err'))
 const recall = async (q: string): Promise<MemoryUsed[]> => {
   await ready
@@ -72,65 +80,48 @@ const recall = async (q: string): Promise<MemoryUsed[]> => {
   const r = await mem.recall(q, { k: 3 })
   return r.hits.map((h) => ({ label: h.item.text, score: Math.min(1, h.score) }))
 }
-async function search() {
+const memChanged = () => (notes.value = mem?.all() ?? [])
+// files and folders into memory: text, pdf, docx, zip and mail
+const readIn = async (files: File[], o: { onFile: (e: { name: string; chunks: number; note?: string }) => void }) => {
   await ready
-  if (mem && query.value.trim()) found.value = await mem.recall(query.value.trim(), { k: 6 })
-}
-async function addNote() {
-  await ready
-  if (!mem || !note.value.trim()) return
-  await mem.add(note.value.trim(), { kind: 'note' })
-  note.value = ''
-  notes.value = mem.all()
-}
-async function importNotes(e: Event) {
-  await ready
-  for (const f of (e.target as HTMLInputElement).files ?? []) {
-    for (const para of (await f.text()).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)) await mem?.add(para.slice(0, 2000), { kind: 'doc' })
-  }
-  notes.value = mem?.all() ?? []
+  if (!mem) return { files: 0, chunks: 0 }
+  const { ingest } = await import('@hackbuild/memory/ingest')
+  const r = await ingest(mem, files, { onFile: o.onFile })
+  memChanged()
+  pane.value?.refresh()
+  return r
 }
 
 // --- the thread
 const list = chatList({ recall, system: '', noEngine: 'he has no brain loaded. pick one in the brain tab and load it.' })
 const thread = list.thread
 const lastUsed = shallowRef<MemoryUsed[]>([])
+watch(lastUsed, (u) => pane.value?.used(u.map((m) => m.label)))
+function onPane(h: MemoryPaneHandle) {
+  pane.value = h
+  h.used(lastUsed.value.map((m) => m.label))
+}
 
 // --- the voice
 const speakReplies = ref(true)
 const early = ref(false)
-const cloneNote = ref('')
-const cloned = ref(false)
-const voice = makeVoice(() => (withVoice.value ? (voiceSnap.value?.loaded as never) ?? null : null), () => stage.value, (t) => (caption.value = t))
+const speakingNow = ref(false)
+const voice = speaker(() => (withVoice.value ? ((voiceSnap.value?.loaded as Engine | undefined) ?? null) : null), {
+  play: async (line) => {
+    const s = stage.value
+    if (!s) return
+    speakingNow.value = true
+    try { await s.say(line as Speech) } finally { speakingNow.value = false }
+  },
+  halt: () => stage.value?.stop(),
+  onLine: (t) => (caption.value = t),
+})
 const canCloneNow = computed(() => canClone(voiceSnap.value?.loaded))
-async function cloneFrom(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (!f) return
-  cloneNote.value = 'cloning...'
-  try {
-    cloneNote.value = `cloned from ${(await voice.cloneFile(f)).toFixed(1)} s of ${f.name}.`
-    cloned.value = true
-  } catch (err) {
-    cloneNote.value = err instanceof Error ? err.message : String(err)
-  }
-}
-async function cloneRecord() {
-  try {
-    const s = await voice.cloneMic(10, (left) => (cloneNote.value = `recording, ${left} s left`))
-    cloneNote.value = `cloned from ${s.toFixed(1)} s of your mic.`
-    cloned.value = true
-  } catch (err) {
-    cloneNote.value = err instanceof Error && err.name === 'NotAllowedError' ? 'the mic is blocked. allow it in the address bar, or clone from a file.' : String(err instanceof Error ? err.message : err)
-  }
-}
-function cloneSave() {
-  const wav = voice.cloneWav()
-  if (wav) saveFile('voice-clone.wav', wav)
-}
-function cloneClear() {
-  voice.clearClone()
-  cloned.value = false
-  cloneNote.value = 'clone cleared. the voice is its own again.'
+
+// hands free: the mic sends what it heard when you stop talking, gated while he speaks
+function heard(text: string) {
+  const t = text.trim()
+  if (t) void thread.send(t)
 }
 
 // speak each reply: whole when it ends, or sentence by sentence while it streams
@@ -160,6 +151,14 @@ function useBody(e: { files: readonly unknown[] }) {
 }
 function placeholder() {
   stage.value?.showPlaceholder()
+}
+// his own body by default, from the dog site; the stand in when it does not load (offline) or on ?stub
+let ownTry = false
+function wearOwn() {
+  const s = stage.value
+  if (!s || STUB) return
+  ownTry = true
+  void s.show(HUMAN_GLB).then((b) => { if (!b) s.showPlaceholder() }, () => s.showPlaceholder())
 }
 
 // --- the gate checks
@@ -200,14 +199,10 @@ function noVoice() {
 }
 
 // --- data
-function clearChat() {
+async function forget() {
   thread.clear()
   lastUsed.value = []
-}
-async function forget() {
-  clearChat()
   voice.clearClone()
-  cloned.value = false
   if (mem) await mem.remove(mem.all().map((i) => i.id))
   notes.value = []
   for (const p of [brainPick.value, voicePick.value, embedPick.value]) {
@@ -236,8 +231,14 @@ onMounted(async () => {
   stage.value = s
   offs.push(s.on((e) => {
     if (e.type === 'doing') doing.value = e.word
-    else if (e.type === 'loaded') (bodyName.value = e.placeholder ? 'stand in body' : e.name, bodyLoaded.value = !e.placeholder)
-    else if (e.type === 'failed') bodyName.value = e.message
+    else if (e.type === 'loaded') {
+      bodyName.value = e.placeholder ? (ownTry ? 'stand in body. his own body did not load here.' : 'stand in body') : ownTry ? 'his own body' : e.name
+      bodyLoaded.value = !e.placeholder
+      ownTry = false
+    } else if (e.type === 'failed') {
+      bodyName.value = ownTry ? 'stand in body. his own body did not load here.' : e.message
+      ownTry = false
+    }
     else if (e.type === 'framing') framing.value = e.framing
     else if (e.type === 'verb') {
       if (e.id === 'turn') s.turn()
@@ -245,6 +246,7 @@ onMounted(async () => {
       else if (e.id === 'wave') s.gesture('wave')
     }
   }))
+  wearOwn()
   // gesture while speaking: a nod at the start of each line
   offs.push(watch(caption, (t) => { if (t && awake.value) s.gesture('nod') }))
 })
@@ -292,19 +294,17 @@ onBeforeUnmount(() => {
         <template #talk>
           <div class="sx-x-talk">
             <div class="sx-x-thread"><ChatPane :thread="thread" name="twin" empty-name="say something to him" empty-note="he answers from his brain and the notes in his memory." /></div>
-            <div class="sx-x-compose"><Composer :thread="thread" placeholder="say something" /></div>
+            <div class="sx-x-compose">
+              <Composer :thread="thread" placeholder="say something" />
+              <HbMicButton listen note :speaking="speakingNow" @final="heard" />
+            </div>
           </div>
         </template>
         <template #memory>
           <section class="hb-panel sx-x-pad">
-            <p class="hb-note">{{ notes.length }} notes. recall runs keyword and vector search together in this tab.</p>
-            <label class="hb-field"><span class="hb-label">search his memory</span><input v-model="query" class="hb-input" type="search" @keydown.enter="search" @input="search"></label>
-            <MemoryInspector v-if="found" :recall="found" />
-            <label class="hb-field"><span class="hb-label">add a note</span><textarea v-model="note" class="hb-input" rows="3" placeholder="something he should know" /></label>
-            <p class="sx-x-row"><button v-if="note.trim()" type="button" class="hb-btn" @click="addNote">add note</button><label class="hb-btn">import text files<input type="file" accept=".txt,.md" multiple hidden @change="importNotes"></label></p>
-            <h3 class="hb-panel-hd">last reply used</h3>
-            <ul v-if="lastUsed.length" class="hb-list"><li v-for="m in lastUsed" :key="m.label">{{ m.label }}</li></ul>
-            <p v-else class="hb-note">nothing yet. ask him something his notes cover.</p>
+            <MemoryPane v-if="memRef" :memory="memRef" name="his memory" @pane="onPane" @change="memChanged" />
+            <SourcesDrop :ingest="readIn" />
+            <p class="hb-note">{{ lastUsed.length ? `last reply used ${lastUsed.length} note${lastUsed.length === 1 ? '' : 's'}, marked above.` : 'nothing used yet. ask him something his notes cover.' }}</p>
             <h3 class="hb-panel-hd">recall model</h3>
             <ModelSelect v-if="embedPick" job="embed" :pick="embedPick" variant="line" :go="false" />
           </section>
@@ -314,16 +314,9 @@ onBeforeUnmount(() => {
             <HbToggleRow v-model="speakReplies" label="speak replies" />
             <HbToggleRow v-model="early" label="start speaking while it writes" description="faster with webgpu" />
             <ModelSelect v-if="voicePick" job="voice" :pick="voicePick" variant="line" :go="false" />
-            <template v-if="canCloneNow">
-              <h3 class="hb-panel-hd">clone a voice</h3>
-              <p class="sx-x-row">
-                <label class="hb-btn">clone from audio file<input type="file" accept="audio/*" hidden @change="cloneFrom"></label>
-                <button type="button" class="hb-btn" @click="cloneRecord">record 10 s</button>
-                <button v-if="cloned" type="button" class="hb-btn" @click="cloneSave">download clone, wav</button>
-                <button v-if="cloned" type="button" class="hb-btn" @click="cloneClear">clear clone</button>
-              </p>
-            </template>
-            <p class="hb-note">{{ cloneNote || (withVoice ? 'pocket clones a voice from 10 s of audio. nothing leaves this tab.' : 'woken with no voice. load one here and he speaks.') }}</p>
+            <h3 class="hb-panel-hd">clone a voice</h3>
+            <VoiceClone :speaker="voice" :can="canCloneNow" />
+            <p v-if="!withVoice" class="hb-note">woken with no voice. load one here and he speaks.</p>
           </section>
         </template>
         <template #body>
@@ -332,6 +325,7 @@ onBeforeUnmount(() => {
             <p class="sx-x-row">
               <button type="button" class="hb-btn" @click="stage?.turn()">turn around</button>
               <button v-if="bodyLoaded" type="button" class="hb-btn" @click="placeholder">back to the stand in</button>
+              <button v-else-if="!STUB" type="button" class="hb-btn" @click="wearOwn">his own body</button>
             </p>
             <p class="hb-note">{{ bodyName }}</p>
           </section>
@@ -339,14 +333,16 @@ onBeforeUnmount(() => {
         <template #brain>
           <section class="hb-panel sx-x-pad">
             <ModelSelect v-if="brainPick" job="chat" :pick="brainPick" variant="line" :go="false" />
+            <h3 class="hb-panel-hd">who he is</h3>
+            <PersonaRack :rack="rack" />
             <HbSlider v-model="settings.temperature" label="temperature" :min="0" :max="1.5" :step="0.05" :format="(v: number) => v.toFixed(2)" />
             <label class="hb-field"><span class="hb-label">who is he talking to</span><HbSelect v-model="settings.register" :options="REGISTERS" /></label>
             <HbSlider v-model="settings.length" label="reply length" :min="0" :max="3" :step="1" :format="(v: number) => LENGTHS[v] ?? ''" />
             <HbSlider v-model="settings.flaws" label="typos and flaws" :min="0" :max="2" :step="1" :format="(v: number) => FLAWS[v] ?? ''" />
             <p class="hb-note">flaws land in what you read only. the voice and his memory of the chat stay clean.</p>
             <h3 class="hb-panel-hd">data</h3>
+            <SessionMenu :list="list" />
             <p class="sx-x-row">
-              <button v-if="thread.snapshot().turns.length" type="button" class="hb-btn hb-btn-danger" @click="clearChat">clear chat</button>
               <button type="button" class="hb-btn hb-btn-danger" @click="forget">forget everything cached here</button>
             </p>
           </section>
@@ -366,7 +362,7 @@ onBeforeUnmount(() => {
 .sx-x-row { display: flex; flex-wrap: wrap; gap: var(--hb-s2); margin: 0; }
 .sx-x-talk { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .sx-x-thread { flex: 1; min-height: 0; overflow: auto; }
-.sx-x-compose { position: sticky; bottom: 0; padding-top: var(--hb-s2); background: var(--hb-paper); }
+.sx-x-compose { position: sticky; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--hb-s2); padding-top: var(--hb-s2); background: var(--hb-paper); }
 .sx-x-caption { margin: 0; max-width: 34ch; }
 @media (max-width: 900px) {
   .sx-x { height: auto; min-height: calc(100svh - 52px); }
