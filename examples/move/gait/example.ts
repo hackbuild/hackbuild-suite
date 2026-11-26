@@ -4,13 +4,18 @@
 import { load, BodyDynamics, QuadrupedGait, TailWag, type GaitName, type GaitState } from "@hackbuild/gait";
 import { driveQuadruped, measureQuadruped } from "@hackbuild/gait/three";
 import { Vector3 } from "three";
+import { BOX_DOG_BONES, boxDog, threeStage } from "@hackbuild/motion-views/vanilla";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { draw, sleep, type Example } from "../../shared/fixtures.js";
-import { DOG_NAMES, buildDog, kv, stage3 } from "../../shared/move.js";
+
+// small page helpers, kept here so this file stands alone
+const draw = (host: HTMLElement, markup: string) => ((host.innerHTML = markup.trim()), host.firstElementChild as HTMLElement);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const kv = (el: Element, rows: Record<string, string | number>) =>
+  (el.innerHTML = Object.entries(rows).map(([k, v]) => `<div class="hb-kv"><span class="hb-label">${k}</span><span class="hb-readout">${v}</span></div>`).join(""));
 
 const SPEEDS = [0.3, 0.7, 1.4, 2.4, 3.6];
 
-export default function mount(host: HTMLElement): Example {
+export default function mount(host: HTMLElement): { sample: () => Promise<void>; dispose: () => void } {
   const root = draw(host, `
     <div class="hb-lay hb is-stage-rack">
       <div class="hb-lay-body">
@@ -35,13 +40,13 @@ export default function mount(host: HTMLElement): Example {
       </div>
     </div>`);
   const $ = (s: string) => root.querySelector(s) as HTMLElement;
-  const dog = buildDog();
+  const dog = boxDog();
   let speed = 1;
   let parts: { gait: QuadrupedGait; body: BodyDynamics; tail: TailWag; rig: ReturnType<typeof measureQuadruped> } | null = null;
   const pose = { x: 0, z: 0, yaw: 0 };
   let shown = 0;
 
-  const view = stage3($(".hb-lay-subject"), (dt) => {
+  const view = threeStage($(".hb-lay-subject"), (dt) => {
     if (!parts) return;
     const turnRate = SPEEDS[speed]! / 2.2; // a circle about 4.4 m across
     pose.yaw += turnRate * dt;
@@ -54,13 +59,13 @@ export default function mount(host: HTMLElement): Example {
     const tail = parts.tail.update(dt, { modeWeights: [1, 2, 1, 1, 0, 0, 0, 1], arousal: 0.5, turnRate });
     driveQuadruped(parts.rig, pose, s, body, { tail });
     // the view keeps its angle and distance while the dog circles
-    const was = view.controls.target.clone();
-    view.controls.target.lerp(new Vector3(pose.x, 0.3, pose.z), 0.1);
-    view.camera.position.add(view.controls.target.clone().sub(was));
+    const was = view.orbit.target.clone();
+    view.orbit.target.lerp(new Vector3(pose.x, 0.3, pose.z), 0.1);
+    view.camera.position.add(view.orbit.target.clone().sub(was));
     if ((shown += dt) > 0.25) (show(s, body.pitch, body.roll), (shown = 0));
   });
   view.camera.position.set(1.6, 0.9, 1.8);
-  view.controls.target.set(0, 0.3, 0);
+  view.orbit.target.set(0, 0.3, 0);
   view.scene.add(dog);
 
   const show = (s: GaitState, pitch: number, roll: number) => {
@@ -72,7 +77,7 @@ export default function mount(host: HTMLElement): Example {
   };
 
   void load().then(() => {
-    const rig = measureQuadruped(dog, DOG_NAMES);
+    const rig = measureQuadruped(dog, BOX_DOG_BONES as unknown as Parameters<typeof measureQuadruped>[1]);
     const gait = new QuadrupedGait(rig.specs, rig.legLength, { rng: Math.random, ground: () => 0 });
     gait.reset(0, 0, 0);
     parts = { rig, gait, body: new BodyDynamics(rig.geometry, Math.random), tail: new TailWag(Math.max(1, rig.tail.length), 0.06, Math.random) };

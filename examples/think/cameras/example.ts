@@ -4,14 +4,19 @@
 import { BoxGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, PerspectiveCamera, SphereGeometry, Vector3, WebGLRenderer } from "three";
 import { FirstPerson, Follow, Group, Orbit, Shake } from "@hackbuild/cameras";
 import { eyeInset } from "@hackbuild/agents-views";
+import { threeStage } from "@hackbuild/motion-views/vanilla";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { draw, sleep, type Example } from "../../shared/fixtures.js";
-import { kv, stage3 } from "../../shared/move.js";
+
+// small page helpers, kept here so this file stands alone
+const draw = (host: HTMLElement, markup: string) => ((host.innerHTML = markup.trim()), host.firstElementChild as HTMLElement);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const kv = (el: Element, rows: Record<string, string | number>) =>
+  (el.innerHTML = Object.entries(rows).map(([k, v]) => `<div class="hb-kv"><span class="hb-label">${k}</span><span class="hb-readout">${v}</span></div>`).join(""));
 
 type Rig = "follow" | "orbit" | "group" | "eye";
 const RIGS: Rig[] = ["follow", "orbit", "group", "eye"];
 
-export default function mount(host: HTMLElement): Example {
+export default function mount(host: HTMLElement): { sample: () => Promise<void>; dispose: () => void } {
   const root = draw(host, `
     <div class="hb-lay hb is-stage-rack">
       <div class="hb-lay-body">
@@ -47,7 +52,7 @@ export default function mount(host: HTMLElement): Example {
   let heading = 0;
   let follow: Follow, orbit: Orbit, group: Group, shake: Shake, mainEye: FirstPerson;
 
-  const view = stage3($(".hb-lay-subject"), (dt, t) => {
+  const view = threeStage($(".hb-lay-subject"), (dt, t) => {
     // the walker draws a figure eight; the friend trails it
     const next = new Vector3(4 * Math.sin(t * 0.35), 0.75, 2.5 * Math.sin(t * 0.7));
     heading = Math.atan2(next.x - pos.x, next.z - pos.z);
@@ -65,7 +70,7 @@ export default function mount(host: HTMLElement): Example {
     eye.frame();
     kv($("[data-now]"), { "camera to walker": `${view.camera.position.distanceTo(pos).toFixed(1)} m`, shake: shake.amplitude.toFixed(2) });
   });
-  view.controls.enabled = false;
+  view.orbit.enabled = false; // the rigs aim the camera
   for (let i = 0; i < 14; i++) {
     const b = new Mesh(new BoxGeometry(0.6, 0.4 + (i % 4) * 0.4, 0.6), new MeshStandardMaterial({ color: i % 3 ? "#c9c1b3" : "#8f877a" }));
     b.position.set(Math.cos(i * 2.4) * (5.5 + (i % 3)), b.geometry.parameters.height / 2, Math.sin(i * 2.4) * (4.5 + (i % 3)));

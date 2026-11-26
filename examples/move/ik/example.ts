@@ -6,10 +6,14 @@ import { load } from "@hackbuild/ik";
 import { solveTwoBone } from "@hackbuild/ik/three";
 import { characterStage } from "@hackbuild/motion-views/vanilla";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { draw, sleep, type Example } from "../../shared/fixtures.js";
-import { kv } from "../../shared/move.js";
 
-export default function mount(host: HTMLElement): Example {
+// small page helpers, kept here so this file stands alone
+const draw = (host: HTMLElement, markup: string) => ((host.innerHTML = markup.trim()), host.firstElementChild as HTMLElement);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const kv = (el: Element, rows: Record<string, string | number>) =>
+  (el.innerHTML = Object.entries(rows).map(([k, v]) => `<div class="hb-kv"><span class="hb-label">${k}</span><span class="hb-readout">${v}</span></div>`).join(""));
+
+export default function mount(host: HTMLElement): { sample: () => Promise<void>; dispose: () => void } {
   const root = draw(host, `
     <div class="hb-lay hb is-stage-rack">
       <div class="hb-lay-body">

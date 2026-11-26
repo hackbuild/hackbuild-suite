@@ -4,18 +4,22 @@
 import type { AnimationClip } from "three";
 import { load, parseBvh, retargetClip } from "@hackbuild/retarget";
 import { skeletonFromObject3D, toAnimationClip, type SceneSkeleton } from "@hackbuild/retarget/three";
-import { characterStage, clipStrip, type StripItem } from "@hackbuild/motion-views/vanilla";
+import { characterStage, clipStrip, type StripItem, walkBvh } from "@hackbuild/motion-views/vanilla";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { draw, sleep, type Example } from "../../shared/fixtures.js";
-import { kv, walkBvh } from "../../shared/move.js";
+
+// small page helpers, kept here so this file stands alone
+const draw = (host: HTMLElement, markup: string) => ((host.innerHTML = markup.trim()), host.firstElementChild as HTMLElement);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const kv = (el: Element, rows: Record<string, string | number>) =>
+  (el.innerHTML = Object.entries(rows).map(([k, v]) => `<div class="hb-kv"><span class="hb-label">${k}</span><span class="hb-readout">${v}</span></div>`).join(""));
 
 const SOURCES = [
-  { id: "walk", name: "walk", text: () => walkBvh(2.4, 30, 1) },
-  { id: "stroll", name: "stroll", text: () => walkBvh(3.2, 30, 0.6) },
-  { id: "march", name: "march", text: () => walkBvh(1.6, 30, 1.5) },
+  { id: "walk", name: "walk", text: () => walkBvh({ seconds: 2.4, fps: 30, swing: 1 }) },
+  { id: "stroll", name: "stroll", text: () => walkBvh({ seconds: 3.2, fps: 30, swing: 0.6 }) },
+  { id: "march", name: "march", text: () => walkBvh({ seconds: 1.6, fps: 30, swing: 1.5 }) },
 ];
 
-export default function mount(host: HTMLElement): Example {
+export default function mount(host: HTMLElement): { sample: () => Promise<void>; dispose: () => void } {
   const root = draw(host, `
     <div class="hb-lay hb is-stage-rack">
       <div class="hb-lay-body">

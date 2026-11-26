@@ -4,7 +4,10 @@
 import { load, Chooser, Drives, seededRng } from "@hackbuild/drives";
 import { drivesBars, drivesBarsState } from "@hackbuild/agents-views";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
-import { draw, sleep, type Example } from "../../shared/fixtures.js";
+
+// small page helpers, kept here so this file stands alone
+const draw = (host: HTMLElement, markup: string) => ((host.innerHTML = markup.trim()), host.firstElementChild as HTMLElement);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 type Need = "hunger" | "tired" | "bored";
 type Act = "eat" | "rest" | "play" | "explore";
@@ -17,7 +20,7 @@ const ACTS: Record<Act, { effect: Partial<Record<Need, number>>; at: [number, nu
 };
 const GROW: Record<Need, number> = { hunger: 0.018, tired: 0.012, bored: 0.03 };
 
-export default function mount(host: HTMLElement): Example {
+export default function mount(host: HTMLElement): { sample: () => Promise<void>; dispose: () => void } {
   const root = draw(host, `
     <div class="hb-lay hb is-stage-rack">
       <div class="hb-lay-body">
