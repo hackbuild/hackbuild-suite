@@ -113,13 +113,13 @@ function auto(kind: 'edges' | 'threshold' | 'clusters' | 'auto') {
     const r = autoThresholdMask(px)
     s.setMask(r.mask.data)
     level.value = r.threshold
-    autoNote.value = `auto threshold ${r.threshold} (computed)`
+    autoNote.value = `auto threshold ${r.threshold}`
     return
   } else {
     const c = colourClusters(px, { k: clusters.value })
     const found = clusterMasks(c).map((m, i) => ({ mask: m.data, label: `colour ${i + 1}`, score: c.counts[i]! / (px.width * px.height) }))
     s.addFound(found.filter((_, i) => i !== c.background))
-    autoNote.value = `${found.length - 1} colour groups, the largest left out as background (computed)`
+    autoNote.value = `${found.length - 1} colour groups, the largest left out as background`
     return
   }
   autoNote.value = ''

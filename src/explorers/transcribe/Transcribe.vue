@@ -76,7 +76,7 @@ const offQueue = queue.subscribe((s) => {
     const k = `${c.id}:${c.status}`
     if (seen.has(k)) continue
     seen.add(k)
-    if (c.status === 'done') log(`${c.name}: ${c.segments.length} lines, ${c.dropped.length} dropped${c.stats ? `, ${c.stats.rtf.toFixed(1)}x realtime (measured)` : ''}`, 'ok')
+    if (c.status === 'done') log(`${c.name}: ${c.segments.length} lines, ${c.dropped.length} dropped${c.stats ? `, ${c.stats.rtf.toFixed(1)}x realtime` : ''}`, 'ok')
     else if (c.status === 'empty') log(`${c.name}: no speech passed the gate. lower the gate margin or show dropped lines.`, 'warn')
     else if (c.status === 'failed') log(`${c.name}: ${c.error}`, 'error')
   }
