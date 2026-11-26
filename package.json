@@ -57,7 +57,9 @@
     "smoke:seal": "node tools/smoke-seal.mjs",
     "smoke:isolation": "node tools/smoke-isolation.mjs",
     "smoke:home": "node tools/smoke-home.mjs",
-    "smoke:examples": "node tools/smoke-examples.mjs"
+    "smoke:examples": "node tools/smoke-examples.mjs",
+    "smoke:x-chat": "node tools/smoke-x-chat.mjs",
+    "smoke:x-transcribe": "node tools/smoke-x-transcribe.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
@@ -73,7 +75,7 @@
     "@hackbuild/agent": "file:tools/vendor/hackbuild-agent-0.1.2-31dd944.tgz",
     "@hackbuild/agents-views": "file:tools/vendor/hackbuild-agents-views-0.1.0-73b91a3.tgz",
     "@hackbuild/ai-env": "file:tools/vendor/hackbuild-ai-env-0.1.1-de34d5e.tgz",
-    "@hackbuild/ai-views": "file:tools/vendor/hackbuild-ai-views-0.1.1-dada431.tgz",
+    "@hackbuild/ai-views": "file:tools/vendor/hackbuild-ai-views-0.1.3-7851417.tgz",
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.1-de34d5e.tgz",
     "@hackbuild/avatar": "file:tools/vendor/hackbuild-avatar-0.1.3-fc5bc0e.tgz",
     "@hackbuild/avatar-host": "file:tools/vendor/hackbuild-avatar-host-0.1.5-fc5bc0e.tgz",
@@ -92,7 +94,7 @@
     "@hackbuild/lipsync": "file:tools/vendor/hackbuild-lipsync-0.1.1-16bd854.tgz",
     "@hackbuild/listen": "file:tools/vendor/hackbuild-listen-0.1.3-e882c16.tgz",
     "@hackbuild/media": "file:tools/vendor/hackbuild-media-0.1.0-1d5b864.tgz",
-    "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.2-3c3f373.tgz",
+    "@hackbuild/memory": "file:tools/vendor/hackbuild-memory-0.1.4-0dc67a3.tgz",
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.2.0-e882c16.tgz",
     "@hackbuild/motion-match": "file:tools/vendor/hackbuild-motion-match-0.1.0-6ef5b9a.tgz",
     "@hackbuild/motion-net": "file:tools/vendor/hackbuild-motion-net-0.2.0-6ef5b9a.tgz",
