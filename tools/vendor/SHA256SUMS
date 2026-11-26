@@ -29,7 +29,6 @@ fa99bf2809bbafa022f3e1415c48693207b5c79066d7dd17e08c7473ee93baa2  hackbuild-avat
 6d73f3d7ab1c6efb5e6fa42415536be3ce1acd9985f6c36863b35d8c8662f88b  hackbuild-converse-0.1.1-de34d5e.tgz
 f734d5fd64da41214c2b6c3c75cf91ac6842080c28b8961687b1dba3a0e3f05d  hackbuild-devices-0.1.2-e882c16.tgz
 c4f96bbb510ca0784e6f231ae26223eeacb2742db173833017aed2069ffcf099  hackbuild-embed-0.1.2-e882c16.tgz
-a40b055190e2b57aa348081c561be928fc6ae19c58ae51f07826e4ebca26b0fd  hackbuild-imagegen-0.1.2-e882c16.tgz
 8e4836af9caac050a855860fad96aa09deca38da7a5ec0fa6b5000d327f6e29c  hackbuild-listen-0.1.3-e882c16.tgz
 839c8fe5f135582b3a78e2212cccd722286ed2fec1d4f31e46c2d867e9ddb9c0  hackbuild-speak-0.1.2-e882c16.tgz
 21296c9d5ed499294c5f6c5a76eeb5561452efcee8c7468046c1fe39c5133a5d  hackbuild-structured-0.1.1-de34d5e.tgz
@@ -39,3 +38,4 @@ bef22ced6a1d34b1fcec15548288f0e163bcaa5937fdc8ed0053e732dd8a7b7e  hackbuild-moti
 3c49389f14b4e134742ae7cbf897d1fd2b6f1941851dd4a15dd1bf3faab56ca0  hackbuild-vision-0.2.0-25f74df.tgz
 6e4bd9d3eb1abdb24af2daaeb46236bc0ce8c70d92760bdb21554f702a447f50  hackbuild-models-0.2.2-25f74df.tgz
 bcdeb9c472669782a59e3806d891ac15fc3983ea4f5db0bea7f1a7035746c3c3  hackbuild-ai-views-0.1.5-ed4987a.tgz
+7ebc5489958d49af639638490cf175b25471b8d41bebfc21b389506309590de9  hackbuild-imagegen-0.2.0-25f74df.tgz
