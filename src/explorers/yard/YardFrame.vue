@@ -1,53 +1,60 @@
 <script setup lang="ts">
 // The yard (rebuild plan 4 and 5): a still of the dog and his person until a
-// press plays the dog simulator here, in a frame, with the link out under
-// it. Home shows it first at full width; the yard explorer fills the page
-// with it and plays at once (the still stays behind ?stub, for gates). Under isolation the frame needs the same headers: on pages the
-// two sites share an origin, so the dog site's own coi-sw takes its scope
-// before the frame loads (its storage stays its own); anywhere else the
-// frame is credentialless.
-import { onMounted, ref } from 'vue'
+// press mounts the dog simulator here, live, as @hackbuild/agents-views Yard
+// over the dog site's plain files, with the link out under the still. Home
+// shows it first at full width; the yard explorer fills the page with it and
+// plays at once. The still stands in on ?stub (for gates) and offline, and
+// again with the reason when the yard does not load.
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import type { YardHandle } from '@hackbuild/agents-views/yard'
+import { DOG } from '../../shell/dog'
 import yard from './yard.jpg'
 
 const props = defineProps<{ full?: boolean }>()
-// a single file is never isolated and never hosted beside the dog site
-const sibling = !__SINGLE__ && location.pathname.includes('/hackbuild-suite/')
-const DOG = sibling ? new URL('../dog-simulator/', location.href).href : 'https://hackbuild.github.io/dog-simulator/'
+const host = ref<HTMLElement | null>(null)
 const playing = ref(false)
-const credentialless = ref(false)
+const fault = ref('')
+const stub = new URLSearchParams(location.search).has('stub')
+let handle: YardHandle | null = null
+let gone = false
 
-async function isolateDog(): Promise<boolean> {
-  if (__SINGLE__) return false
-  const sw = navigator.serviceWorker
-  const coep = sw?.controller ? new URL(sw.controller.scriptURL).searchParams.get('coep') : null
-  if (!sibling || !sw || !coep) return false
+async function play() {
+  if (playing.value) return
+  if (!navigator.onLine) { fault.value = 'you are offline. the yard loads its dog from the dog site.'; return }
+  fault.value = ''
+  playing.value = true
   try {
-    const reg = await sw.register(`${DOG}coi-sw.js?coep=${coep}`, { scope: DOG })
-    const w = reg.installing ?? reg.waiting
-    if (w) await new Promise<void>((ok) => { const t = setTimeout(ok, 4000); w.addEventListener('statechange', () => { if (w.state === 'activated') clearTimeout(t), ok() }) })
-    return !!reg.active
-  } catch {
-    return false
+    const { playYard } = await import('./live')
+    // the explorer opens the setup panel on a first visit (not on ?stub, for gates); home's press
+    // is the choice to just play
+    const h = await playYard(host.value as HTMLElement, !!props.full && !stub)
+    if (gone) { h.dispose(); return }
+    handle = h
+    await h.ready
+  } catch (e) {
+    handle?.dispose()
+    handle = null
+    playing.value = false
+    console.warn('yard', e)
+    if (!gone) fault.value = 'the yard did not load from the dog site. open the dog simulator instead.'
   }
 }
-async function play() {
-  if (self.crossOriginIsolated) credentialless.value = !(await isolateDog())
-  playing.value = true
-}
 // the yard explorer plays at once; home keeps the still and the press
-onMounted(() => { if (props.full && !new URLSearchParams(location.search).has('stub')) void play() })
+onMounted(() => { if (props.full && !stub) void play() })
+onBeforeUnmount(() => { gone = true; handle?.dispose(); handle = null })
 defineExpose({ play, DOG })
 </script>
 
 <template>
-  <section class="sx-yard" :class="{ 'is-full': full }" data-ux="subject" aria-label="the dog simulator">
-    <iframe v-if="playing" class="sx-yard-pic" :src="DOG" :credentialless="credentialless || undefined" title="the dog simulator" allow="autoplay; microphone; camera; fullscreen; cross-origin-isolated" />
-    <template v-else>
+  <section class="sx-yard" :class="{ 'is-full': full, 'is-live': playing }" :data-ux="playing ? undefined : 'subject'" aria-label="the dog simulator">
+    <div v-show="playing" ref="host" class="sx-yard-live" />
+    <template v-if="!playing">
       <button type="button" class="sx-yard-pic" aria-label="play the dog simulator here" @click="play"><img :src="yard" alt="a dog and his person in a low poly yard" width="1440" height="601" /></button>
       <div class="hb-lay-verbs">
         <button type="button" class="hb-btn hb-btn-go" @click="play">play the dog simulator</button>
         <a class="hb-btn" :href="DOG" target="_blank" rel="noopener">open the dog simulator</a>
       </div>
+      <p v-if="fault" class="hb-note sx-yard-fault" role="status">{{ fault }}</p>
     </template>
   </section>
 </template>
@@ -55,10 +62,15 @@ defineExpose({ play, DOG })
 <style scoped>
 .sx-yard { position: relative; height: calc(100svh - 52px - 40px - 170px); min-height: 280px; overflow: hidden; background: var(--hb-paper-sunk); border-bottom: 2px solid var(--hb-ink); }
 .sx-yard.is-full { height: calc(100dvh - 52px); border-bottom: 0; }
+.sx-yard.is-live:not(.is-full) { height: calc(100svh - 52px - 40px); }
+.sx-yard-live { height: 100%; }
 .sx-yard-pic, .sx-yard-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 55% 60%; border: 0; padding: 0; margin: 0; background: none; cursor: pointer; }
+.sx-yard-fault { position: absolute; left: 12px; top: 12px; max-width: min(480px, calc(100% - 24px)); margin: 0; padding: 6px 10px; background: var(--hb-paper); border: 1.5px solid var(--hb-ink); color: var(--hb-err); }
 /* a phone shows the dog and his person both: a 6 by 5 frame keeps 721 of the still's 1440 px (computed) */
 @media (max-width: 900px) {
   .sx-yard:not(.is-full) { height: auto; aspect-ratio: 6 / 5; }
   .sx-yard-pic img { object-position: 72% 60%; }
+  /* live, the yard stacks its rack under the stage and the page scrolls as one */
+  .sx-yard.is-live { height: auto; aspect-ratio: auto; overflow: visible; }
 }
 </style>

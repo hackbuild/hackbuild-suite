@@ -86,3 +86,21 @@ test('a dist that names a likeness file fails, and --no-dist skips it', () => {
   assert.match(r.stderr, /dist\/index\.html: the build names/)
   assert.equal(run(d, '--no-dist').status, 0)
 })
+
+test('tracked text may name a plain owner file of the dog site by its whole path', () => {
+  const { d, g } = repo({ 'src/live.ts': `load("dog-simulator/assets/${CLIP}")\n` })
+  g('add', '.')
+  assert.equal(run(d, '--no-dist').status, 0)
+  const bad = repo({ 'src/other.ts': `load("${CLIP}")\n` })
+  bad.g('add', '.')
+  assert.equal(run(bad.d, '--no-dist').status, 1)
+})
+
+test('a dist may name only the three plain owner files of the dog site', () => {
+  const ok = repo({ 'dist/index.html': `<script>load("https://hackbuild.github.io/dog-simulator/assets/${CLIP}","dog-simulator/assets/human.glb")</script>` })
+  assert.equal(run(ok.d).status, 0)
+  for (const bad of [`dog-simulator/assets/${BODY}`, `other/assets/${CLIP}`]) {
+    const { d } = repo({ 'dist/index.html': `<script>load("${bad}")</script>` })
+    assert.equal(run(d).status, 1, bad)
+  }
+})

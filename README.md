@@ -76,7 +76,7 @@ The suite only consumes these; every reusable piece lives in them.
 - [hackbuild-motion](https://github.com/hackbuild/hackbuild-motion): avatars, retargeting, ik, gait and lip sync on three.js. [llms.txt](https://hackbuild.github.io/hackbuild-motion/llms.txt)
 - [hackbuild-agents](https://github.com/hackbuild/hackbuild-agents): drives, senses, cameras and movers for agents in a scene. [llms.txt](https://hackbuild.github.io/hackbuild-agents/llms.txt)
 - [hackbuild-ui](https://github.com/hackbuild/hackbuild-ui): the design system, its six layouts and the model picker. [llms.txt](https://hackbuild.github.io/hackbuild-ui/llms.txt)
-- [dog-simulator](https://hackbuild.github.io/dog-simulator/): the yard on the home page.
+- [dog-simulator](https://hackbuild.github.io/dog-simulator/): the yard on the home page loads its dog, his person, their clips and voice and the physics core from the dog site's plain files.
 
 For agents and LLMs, [public/llms.txt](public/llms.txt) (served at the site root) lists every explorer and example with its source path. To build on the suite, or add an explorer or an example, read [docs/BUILDING.md](docs/BUILDING.md).
 
@@ -85,7 +85,7 @@ For agents and LLMs, [public/llms.txt](public/llms.txt) (served at the site root
 ### Not verified by anything
 
 - any example or explorer with a real model: the real loaders are in place, and every gate runs them on stand ins behind `?stub`.
-- the yard on home is a still taken headless from the live dog simulator; its press plays the live site in a frame, which no gate has loaded.
+- the yard at real frame rate in a headful browser: nobody has looked. Gates and smokes run it headless on webgl2 with the dog site's files served from a local build of it.
 
 ### Verified
 
@@ -93,6 +93,7 @@ For agents and LLMs, [public/llms.txt](public/llms.txt) (served at the site root
 - home: no modal, one bar, the yard and one pink action in the first view, every explorer, every example by job (`tools/smoke-home.mjs`).
 - each job's examples: the layout, the sample, and the source on screen equal to the file (`tools/smoke-examples.mjs <job>`).
 - each rebuilt explorer on `?stub` (`tools/smoke-x-<name>.mjs`).
+- the yard: on home and at `#/x/yard` the press mounts `Yard` from `@hackbuild/agents-views` live with no frame, the dog and his person stand in it, leaving disposes it, and an unreachable dog site gives the still back with the reason (`tools/smoke-x-yard.mjs`, `tools/smoke-home.mjs`, both with `--site`, a local build of the dog site).
 - home, every example and every explorer pass the screen gate at desktop and phone widths (`tools/ux-gate.mjs`).
 
 ## Changelog and licences

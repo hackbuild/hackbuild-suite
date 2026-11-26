@@ -201,7 +201,12 @@
   },
   "?stub#/x/yard": {
     "original": "~/Downloads/hackle (10).html",
-    "note": "the yard explorer is the dog simulator in a frame"
+    "note": "the yard explorer: the still, then the yard live (agents-views Yard)",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-390.png",
+      "note": "hackle on its brain tab, the yard's first tab"
+    }
   },
   "?stub#/x/relief": {
     "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/bail/bail (16).html",

@@ -188,7 +188,13 @@
   },
   "?stub#/x/yard": {
     "layout": "gate",
-    "note": "first view only: once pressed the frame is the dog site, which brings its own stage, rack and pink and is gated on its own (plan 8)"
+    "loadedLayout": "stage-rack",
+    "rackTabs": [
+      3,
+      7
+    ],
+    "setup": "(async () => { document.querySelector('.sx-yard .hb-btn-go').click(); for (let i = 0; i < 240 && !(window.__hackle && window.__hackle.dog.ready && window.__hackle.HUM.ready); i++) await new Promise((r) => setTimeout(r, 500)); if (!window.__hackle) throw new Error('the yard did not stand up'); await new Promise((r) => setTimeout(r, 1500)) })()",
+    "note": "the still first; the press mounts the live yard, gated as stage and rack with its seven tabs as on the dog site (run with --dog-site)"
   },
   "?stub#/x/relief": {
     "layout": "canvas-rail",

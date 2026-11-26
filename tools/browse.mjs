@@ -5,7 +5,7 @@
 // at 500 px).
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import puppeteer from 'puppeteer-core'
@@ -48,11 +48,12 @@ export async function launch({ prefix = 'hb-browse-', blockModels = false } = {}
 }
 
 /** Aborts weight file requests on a page; returns the list of blocked urls. */
-export async function blockWeights(page) {
+export async function blockWeights(page, serve = null) {
   const blocked = []
   await page.setRequestInterception(true)
   page.on('request', (req) => {
     if (req.isInterceptResolutionHandled()) return
+    if (serve && serve(req)) return
     if (isWeightUrl(req.url())) { blocked.push(req.url()); req.abort('blockedbyclient') } else req.continue()
   })
   return blocked
@@ -63,12 +64,12 @@ export async function blockWeights(page) {
  * of that size on a page of `base` (same origin). Returns the page, the target
  * to evaluate in (the frame or the page) and a shot function.
  */
-export async function openAt(browser, url, { width, height = 900, base, ready = 'body *', block = false, settle = 300 }) {
+export async function openAt(browser, url, { width, height = 900, base, ready = 'body *', block = false, settle = 300, dogSite = null }) {
   const page = await browser.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('dialog', (d) => d.dismiss().catch(() => {})) // an alert would hold the load
-  const blocked = block ? await blockWeights(page) : []
+  const blocked = block ? await blockWeights(page, dogSite ? dogSiteResponder(dogSite).serve : null) : []
   let target
   let shot
   let frameOf = async () => page
@@ -100,4 +101,36 @@ export async function openAt(browser, url, { width, height = 900, base, ready = 
   await page.waitForNetworkIdle({ idleTime: 500, timeout: 8000 }).catch(() => {})
   await new Promise((r) => setTimeout(r, settle))
   return { page, target, shot, errors, blocked }
+}
+
+// the dog site, for the yard smokes
+export const DOG = 'https://hackbuild.github.io/dog-simulator/'
+const DOG_TYPES = { glb: 'model/gltf-binary', wav: 'audio/wav', json: 'application/json', mjs: 'text/javascript' }
+
+/**
+ * Answers requests for the dog site's plain files from a local dog site build
+ * (dir, its dist/site) as pages does, access-control-allow-origin on each.
+ * serve(req) returns true when it answered (or refused) the request.
+ */
+export function dogSiteResponder(dir) {
+  const served = []
+  const serve = (r) => {
+    const u = r.url()
+    if (!u.startsWith(DOG)) return false
+    const rel = u.slice(DOG.length).split('?')[0]
+    const f = join(dir, rel)
+    if (!rel.startsWith('assets/') || !existsSync(f)) { r.abort(); return true }
+    served.push(rel)
+    r.respond({ status: 200, contentType: DOG_TYPES[rel.split('.').pop()] ?? 'application/octet-stream', headers: { 'access-control-allow-origin': '*', 'cross-origin-resource-policy': 'cross-origin' }, body: readFileSync(f) })
+    return true
+  }
+  return { serve, served }
+}
+
+/** Serves a local dog site build's plain files to a page; returns the paths it served. */
+export async function serveDogSite(page, dir) {
+  const { serve, served } = dogSiteResponder(dir)
+  await page.setRequestInterception(true)
+  page.on('request', (r) => { if (!serve(r)) r.continue() })
+  return served
 }

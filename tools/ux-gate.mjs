@@ -50,7 +50,7 @@
 // "loadedLayout" judges the loaded row by another layout: a gate that opens
 // on its stage and rack once the setup has woken it.
 //
-//   node tools/ux-gate.mjs --dir dist/hosted --routes "#/,#/chat/chat" --out <dir> [--name suite] [--report-only]
+//   node tools/ux-gate.mjs --dir dist/hosted --routes "#/,#/chat/chat" --out <dir> [--name suite] [--report-only] [--dog-site ../dog-simulator/dist/site]
 // For a non hash site pass file routes, like --routes "index.html".
 // Writes <out>/<name>-<slug>[-loaded]-<width>.png, <out>/report.json and <out>/report.md.
 // Exit code 1 on any failed check, 0 with --report-only.
@@ -66,6 +66,9 @@ const out = resolve(arg('out', 'ux-gate'))
 const name = arg('name', 'suite')
 const routes = arg('routes', '#/').split(',').map((r) => r.trim()).filter(Boolean)
 const reportOnly = argv.includes('--report-only')
+// --dog-site <dir>: answer the dog site's plain files (the yard's dog, person, clips and physics)
+// from a local build of it, as pages does
+const dogSite = arg('dog-site', null) && resolve(arg('dog-site'))
 const layoutsFile = resolve(arg('layouts', 'tools/ux-routes.json'))
 const layouts = existsSync(layoutsFile) ? JSON.parse(readFileSync(layoutsFile, 'utf8')) : {}
 const fallback = arg('layout', 'stage-rack')
@@ -103,7 +106,7 @@ try {
       const rows = [r]
       let page
       try {
-        const o = await openAt(chrome.browser, server.base + route, { width, height, base: server.base, block: true, settle: 600 })
+        const o = await openAt(chrome.browser, server.base + route, { width, height, base: server.base, block: true, settle: 600, dogSite })
         page = o.page
         await o.shot(join(out, r.shot)) // the first view as a visitor meets it, modal and all
         const setupPanel = await o.target.evaluate(setupScript)

@@ -36,5 +36,5 @@ const ALL: Explorer[] = [
 export const explorerPath = (e: Explorer): string | null => (e.route && !__GROUP__ ? e.route : null)
 
 /** The explorers whose tool this build carries (a group single file has a few).
- * The yard has no tool: it is the dog site in a frame, on every build with routes. */
+ * The yard has no tool: it is the yard view over the dog site's files, on every build with routes. */
 export const EXPLORERS = ALL.filter((e) => (e.id === 'yard' ? !__GROUP__ : TOOLS.some((t) => t.id === e.tool)))

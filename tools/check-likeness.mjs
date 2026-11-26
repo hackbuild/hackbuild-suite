@@ -3,8 +3,9 @@
 // the repo (every tracked and staged file) holds an owner likeness file or
 // a model or audio file above fixture size, when a tracked text file or the
 // built dist names a likeness file, or when a path sits in a local assets
-// folder. Twin mode loads a body and a voice only from files the person
-// drops; nothing of a likeness enters a repo.
+// folder. The dist may name the dog site's three plain owner files by their
+// whole path, and nothing else of a likeness. Twin mode loads a body and a
+// voice only from files the person drops; nothing of a likeness enters a repo.
 //   node tools/check-likeness.mjs [--root <dir>] [--no-dist]
 // The names are built from parts so this file does not name them itself.
 import { execFileSync } from 'node:child_process'
@@ -48,6 +49,11 @@ for (const f of index) {
   else if (HEAVY.test(lower) && (sizes.get(f.blob) ?? 0) > FIXTURE_MAX) problems.push(`${f.path}: a model or audio file of ${sizes.get(f.blob)} bytes is tracked or staged; fixtures stay under ${FIXTURE_MAX} bytes`)
 }
 
+// tracked text and the built dist name no likeness file, except the three owner files the dog site serves as
+// plain files (its dog, human and voice clip, the owner's own, shipped by the owner's decision of
+// 2026-11-25), which the yard fetches by their whole path on that site
+const SITE_FILES = ['dog.glb', 'human.glb', NAMES[1]].map((f) => `dog-simulator/assets/${f}`)
+const stripSite = (t) => SITE_FILES.reduce((x, f) => x.split(f).join(''), t)
 // tracked text that names a likeness file or the local assets folder
 const self = new Set(['tools/check-likeness.mjs', 'tools/test/likeness.test.mjs', '.gitignore'])
 const needles = [...NAMES, `${FOLDER}/`]
@@ -57,9 +63,13 @@ try {
 } catch (e) {
   if (e.status !== 1) throw e
 }
-for (const p of hits.split('\n').filter(Boolean)) if (!self.has(p)) problems.push(`${p}: names a likeness file or the local assets folder`)
+for (const p of hits.split('\n').filter(Boolean)) {
+  if (self.has(p)) continue
+  const t = stripSite(git('show', `:${p}`).toLowerCase())
+  if (needles.some((n) => t.includes(n.toLowerCase()))) problems.push(`${p}: names a likeness file or the local assets folder`)
+}
 
-// the built dist must not name the two files
+// the built dist must not name the two files, except the dog site's plain files (SITE_FILES)
 const dist = join(root, 'dist')
 if (withDist && existsSync(dist)) {
   const walk = (d) => readdirSync(d).flatMap((n) => {
@@ -67,7 +77,7 @@ if (withDist && existsSync(dist)) {
     return statSync(p).isDirectory() ? walk(p) : [p]
   })
   for (const p of walk(dist)) {
-    const text = readFileSync(p, 'latin1').toLowerCase()
+    const text = stripSite(readFileSync(p, 'latin1').toLowerCase())
     for (const n of NAMES) if (text.includes(n)) problems.push(`${p.slice(root.length + 1)}: the build names ${n}`)
   }
 }
