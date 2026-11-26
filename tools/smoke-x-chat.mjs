@@ -25,11 +25,11 @@ try {
   const first = await page.evaluate(() => ({
     name: document.querySelector('.hb-lay-convempty-name')?.textContent.trim(),
     tabs: [...document.querySelectorAll('.hb-rack [role=tab]')].map((t) => t.textContent.trim()),
-    modes: [...document.querySelectorAll('.hb-lay-verbs .hb-seg button')].map((b) => b.textContent.trim()),
+    modes: [...document.querySelectorAll('.hb-seg button')].filter((b) => b.checkVisibility()).map((b) => b.textContent.trim()).filter((t) => ['short', 'normal', 'deep'].includes(t)),
   }))
-  if (first.name !== 'what are we working on?') fail(`empty state: ${first.name}`)
-  if (first.tabs.join(',') !== 'memory,chats,persona,reply,tools') fail(`rack tabs: ${first.tabs.join(', ')}`)
-  if (first.modes.join(',') !== 'quick,default,complex') fail(`modes: ${first.modes.join(', ')}`)
+  if (first.name !== 'say something') fail(`empty state: ${first.name}`)
+  if (first.tabs.join(',') !== 'chats,memory,persona,reply,tools') fail(`rack tabs: ${first.tabs.join(', ')}`)
+  if (first.modes.length) fail(`modes in first view: ${first.modes.join(', ')}`)
   await page.waitForFunction(() => document.querySelectorAll('.hb-mempanel .hb-mem').length === 3, { timeout: 8000 }).catch(() => fail('the memory pane did not list the 3 stand in facts'))
 
   await page.evaluate(() => window.hbExplorer.pick.load())
@@ -40,6 +40,8 @@ try {
   const used = await page.evaluate(() => document.querySelector('.hb-msg-used summary')?.textContent.trim())
 
   // a note added in the memory tab joins the list
+  await page.evaluate(() => [...document.querySelectorAll('.hb-rack [role=tab]')].find((t) => t.textContent.trim() === 'memory').click())
+  await new Promise((r) => setTimeout(r, 150))
   await page.type('.hb-mempanel textarea', 'the dog collar needs a buckle')
   await page.evaluate(() => document.querySelector('.hb-mempanel [data-add]').click())
   await page.waitForFunction(() => document.querySelectorAll('.hb-mempanel .hb-mem').length === 4, { timeout: 5000 }).catch(() => fail('the added note did not show'))
@@ -72,7 +74,7 @@ try {
   if (!/recall/.test(step) || !/petg/.test(step)) fail(`tools on: the call reads ${step}`)
   await page.waitForFunction(() => [...document.querySelectorAll('.hb-msg')].some((m) => m.textContent.includes('you print in petg')), { timeout: 5000 }).catch(() => fail('tools on: the agent reply did not show'))
   if (errors.length) fail(`page errors: ${errors.join(' | ')}`)
-  console.log(`smoke-x-chat: ok. empty state, 5 rack tabs with memory first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders, ${listed} tools and an agent turn logging "${step.slice(0, 60)}" (measured, ?stub, no weights)`)
+  console.log(`smoke-x-chat: ok. empty state, 5 rack tabs with chats first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders, ${listed} tools and an agent turn logging "${step.slice(0, 60)}" (measured, ?stub, no weights)`)
 } finally {
   await chrome.close()
   server.close()

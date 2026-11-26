@@ -14,7 +14,7 @@ import { ingest } from '@hackbuild/memory/ingest'
 import { webSpeechEngine } from '@hackbuild/speak'
 import { openWeightStore } from '@hackbuild/weights'
 import { chatList, jobLoader, jobRecords, personaRack, storedIds, useModelPick, voiceRow, type MemoryUsed, type PersonaPresetX, type RecallLike } from '@hackbuild/ai-views'
-import { ChatList, ChatPane, Composer, MemoryInspector, MemoryPane, PersonaRack, SessionMenu, SourcesDrop, VoiceRow } from '@hackbuild/ai-views/vue'
+import { ChatList, ChatPane, Composer, MemoryInspector, ModelSelect, MemoryPane, PersonaRack, SessionMenu, SourcesDrop, VoiceRow } from '@hackbuild/ai-views/vue'
 import type { MemoryPaneHandle } from '@hackbuild/ai-views/elements'
 import { PlanLog } from '@hackbuild/agents-views/vue'
 import { planBook, type PlanLogState } from '@hackbuild/agents-views'
@@ -50,6 +50,7 @@ const persona = personaRack({ presets: PRESETS, saved: (saved.presets as Persona
 
 // the reply: mode, sampling, history sent, json mode
 const mode = ref<'quick' | 'default' | 'complex'>('default')
+const MODES = [{ label: 'short', value: 'quick' }, { label: 'normal', value: 'default' }, { label: 'deep', value: 'complex' }]
 const temperature = ref(0.7)
 const topP = ref(0.95)
 const maxTokens = ref(1024)
@@ -115,7 +116,7 @@ const list = chatList({
     voice.reply(t.text)
     if (autoSave.value) void ready.then((m) => m.addExchange(said, t.text)).then(() => pane.refresh())
   },
-  noEngine: 'no model loaded yet. pick one in the bar and load it; memory already found the lines under this.',
+  noEngine: 'the model did not load, so this is a written reply. pick another model in the chats tab; memory already found the lines under this.',
 })
 if (saved.chats) {
   try {
@@ -143,15 +144,26 @@ const setEngine = () => list.setEngine(engine && useTools.value
   ? withTools(engine, { tools: TOOLS, soul: () => persona.system([], Math.round(ctxOf() * 0.3)).text, steps: () => rounds.value, memory: () => ready, onEvent: (e) => { if (book.push(e)) plan.value = book.state() } })
   : engine)
 watch(useTools, setEngine)
-const offPick = pick.subscribe((s) => { engine = s.row?.state === 'loaded' ? (s.loaded as ChatEngine) : null; setEngine() })
+const loadingLine = ref('')
+const offPick = pick.subscribe((s) => {
+  engine = s.row?.state === 'loaded' ? (s.loaded as ChatEngine) : null
+  loadingLine.value = s.row?.state === 'loading' ? `loading ${s.row.name}, ${s.row.size}. the first time takes a while; after that it is cached.` : ''
+  setEngine()
+})
+// a first send loads the chosen model and then answers: no hunting for a load button
+const sendNow = list.thread.send.bind(list.thread)
+list.thread.send = (async (text: string, ...rest: unknown[]) => {
+  if (!engine && !STUB && pick.snapshot().row?.state !== 'loaded') await pick.load().catch(() => undefined)
+  return (sendNow as (t: string, ...r: unknown[]) => Promise<unknown>)(text, ...rest)
+}) as typeof list.thread.send
 
 const ingestInto = (files: File[], o: { onFile: (e: { name: string; chunks: number; note?: string }) => void }) =>
   ready.then((m) => ingest(m, files, o)).finally(() => pane.refresh())
 
-const tab = ref('memory')
+const tab = ref('chats')
 const TABS = [
-  { id: 'memory', label: 'memory' },
   { id: 'chats', label: 'chats' },
+  { id: 'memory', label: 'memory' },
   { id: 'persona', label: 'persona' },
   { id: 'reply', label: 'reply' },
   { id: 'tools', label: 'tools' },
@@ -189,12 +201,12 @@ onBeforeUnmount(() => {
 
 <template>
   <HbConversationLayout ref="lay" v-model:tab="tab" class="xc" :tabs="TABS" rack-label="chat studio">
-    <ChatPane :thread="list.thread" name="reply" empty-name="what are we working on?" empty-note="your persona rides along with every message, and memory fills in the specifics. pick a model in the bar to answer; until then a written reply shows what memory found." />
-    <template #verbs>
-      <HbSeg v-model="mode" :options="['quick', 'default', 'complex']" toggle aria-label="reply mode" />
+    <ChatPane :thread="list.thread" name="reply" empty-name="say something" empty-note="a small model answers in this tab. your first message downloads it once, then it stays cached. nothing you type leaves your machine." />
+    <template v-if="loadingLine" #verbs>
+      <p class="hb-note" role="status">{{ loadingLine }}</p>
     </template>
     <template #composer>
-      <Composer :thread="list.thread" placeholder="message, or drop a file in memory" />
+      <Composer :thread="list.thread" placeholder="type a message" />
     </template>
 
     <template #tab-memory>
@@ -207,6 +219,7 @@ onBeforeUnmount(() => {
       <HbCheckbox v-model="autoSave">save a note from each exchange</HbCheckbox>
     </template>
     <template #tab-chats>
+      <ModelSelect :pick="pick" variant="line" :go="false" />
       <ChatList :list="list" label="chats" />
       <SessionMenu :list="list" />
     </template>
@@ -215,6 +228,7 @@ onBeforeUnmount(() => {
     </template>
     <template #tab-reply>
       <section class="hb-panel xc-reply">
+        <HbSeg v-model="mode" :options="MODES" toggle aria-label="how long the answers are" />
         <HbSlider v-model="temperature" label="temperature" :min="0" :max="2" :step="0.05" />
         <HbSlider v-model="topP" label="top p" :min="0.05" :max="1" :step="0.05" />
         <HbSlider v-model="maxTokens" label="longest reply" :min="64" :max="4096" :step="64" unit=" tok" />
