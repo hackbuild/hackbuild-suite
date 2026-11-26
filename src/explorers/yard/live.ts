@@ -20,6 +20,8 @@ export function playYard(host: HTMLElement, setup: boolean): Promise<YardHandle>
     human: at('dog-simulator/assets/human.glb'),
     anims: at('dog-simulator/assets/anims.json'),
     voice: at('dog-simulator/assets/voice.wav'),
+    // the chips, setup and commands go into the suite bar, as hackle's header held them
+    bar: document.querySelector<HTMLElement>('.sx-bar-yard'),
     // the suite keeps its own hash: no lockstep switches, no reseed
     params: '',
     setup,

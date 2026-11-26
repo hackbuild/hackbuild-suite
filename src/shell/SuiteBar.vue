@@ -23,6 +23,8 @@ const MENU: HbDropdownItem[] = [
   <HbHeader>
     <h1><button type="button" class="sx-name" aria-haspopup="dialog" :aria-label="`${props.name}. switch tool`" @click="emit('switcher')">{{ props.name }}<span>.</span></button></h1>
     <div class="hb-header-end">
+      <!-- the yard's readout chips, setup and commands, as hackle's header held them -->
+      <div class="hb-view sx-bar-yard" />
       <ModelSelect v-if="props.pick" :key="props.pick.job" :pick="props.pick" variant="chip" />
       <HbDropdown :items="MENU" align="right" @select="(v) => emit('menu', String(v))">
         <template #trigger>
