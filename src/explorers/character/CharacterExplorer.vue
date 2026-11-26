@@ -17,7 +17,7 @@ import { characterStage, type CharacterStageHandle, type Speech, type Verb } fro
 import { AvatarDrop } from '@hackbuild/motion-views/vue'
 import { HbGateCheck, HbMicButton, HbRack, HbSelect, HbSlider, HbToggleRow } from '@virgilvox/hackbuild-ui'
 import { chipPick } from '../../shell/chip'
-import { HUMAN_GLB } from '../../shell/dog'
+import { cloneOwnVoice, HUMAN_CLIPS, HUMAN_GLB } from '../../shell/dog'
 import { FLAWS, LENGTHS, brain as makeBrain, type BrainSettings } from './brain'
 
 // the gate and the smokes, and only they, open ?stub: stand ins for this machine and the network
@@ -185,6 +185,7 @@ async function wake() {
   gateNote.value = ''
   try {
     await Promise.all([brainPick.value.load(), withVoice.value ? voicePick.value?.load().catch(() => (withVoice.value = false)) : null, ready])
+    if (withVoice.value && !STUB && canCloneNow.value) await cloneOwnVoice(voice)
     awake.value = true
     stage.value?.setVerbs(VERBS.value)
   } catch (err) {
@@ -227,7 +228,7 @@ onMounted(async () => {
   chipPick.value = brainPick.value
   if (!hooks.env) void probe().then((e) => [brainPick.value, voicePick.value, embedPick.value].forEach((p) => p?.update({ env: e })))
 
-  const s = characterStage(stageEl.value!, { name: 'twin', verbs: [], framing: 'bust', hello: 'hello.' })
+  const s = characterStage(stageEl.value!, { name: 'twin', clips: HUMAN_CLIPS, verbs: [], framing: 'bust', hello: 'hello.' })
   stage.value = s
   offs.push(s.on((e) => {
     if (e.type === 'doing') doing.value = e.word
@@ -280,7 +281,7 @@ onBeforeUnmount(() => {
               <p v-if="gateNote" class="hb-note is-err" role="alert">{{ gateNote }}</p>
               <div class="hb-gate-acts">
                 <button type="button" class="hb-btn hb-btn-go hb-btn-lg hb-gate-go" :aria-busy="waking || undefined" @click="wake">{{ goLabel }}</button>
-                <button v-if="!waking" type="button" class="hb-btn" @click="noVoice">no voice</button>
+                <button v-if="!waking" type="button" class="hb-btn" @click="noVoice">wake him silent</button>
               </div>
             </div>
           </section>

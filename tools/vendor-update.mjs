@@ -15,7 +15,7 @@ const dry = process.argv.includes('--dry')
 const only = process.argv.slice(2).filter((a) => !a.startsWith('--'))
 const VENDOR = 'tools/vendor'
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
-const npm = (args) => execFileSync('npm', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+const npm = (args) => execFileSync('npm', [...args, '--prefer-online'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 let moved = 0
 for (const field of ['dependencies', 'devDependencies']) {
   for (const [name, spec] of Object.entries(pkg[field] ?? {})) {

@@ -22,7 +22,7 @@ import { characterStage, type CharacterStageHandle, type Speech, type Verb } fro
 import { AvatarDrop } from '@hackbuild/motion-views/vue'
 import { HbMicButton, HbRack, HbRackLog, HbSelect, HbSlider, HbToggleRow, type HbLogLine } from '@virgilvox/hackbuild-ui'
 import { chipPick } from '../../shell/chip'
-import { HUMAN_GLB } from '../../shell/dog'
+import { cloneOwnVoice, HUMAN_CLIPS, HUMAN_GLB } from '../../shell/dog'
 import { World, HALF } from './world'
 import { ACT_ORDER, MODES, MUTTER_EVERY, ORDERS, REFLECT_GAP, REFLECT_PLANS, SOUL, freeRun, goalLine, makeGoals, mind, mutter, reflect, type Act, type Mode, type MindOptions } from './mind'
 
@@ -387,6 +387,7 @@ async function wake() {
     if (preset.value !== 'rules') {
       jobs.value.applyPreset(preset.value)
       await jobs.value.loadAll().catch((err: unknown) => say('note', `not everything loaded: ${err instanceof Error ? err.message : String(err)}. he wakes with what did.`, 'warn'))
+      if (!STUB && canCloneNow.value) await cloneOwnVoice(voice)
     }
     await memReady
     build()
@@ -439,7 +440,7 @@ onMounted(async () => {
   if (!hooks.env) void probe().then((env) => jobs.value?.update({ env }))
   offs.push(watch(() => tick.value, () => { if (awake.value && agent) build() }))
 
-  const s = characterStage(stageEl.value!, { name: 'him', verbs: [], framing: 'full', hello: 'hello.' })
+  const s = characterStage(stageEl.value!, { name: 'him', clips: HUMAN_CLIPS, verbs: [], framing: 'full', hello: 'hello.' })
   stage.value = s
   s.stage.scene.add(world.group)
   const place = () => {
@@ -473,7 +474,10 @@ onMounted(async () => {
   const frame = (t: number) => {
     const dt = Math.min(0.1, (t - (last || t)) / 1000)
     last = t
+    const mx = world.mover.position.x, mz = world.mover.position.z
     world.tick(dt, head)
+    // his walk clip plays while the mover carries him, the idle when it stops
+    if (dt > 0) s.move(Math.hypot(world.mover.position.x - mx, world.mover.position.z - mz) / dt)
     world.hands.visible = grippers.value
     s.stage.loop.invalidate()
     if (awake.value) {

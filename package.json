@@ -105,7 +105,7 @@
     "@hackbuild/models": "file:tools/vendor/hackbuild-models-0.2.3-npm.tgz",
     "@hackbuild/motion-match": "file:tools/vendor/hackbuild-motion-match-0.1.2-npm.tgz",
     "@hackbuild/motion-net": "file:tools/vendor/hackbuild-motion-net-0.2.2-npm.tgz",
-    "@hackbuild/motion-views": "file:tools/vendor/hackbuild-motion-views-0.1.2-npm.tgz",
+    "@hackbuild/motion-views": "file:tools/vendor/hackbuild-motion-views-0.1.4-e6f54cc.tgz",
     "@hackbuild/mover": "file:tools/vendor/hackbuild-mover-0.2.2-npm.tgz",
     "@hackbuild/organic": "file:tools/vendor/hackbuild-organic-0.1.2-npm.tgz",
     "@hackbuild/presence": "file:tools/vendor/hackbuild-presence-0.1.2-npm.tgz",
