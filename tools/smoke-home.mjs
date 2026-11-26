@@ -40,10 +40,10 @@ try {
       barHeight: bar.getBoundingClientRect().height,
       pink: [...document.querySelectorAll('.hb-btn-go')].filter(vis).map((b) => b.textContent.trim()),
       yardShare: (() => { const r = document.querySelector('.sx-yard').getBoundingClientRect(); return (r.width * Math.min(r.bottom, innerHeight) - r.width * r.top) / (innerWidth * innerHeight) })(),
-      line: document.querySelector('.sx-home-line')?.textContent.trim() ?? '',
-      tilesTop: document.querySelector('.sx-home .hb-tile')?.getBoundingClientRect().top ?? 9999,
-      tiles: [...document.querySelectorAll('.sx-home .hb-tile .n')].map((n) => n.textContent.trim()),
-      examples: [...document.querySelectorAll('.sx-cards a')].map((a) => a.getAttribute('href')),
+      line: document.querySelector('.sx-hero-rack .sx-block p')?.textContent.trim() ?? '',
+      starts: [...document.querySelectorAll('.sx-hero-rack .sx-start')].filter(vis).map((b) => b.textContent.trim()),
+      tiles: [...document.querySelectorAll('.sx-home .sx-card .sx-block-hd')].map((n) => n.textContent.trim()),
+      examples: [...document.querySelectorAll('.sx-exlist a')].map((a) => a.getAttribute('href')),
       parts: document.querySelectorAll('.sx-parts a').length,
       words: ['phase', 'guided', 'expert', 'local only'].filter((w) => document.body.innerText.toLowerCase().includes(w)),
     }
@@ -51,10 +51,10 @@ try {
   if (home.modal) fail(`home opens with ${home.modal} dialog`)
   if (home.barHeight > 52) fail(`the bar is ${home.barHeight} px`)
   if (home.barControls.length !== 2) fail(`the bar on home should hold the name and the menu: ${home.barControls.join(', ')}`)
-  if (home.pink.length !== 1 || home.pink[0] !== 'play here') fail(`home pink: ${home.pink.join(', ')}`)
+  if (home.pink.length !== 1 || home.pink[0] !== 'play with the dog') fail(`home pink: ${home.pink.join(', ')}`)
   if (home.yardShare < 0.6) fail(`the yard takes ${Math.round(home.yardShare * 100)} percent of the first view`)
-  if (!/^ai that runs in your browser\./.test(home.line)) fail(`the line under the bar says: ${home.line}`)
-  if (home.tilesTop >= 900) fail(`the explorer tiles start at ${home.tilesTop} px, under the fold`)
+  if (!/^small ai models that run inside this browser tab/.test(home.line)) fail(`what this is says: ${home.line}`)
+  if (home.starts.length !== 3) fail(`start here offers ${home.starts.join(', ')}`)
   if (home.tiles.length !== 8) fail(`explorer tiles: ${home.tiles.join(', ')}`)
   if (home.examples.length !== built.length) fail(`home lists ${home.examples.length} examples, ${built.length} are built`)
   if (!home.parts) fail('home lists no parts')
@@ -71,10 +71,10 @@ try {
 
   // the press plays the dog simulator here, live, as the yard view over the dog site's plain files
   // (served from a local dog site build, as pages serves them); the open link stays
-  const link = await page.$eval('.sx-yard a', (a) => a.href)
+  const link = await page.$eval('.sx-out', (a) => a.href)
   if (link !== 'https://hackbuild.github.io/dog-simulator/') fail(`the open link goes to ${link}`)
   const served = await serveDogSite(page, site)
-  await page.click('.sx-yard .hb-btn-go')
+  await page.click('.sx-hero-rack .hb-btn-go')
   await page.waitForSelector('.sx-yard .hb-yard #stage canvas', { timeout: 30000 }).catch(() => fail('the press did not mount the yard'))
   await page.waitForFunction(() => !!(window.__hackle && window.__hackle.dog.ready), { timeout: 120000 }).catch(() => fail('the dog did not stand in the yard'))
   const live = await page.evaluate(() => ({ frames: document.querySelectorAll('iframe').length, setup: !document.getElementById('setup').hidden }))
@@ -85,13 +85,13 @@ try {
   off.splice(0, off.length, ...off.filter((u) => !dog(u)))
   errors.splice(0, errors.length, ...errors.filter((e) => !/ERR_FAILED|net::|webgpu|WebGPU/.test(e)))
   await page.goto(`${pathToFileURL(file).href}#/`, { waitUntil: 'load' })
-  await page.waitForSelector('.sx-home .hb-tile', { timeout: 5000 })
+  await page.waitForSelector('.sx-home .sx-card', { timeout: 5000 })
   // a rebuilt explorer's tile opens its own route
-  await page.evaluate(() => [...document.querySelectorAll('.sx-home .hb-tile')].find((t) => t.textContent.includes('transcribe')).click())
+  await page.evaluate(() => [...document.querySelectorAll('.sx-home .sx-card')].find((t) => t.textContent.includes('transcribe')).click())
   await page.waitForFunction(() => location.hash === '#/x/transcribe', { timeout: 3000 }).catch(() => fail('the transcribe tile did not open the transcribe explorer'))
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the line on what this is, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink that mounts it live, no frame, from the dog site's files, tiles from ${Math.round(home.tilesTop)} px, 8 explorers, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)
+  console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the line on what this is, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink that mounts it live, no frame, from the dog site's files, three starts beside it, 8 tools, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)
 } finally {
   await chrome.close()
 }

@@ -10,7 +10,8 @@ import type { YardHandle } from '@hackbuild/agents-views/yard'
 import { DOG } from '../../shell/dog'
 import yard from './yard.jpg'
 
-const props = defineProps<{ full?: boolean }>()
+const props = defineProps<{ full?: boolean; bare?: boolean }>()
+const emit = defineEmits<{ live: [on: boolean] }>()
 const host = ref<HTMLElement | null>(null)
 const playing = ref(false)
 const fault = ref('')
@@ -23,6 +24,7 @@ async function play() {
   if (!navigator.onLine) { fault.value = 'you are offline. the yard loads its dog from the dog site.'; return }
   fault.value = ''
   playing.value = true
+  emit('live', true)
   try {
     const { playYard } = await import('./live')
     // the explorer opens the setup panel on a first visit (not on ?stub, for gates); home's press
@@ -35,6 +37,7 @@ async function play() {
     handle?.dispose()
     handle = null
     playing.value = false
+    emit('live', false)
     console.warn('yard', e)
     if (!gone) fault.value = 'the yard did not load from the dog site. open the dog simulator instead.'
   }
@@ -50,7 +53,8 @@ defineExpose({ play, DOG })
     <div v-show="playing" ref="host" class="sx-yard-live" />
     <template v-if="!playing">
       <button type="button" class="sx-yard-pic" aria-label="play the dog simulator here" @click="play"><img :src="yard" alt="a dog and his person in a low poly yard" width="1440" height="601" /></button>
-      <div class="hb-lay-verbs">
+      <span v-if="bare" class="sx-yard-hint" aria-hidden="true">press to play</span>
+      <div v-if="!bare" class="hb-lay-verbs">
         <button type="button" class="hb-btn hb-btn-go" @click="play">play here</button>
         <a class="hb-btn" :href="DOG" target="_blank" rel="noopener">open in its own tab</a>
       </div>
@@ -64,6 +68,7 @@ defineExpose({ play, DOG })
 .sx-yard.is-full { height: calc(100dvh - 52px); border-bottom: 0; }
 .sx-yard.is-live:not(.is-full) { height: calc(100svh - 52px - 40px); }
 .sx-yard-live { height: 100%; }
+.sx-yard-hint { position: absolute; left: 12px; bottom: 12px; pointer-events: none; background: var(--hb-ink); color: var(--hb-paper); font-family: var(--hb-readout); font-size: 19px; text-transform: uppercase; padding: 4px 10px; }
 .sx-yard-pic, .sx-yard-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 55% 60%; border: 0; padding: 0; margin: 0; background: none; cursor: pointer; }
 .sx-yard-fault { position: absolute; left: 12px; top: 12px; max-width: min(480px, calc(100% - 24px)); margin: 0; padding: 6px 10px; background: var(--hb-paper); border: 1.5px solid var(--hb-ink); color: var(--hb-err); }
 /* a phone shows the dog and his person both: a 6 by 5 frame keeps 721 of the still's 1440 px (computed) */
