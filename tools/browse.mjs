@@ -61,10 +61,12 @@ export async function blockWeights(page, serve = null) {
 
 /**
  * Opens `url` at `width` x `height`. Under 500 px the url loads in an iframe
- * of that size on a page of `base` (same origin). Returns the page, the target
- * to evaluate in (the frame or the page) and a shot function.
+ * of that size on a page of `base` (same origin), unless `mobile` is set: then
+ * it loads top level under mobile emulation (a live site, where an app in that
+ * iframe never renders). Returns the page, the target to evaluate in (the frame
+ * or the page) and a shot function.
  */
-export async function openAt(browser, url, { width, height = 900, base, ready = 'body *', block = false, settle = 300, dogSite = null }) {
+export async function openAt(browser, url, { width, height = 900, base, ready = 'body *', block = false, settle = 300, dogSite = null, mobile = false }) {
   const page = await browser.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -73,7 +75,11 @@ export async function openAt(browser, url, { width, height = 900, base, ready = 
   let target
   let shot
   let frameOf = async () => page
-  if (width < 500) {
+  if (width < 500 && mobile) {
+    await page.setViewport({ width, height, isMobile: true, hasTouch: true })
+    await page.goto(url, { waitUntil: 'load' })
+    shot = (path) => page.screenshot({ path })
+  } else if (width < 500) {
     await page.setViewport({ width: Math.max(600, width + 40), height })
     // a same origin page with no app on it, so nothing reloads under setContent
     await page.goto(new URL('__frame-host__', base ?? url).href, { waitUntil: 'load' })

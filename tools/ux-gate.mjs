@@ -108,7 +108,7 @@ try {
       const rows = [r]
       let page
       try {
-        const o = await openAt(chrome.browser, server.base + route, { width, height, base: server.base, block: true, settle: 600, dogSite })
+        const o = await openAt(chrome.browser, server.base + route, { width, height, base: server.base, block: true, settle: 600, dogSite, mobile: Boolean(url) })
         page = o.page
         await o.shot(join(out, r.shot)) // the first view as a visitor meets it, modal and all
         const setupPanel = await o.target.evaluate(setupScript)
