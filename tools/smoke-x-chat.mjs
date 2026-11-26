@@ -1,9 +1,10 @@
 // smoke-x-chat: the chat studio explorer (rebuild plan 4) on ?stub, no
-// weights. The empty state fills the conversation, the rack has five tabs
+// weights. The empty state fills the conversation, the rack has six tabs
 // with memory first, a stand in model loads from the chip's pick, a message
 // gets a streamed reply with memory used under it and the recall trace in
 // the rack, a note added in memory shows in the list, the persona trims its
-// rules under a small budget, and the chats export as json.
+// rules under a small budget, the chats export as json, and with tools on
+// a send runs an agent turn whose plan and recall call show in the tools log.
 //   npm run build && node tools/smoke-x-chat.mjs
 import { existsSync } from 'node:fs'
 import { launch, serveDir } from './browse.mjs'
@@ -27,7 +28,7 @@ try {
     modes: [...document.querySelectorAll('.hb-lay-verbs .hb-seg button')].map((b) => b.textContent.trim()),
   }))
   if (first.name !== 'what are we working on?') fail(`empty state: ${first.name}`)
-  if (first.tabs.join(',') !== 'memory,chats,persona,reply,voice') fail(`rack tabs: ${first.tabs.join(', ')}`)
+  if (first.tabs.join(',') !== 'memory,chats,persona,reply,tools,voice') fail(`rack tabs: ${first.tabs.join(', ')}`)
   if (first.modes.join(',') !== 'quick,default,complex') fail(`modes: ${first.modes.join(', ')}`)
   await page.waitForFunction(() => document.querySelectorAll('.hb-mempanel .hb-mem').length === 3, { timeout: 8000 }).catch(() => fail('the memory pane did not list the 3 stand in facts'))
 
@@ -60,8 +61,18 @@ try {
     sliders: document.querySelectorAll('.xc-reply input[type=range]').length,
   }))
   if (!panes.persona || !panes.voice || panes.sliders !== 5) fail(`rack panes: ${JSON.stringify(panes)}`)
+  // tools on: one agent turn, a plan and a recall call with its result in the log
+  await page.evaluate(() => [...document.querySelectorAll('.hb-rack [role=tab]')].find((x) => x.textContent.trim() === 'tools').click())
+  const listed = await page.evaluate(() => document.querySelectorAll('.xc-tools li').length)
+  if (listed < 4) fail(`the tools tab lists ${listed} tools`)
+  await page.evaluate(() => { window.hbExplorer.useTools.value = true })
+  await wait(100)
+  await page.evaluate(() => window.hbExplorer.sample())
+  const step = await page.waitForFunction(() => { const p = window.hbExplorer.plan.value; return p.steps.length && p.plan ? p.steps[0].line : null }, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => fail('tools on: no plan or call in the log'))
+  if (!/recall/.test(step) || !/petg/.test(step)) fail(`tools on: the call reads ${step}`)
+  await page.waitForFunction(() => [...document.querySelectorAll('.hb-msg')].some((m) => m.textContent.includes('you print in petg')), { timeout: 5000 }).catch(() => fail('tools on: the agent reply did not show'))
   if (errors.length) fail(`page errors: ${errors.join(' | ')}`)
-  console.log(`smoke-x-chat: ok. empty state, 5 rack tabs with memory first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders (measured, ?stub, no weights)`)
+  console.log(`smoke-x-chat: ok. empty state, 6 rack tabs with memory first, a streamed stand in reply with "${used}", a recall trace, a note added (4 items), ${state.chats} chat with ${state.turns} turns in the dump, persona, voice and 5 reply sliders, ${listed} tools and an agent turn logging "${step.slice(0, 60)}" (measured, ?stub, no weights)`)
 } finally {
   await chrome.close()
   server.close()

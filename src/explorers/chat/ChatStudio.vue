@@ -15,7 +15,10 @@ import { openWeightStore } from '@hackbuild/weights'
 import { chatList, jobLoader, jobRecords, personaRack, storedIds, useModelPick, voiceRow, type MemoryUsed, type PersonaPresetX, type RecallLike } from '@hackbuild/ai-views'
 import { ChatList, ChatPane, Composer, MemoryInspector, MemoryPane, PersonaRack, SessionMenu, SourcesDrop, VoiceRow } from '@hackbuild/ai-views/vue'
 import type { MemoryPaneHandle } from '@hackbuild/ai-views/elements'
+import { PlanLog } from '@hackbuild/agents-views/vue'
+import { planBook, type PlanLogState } from '@hackbuild/agents-views'
 import { chipPick } from '../../shell/chip'
+import { chatTools, withTools } from './tools'
 
 const STUB = new URLSearchParams(location.search).has('stub')
 const KEY = 'hb-x-chat'
@@ -127,7 +130,19 @@ const offList = list.subscribe(() => {
 })
 const empty = ref(true)
 const offThread = list.thread.subscribe((s) => (empty.value = !s.turns.length))
-const offPick = pick.subscribe((s) => list.setEngine(s.row?.state === 'loaded' ? (s.loaded as ChatEngine) : null))
+// tools: with them on, each send is one agent turn over the page's tools
+const useTools = ref(false)
+const rounds = ref(6)
+const TOOLS = chatTools(() => ready)
+const book = planBook()
+const plan = shallowRef<PlanLogState>(book.state())
+const clearLog = () => (book.clear(), (plan.value = book.state()))
+let engine: ChatEngine | null = null
+const setEngine = () => list.setEngine(engine && useTools.value
+  ? withTools(engine, { tools: TOOLS, soul: () => persona.system([], Math.round(ctxOf() * 0.3)).text, steps: () => rounds.value, memory: () => ready, onEvent: (e) => { if (book.push(e)) plan.value = book.state() } })
+  : engine)
+watch(useTools, setEngine)
+const offPick = pick.subscribe((s) => { engine = s.row?.state === 'loaded' ? (s.loaded as ChatEngine) : null; setEngine() })
 
 const ingestInto = (files: File[], o: { onFile: (e: { name: string; chunks: number; note?: string }) => void }) =>
   ready.then((m) => ingest(m, files, o)).finally(() => pane.refresh())
@@ -138,6 +153,7 @@ const TABS = [
   { id: 'chats', label: 'chats' },
   { id: 'persona', label: 'persona' },
   { id: 'reply', label: 'reply' },
+  { id: 'tools', label: 'tools' },
   { id: 'voice', label: 'voice' },
 ]
 
@@ -152,7 +168,7 @@ onMounted(async () => {
   if (comp) comp.dataset.ux = 'verbs'
   chipPick.value = pick
   const w = window as unknown as { hbExplorer?: unknown }
-  w.hbExplorer = { list, pick, sample: () => list.thread.send('what filament do i print with?') }
+  w.hbExplorer = { list, pick, useTools, plan, sample: () => list.thread.send('what filament do i print with?') }
   if (STUB) {
     const s = await import('./stubs')
     pick.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })
@@ -176,7 +192,6 @@ onBeforeUnmount(() => {
     <ChatPane :thread="list.thread" name="reply" empty-name="what are we working on?" empty-note="your persona rides along with every message, and memory fills in the specifics. pick a model in the bar to answer; until then a written reply shows what memory found." />
     <template #verbs>
       <HbSeg v-model="mode" :options="['quick', 'default', 'complex']" toggle aria-label="reply mode" />
-      <HbCheckbox v-model="json">json</HbCheckbox>
     </template>
     <template #composer>
       <Composer :thread="list.thread" placeholder="message, or drop a file in memory" />
@@ -210,6 +225,18 @@ onBeforeUnmount(() => {
         <p v-if="schemaError" class="hb-error" role="alert">{{ schemaError }}</p>
       </section>
     </template>
+    <template #tab-tools>
+      <section class="hb-panel xc-toolset" aria-label="tools">
+        <HbCheckbox v-model="useTools">let the model call tools</HbCheckbox>
+        <HbSlider v-model="rounds" label="model calls per message" :min="1" :max="12" :step="1" />
+        <ul class="xc-tools">
+          <li v-for="t in TOOLS" :key="t.name"><b>{{ t.name }}</b> {{ t.description }}</li>
+        </ul>
+        <p class="hb-note">not here yet: an mcp server and web search.</p>
+      </section>
+      <PlanLog :state="plan" empty="turn tools on and send a message; each plan, call and result shows here." />
+      <button type="button" class="hb-btn" @click="clearLog">clear the log</button>
+    </template>
     <template #tab-voice>
       <VoiceRow :row="voice" />
       <p class="hb-note">spoken by this browser's own voices. volume follows the system.</p>
@@ -225,4 +252,6 @@ onBeforeUnmount(() => {
 .xc :deep(.hb-lay-verbs) { position: static; justify-content: center; align-items: center; padding: 6px var(--hb-s3); background: var(--hb-paper); }
 .xc-used { margin-bottom: var(--hb-s-3, 12px); }
 .xc-reply { display: grid; gap: var(--hb-s-3, 12px); }
+.xc-toolset { display: grid; gap: var(--hb-s-3, 12px); }
+.xc-tools { margin: 0; padding-left: 1.2em; }
 </style>
