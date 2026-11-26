@@ -59,13 +59,16 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       target: 'es2022',
       assetsInlineLimit: single ? 100_000_000 : 4096,
-      // three.js in two shared chunks, the core (math, scene, loaders) and the
-      // webgl renderer, so neither nears the tool chunk budget (design 5 item 11)
+      // three.js in shared chunks, the core (math, scene, loaders), the webgl
+      // renderer, and the webgpu renderer and its node language (the yard's), so none nears the tool
+      // chunk budget (design 5 item 11)
       rollupOptions: single ? {} : {
         output: {
           manualChunks(id: string) {
             if (id.includes('/node_modules/three/build/three.core.js')) return 'three'
             if (id.includes('/node_modules/three/build/three.module.js')) return 'three-gl'
+            if (id.includes('/node_modules/three/build/three.webgpu.js')) return 'three-gpu'
+            if (id.includes('/node_modules/three/build/three.tsl.js')) return 'three-tsl'
             return undefined
           },
         },
