@@ -167,5 +167,15 @@
     "original": "~/Downloads/arbor (10).html",
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-gate-390.png"
+  },
+  "?stub#/x/masks": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/mask-studio-sam/mask-studio-sam (6).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-sam-instances-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/mask-studio-image-loaded-390.png",
+    "note": "the loaded row is the original with its instances found"
+  },
+  "?stub#/x/yard": {
+    "original": "~/Downloads/hackle (10).html",
+    "note": "the yard explorer is the dog simulator in a frame"
   }
 }

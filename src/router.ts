@@ -30,6 +30,8 @@ export const router = createRouter({
       { path: '/x/transcribe', name: 'x-transcribe', component: () => import('./explorers/transcribe/Transcribe.vue'), meta: { full: true, explorer: 'transcribe' } },
       { path: '/x/character', name: 'x-character', component: () => import('./explorers/character/CharacterExplorer.vue'), meta: { full: true, explorer: 'character' } },
       { path: '/x/room', name: 'x-room', component: () => import('./explorers/room/RoomExplorer.vue'), meta: { full: true, explorer: 'room' } },
+      { path: '/x/masks', name: 'x-masks', component: () => import('./explorers/masks/MaskStudio.vue'), meta: { full: true, explorer: 'masks' } },
+      { path: '/x/yard', name: 'x-yard', component: () => import('./explorers/yard/Yard.vue'), meta: { full: true, explorer: 'yard' } },
     ]),
     ...toolRoutes,
     ...groupRoutes,
