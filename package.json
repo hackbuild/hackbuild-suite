@@ -112,7 +112,7 @@
     "@hackbuild/weights": "file:tools/vendor/hackbuild-weights-0.1.1-de34d5e.tgz",
     "@moeru/three-mmd": "0.2.0-beta.3",
     "@pixiv/three-vrm": "3.5.5",
-    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.10.2-e7acb23.tgz",
+    "@virgilvox/hackbuild-ui": "file:tools/vendor/hackbuild-ui-0.10.3-9288476.tgz",
     "three": "0.186.1",
     "vue": "3.5.41",
     "vue-router": "4.6.4"
