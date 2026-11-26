@@ -49,14 +49,23 @@ try {
   await page.waitForFunction(() => window.hbExplorer.state().found.boxes.length === 3, { timeout: 8000 }).catch(() => fail('the medium detector did not find three'))
   if (shots) await page.screenshot({ path: `${shots}/x-vision-found-1440.png` })
   // face points, a gesture, a caption: each loads its own model
+  // each look replaces the last one's marks: face points, then a gesture, then a caption
+  const after = {}
   for (const t of ['face', 'gesture', 'caption']) {
     await S((x) => window.hbExplorer.setTool(x), t)
     await S(() => window.hbExplorer.load())
+    after[t] = await S(() => window.hbExplorer.state())
   }
-  const st = await S(() => window.hbExplorer.state())
-  if (!st.found.marks.face?.[0]?.points.length) fail('no face points')
-  if (!st.found.gestures?.includes('open palm')) fail(`no gesture: ${st.found.gestures}`)
-  if (!st.found.caption) fail('no caption')
+  if (!after.face.found.marks.face?.[0]?.points.length) fail('no face points')
+  if (after.face.found.boxes.length) fail('the face look kept the boxes of the last look')
+  if (!after.gesture.found.gestures?.includes('open palm')) fail(`no gesture: ${after.gesture.found.gestures}`)
+  if (after.gesture.found.marks.face) fail('the gesture look kept the face points')
+  if (!after.caption.found.caption) fail('no caption')
+  // one clear empties the frame
+  const cleared = await S(() => { const b = [...document.querySelectorAll('.hb-lay-verbs button')].find((x) => x.textContent.trim() === 'clear'); b?.click(); return !!b })
+  if (!cleared) fail('no clear button with results on the frame')
+  await S(() => new Promise((r) => setTimeout(r, 100)))
+  if (await S(() => { const f = window.hbExplorer.state().found; return f.boxes.length + Object.keys(f.marks).length + (f.caption ? 1 : 0) })) fail('clear left results on the frame')
   // ask
   await S(() => window.hbExplorer.ask('what is on the desk'))
   if (!(await S(() => window.hbExplorer.state().answers.length))) fail('the question got no answer')
@@ -72,7 +81,7 @@ try {
   for (const want of ['picture with marks, png', 'results, json']) if (!ex.includes(want)) fail(`no ${want} in export: ${ex.join(', ')}`)
   if ((await pinks()).length !== 1) fail(`more than one pink: ${(await pinks()).join(', ')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-x-vision: ok. one pink (${p0[0]}), ${first.rail} rail buttons, 4 tabs; the pink named ${p1[0]}; nano found 2, medium found 3; face points, a gesture and a caption landed; a question answered; a frame kept; 2 exports (measured)`)
+  console.log(`smoke-x-vision: ok. one pink (${p0[0]}), ${first.rail} rail buttons, 4 tabs; the pink named ${p1[0]}; nano found 2, medium found 3; each look replaced the last; clear emptied the frame; a question answered; a frame kept; 2 exports (measured)`)
 } finally {
   await chrome.close()
   server.close?.()

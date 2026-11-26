@@ -7,14 +7,14 @@
 // picture, the sample or the camera feeds it. Each look loads its model
 // from the chip, or from the pink load button that names the size.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { HbButton, HbCanvasRail, HbHistoryStrip, HbInput, HbInstanceList, HbReadouts, HbSeg, HbToolRail, type HbHistoryItem, type HbRailTool, type HbReadoutRow } from '@virgilvox/hackbuild-ui'
+import { HbButton, HbCanvasRail, HbHistoryStrip, HbInput, HbKv, HbSeg, HbToolRail, type HbHistoryItem, type HbRailTool } from '@virgilvox/hackbuild-ui'
 import { instanceColour, saveFile } from '@virgilvox/hackbuild-ui/vanilla'
 import { probe } from '@hackbuild/ai-env'
 import { openWeightStore } from '@hackbuild/weights'
 import { DETECT_SIZES } from '@hackbuild/vision'
 import { jobLoader, jobRecords, storedIds, useModelPick, type AskFn, type DetectFn, type FrameBox, type FrameLandmarks, type FrameResults, type Job, type JobLoaderOptions, type ModelPick } from '@hackbuild/ai-views'
 import { mountCameraFeed, type CameraFeed } from '@hackbuild/ai-views/elements'
-import { FrameView } from '@hackbuild/ai-views/vue'
+import { FrameView, ModelSelect } from '@hackbuild/ai-views/vue'
 import { chipPick } from '../../shell/chip'
 import { sampleCanvas } from './scene'
 
@@ -139,6 +139,14 @@ function keep() {
   remember()
 }
 
+// a confidence floor: weaker guesses are neither drawn nor listed
+const minScore = ref(0.5)
+const shownBoxes = computed(() => found.value.boxes.filter((b) => (b.score ?? 1) >= minScore.value))
+function clearFound() {
+  found.value = { boxes: [], marks: {}, caption: '' }
+  note.value = ''
+}
+
 // what was found, drawn on the frame
 interface Found { boxes: FrameBox[]; marks: Partial<Record<Kind, FrameLandmarks[]>>; caption: string; gestures?: string }
 const found = shallowRef<Found>({ boxes: [], marks: {}, caption: '' })
@@ -146,7 +154,7 @@ const ms = ref<Partial<Record<Look, number>>>({})
 const busy = ref(false)
 const note = ref('')
 const results = computed<FrameResults>(() => ({
-  boxes: found.value.boxes,
+  boxes: shownBoxes.value,
   landmarks: Object.values(found.value.marks).flat() as FrameLandmarks[],
   ...(found.value.caption ? { caption: found.value.caption } : {}),
 }))
@@ -159,13 +167,14 @@ async function run(t: Look, src: HTMLCanvasElement | HTMLVideoElement, prev: Fou
   if (!m) return prev
   const t0 = performance.now()
   const { w, h } = dims(src)
-  let next = prev
-  if (t === 'detect') next = { ...prev, boxes: await (m as DetectFn)(src) }
-  else if (t === 'caption') next = { ...prev, caption: (await (m as AskFn)(src instanceof HTMLVideoElement ? fit(src, w, h) : src)).trim() }
+  // each look replaces what the last one drew; a caption keeps the boxes it was asked over
+  let next: Found = t === 'caption' ? { ...prev, caption: '' } : { boxes: [], marks: {}, caption: '' }
+  if (t === 'detect') next = { ...next, boxes: await (m as DetectFn)(src) }
+  else if (t === 'caption') next = { ...next, caption: (await (m as AskFn)(src instanceof HTMLVideoElement ? fit(src, w, h) : src)).trim() }
   else if (t !== 'ask') {
     const l = await (m as { detect(i: unknown): Promise<{ points: [number, number, number][][]; gestures?: ({ name: string; score: number } | null)[] }> }).detect(src)
-    const g = (l.gestures ?? []).filter(Boolean).map((x) => `${x!.name.replace(/_/g, ' ').toLowerCase()} ${Math.round(x!.score * 100)}%`).join(', ')
-    next = { ...prev, marks: { ...prev.marks, [t]: toMarks(l.points, w, h, t) }, ...(t === 'gesture' ? { gestures: g || 'no hand found' } : {}) }
+    const g = (l.gestures ?? []).filter((x) => x && x.score >= minScore.value).map((x) => `${x!.name.replace(/_/g, ' ').toLowerCase()} ${Math.round(x!.score * 100)}%`).join(', ')
+    next = { ...next, marks: { [t]: toMarks(l.points, w, h, t) }, ...(t === 'gesture' ? { gestures: g || 'no hand found' } : {}) }
   }
   ms.value = { ...ms.value, [t]: Math.round(performance.now() - t0) }
   return next
@@ -207,11 +216,23 @@ const pinkLabel = computed(() => (loading.value ? `loading ${row.value?.name ?? 
 const pinkAct = () => (ready.value ? (live.value ? keep() : void look()) : void load())
 
 // found list and timing
-const items = computed(() => [
-  ...found.value.boxes.map((b, i) => ({ id: `b${i}`, colour: instanceColour(i), label: b.label ?? 'thing', score: b.score ?? null })),
-  ...Object.entries(found.value.marks).map(([k, sets], i) => ({ id: k, colour: instanceColour(found.value.boxes.length + i), label: `${k}, ${sets!.length} found, ${sets!.reduce((n, s) => n + s.points.length, 0)} points`, score: null })),
-])
-const timing = computed<HbReadoutRow[]>(() => Object.entries(ms.value).map(([k, v]) => ({ label: k, value: v ?? 0, unit: 'ms' })))
+const PLURAL: Record<string, string> = { person: 'people', face: 'faces', hand: 'hands', pose: 'bodies', gesture: 'hands' }
+const plural = (n: number, w: string) => (n === 1 ? w : PLURAL[w] ?? `${w}s`)
+const groups = computed(() => {
+  const by = new Map<string, { n: number; best: number }>()
+  for (const b of shownBoxes.value) {
+    const k = b.label ?? 'thing'
+    const g = by.get(k) ?? { n: 0, best: 0 }
+    g.n++
+    g.best = Math.max(g.best, b.score ?? 0)
+    by.set(k, g)
+  }
+  for (const [k, sets] of Object.entries(found.value.marks)) if (sets?.length) by.set(k, { n: sets.length, best: 0 })
+  return [...by.entries()].sort((x, y) => y[1].n - x[1].n)
+})
+const summary = computed(() => groups.value.map(([k, g]) => `${g.n} ${plural(g.n, k)}`).join(', '))
+const hidden = computed(() => found.value.boxes.length - shownBoxes.value.length)
+const took = computed(() => ms.value[tool.value])
 
 // ask: a question about the frame; the answer joins the caption on the frame
 const question = ref('')
@@ -273,7 +294,7 @@ function seenPng() {
   const x = o.getContext('2d')!
   x.lineWidth = Math.max(2, o.width / 320)
   x.font = `${Math.max(12, o.width / 40)}px monospace`
-  found.value.boxes.forEach((b, i) => {
+  shownBoxes.value.forEach((b, i) => {
     x.strokeStyle = x.fillStyle = instanceColour(i)
     x.strokeRect(b.x, b.y, b.w, b.h)
     x.fillText(`${b.label ?? ''} ${Math.round((b.score ?? 0) * 100)}`, b.x + 4, b.y + 16)
@@ -282,7 +303,7 @@ function seenPng() {
   o.toBlob((b) => b && saveFile(`${name.value || 'frame'}.seen.png`, b))
 }
 const resultsJson = () => saveFile(`${name.value || 'frame'}.json`, new Blob([JSON.stringify({ name: name.value, ...found.value, answers: answers.value, ms: ms.value }, null, 2)], { type: 'application/json' }))
-const hasResult = computed(() => items.value.length > 0 || !!found.value.caption)
+const hasResult = computed(() => groups.value.length > 0 || !!found.value.caption || !!found.value.gestures)
 
 const tab = ref('found')
 const TABS = [
@@ -351,6 +372,7 @@ onBeforeUnmount(() => {
       <HbSeg v-if="tool === 'detect'" v-model="size" toggle :options="SIZES" aria-label="detector size" />
       <HbSeg v-if="tool === 'caption' && live" v-model="capEvery" toggle :options="CAP_EVERY" aria-label="live captions" />
       <HbButton variant="go" :loading="loading || busy" @click="pinkAct">{{ live && ready ? 'keep this frame' : pinkLabel }}</HbButton>
+      <HbButton v-if="hasResult && !live" @click="clearFound">clear</HbButton>
       <HbButton @click="live ? stopCamera() : startCamera()">{{ live ? 'camera off' : 'camera' }}</HbButton>
     </template>
 
@@ -358,8 +380,13 @@ onBeforeUnmount(() => {
       <p v-if="note && tool !== 'ask'" class="hb-note" role="status">{{ note }}</p>
       <p v-if="found.caption" class="xv-caption">{{ found.caption }}</p>
       <p v-if="found.gestures" class="hb-note">gesture: {{ found.gestures }}</p>
-      <HbInstanceList :items="items" bare :empty="frame || live ? 'nothing found yet. pick a tool on the left, or look again.' : 'open an image, try the sample, or turn the camera on.'" />
-      <HbReadouts v-if="timing.length" :rows="timing" />
+      <ModelSelect :key="pick.job" :pick="pick" variant="line" :go="false" />
+      <p v-if="summary" class="xv-summary">{{ summary }}</p>
+      <p v-else-if="frame || live" class="hb-note">{{ ready ? 'nothing found above the confidence floor. look again, or lower it in detail.' : 'load the model to look.' }}</p>
+      <p v-else class="hb-note">open an image, try the sample, or turn the camera on.</p>
+      <ul v-if="groups.length" class="xv-groups">
+        <li v-for="[k, g] in groups" :key="k"><span>{{ k }}</span><span>{{ g.n }}<template v-if="g.best">, sure {{ Math.round(g.best * 100) }}%</template></span></li>
+      </ul>
       <HbButton v-if="frame && hasResult && !live" @click="remember">keep this frame</HbButton>
       <HbButton v-if="frame || live" @click="fileIn?.click()">another image</HbButton>
     </template>
@@ -383,6 +410,11 @@ onBeforeUnmount(() => {
       <p v-else class="hb-note">exports appear once something is found.</p>
     </template>
     <template #detail>
+      <label class="xv-floor">confidence floor {{ Math.round(minScore * 100) }}%
+        <input v-model.number="minScore" type="range" min="0.1" max="0.9" step="0.05" aria-label="confidence floor">
+      </label>
+      <p v-if="hidden > 0" class="hb-note">{{ hidden }} weaker {{ hidden === 1 ? 'guess' : 'guesses' }} hidden.</p>
+      <HbKv v-if="took" label="last look" :value="`${took} ms`" />
       <p class="hb-note">keys: d things, f face, h hands, p body, g gestures, c caption, q ask, space looks again or keeps the live frame. the yolov10 detectors are agpl-3.0; face, hand and body points run on mediapipe (apache-2.0); captions and questions on smolvlm, lfm2-vl or gemma 4 e2b.</p>
     </template>
   </HbCanvasRail>
@@ -394,6 +426,11 @@ onBeforeUnmount(() => {
 .xv-subject { position: absolute; inset: 0; }
 .xv-subject :deep(.hb-frameview) { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: var(--hb-s-3, 12px) var(--hb-s-3, 12px) 72px; box-sizing: border-box; }
 .xv-subject :deep(.hb-camtile) { width: min(100%, calc((100dvh - 148px) * (var(--hb-camtile-ar, 4 / 3)))); margin: 0; }
+.xv-summary { margin: var(--hb-s-3, 12px) 0; font-family: var(--hb-readout); font-size: 22px; line-height: 1.15; }
+.xv-groups { list-style: none; margin: 0 0 var(--hb-s-3, 12px); padding: 0; }
+.xv-groups li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--hb-paper-edge, #d8cfbd); }
+.xv-groups li span:last-child { font-family: var(--hb-readout); font-size: 17px; }
+.xv-floor { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--hb-s-2, 8px); }
 .xv-caption { margin: 0 0 var(--hb-s-3, 12px); font-family: var(--hb-note); font-size: 15px; line-height: 1.4; }
 .xv-answers { margin: var(--hb-s-3, 12px) 0 0; }
 .xv-answers dt { font-weight: 600; margin-top: var(--hb-s-2, 8px); }
