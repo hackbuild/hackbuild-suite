@@ -163,5 +163,13 @@
   "?stub#/examples/think/cameras": {
     "layout": "stage-rack",
     "setup": "(async () => { const x = window.hbExample; if (!x) throw new Error(\"no example mounted\"); if (x.sample) await x.sample() })()"
+  },
+  "?stub#/x/chat": {
+    "layout": "conversation",
+    "setup": "(async () => { await window.hbExplorer.pick.load(); await window.hbExplorer.sample() })()"
+  },
+  "?stub#/x/transcribe": {
+    "layout": "drop-first",
+    "setup": "window.hbExplorer.sample()"
   }
 }

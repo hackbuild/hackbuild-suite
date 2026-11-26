@@ -146,5 +146,16 @@
     "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-1440.png",
     "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/rebuild-shots/originals/hackle-10-brain-390.png",
     "note": "the brain tab of hackle"
+  },
+  "?stub#/x/chat": {
+    "original": "~/Downloads/clevis.html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/clevis-initial-390.png",
+    "note": "clevis with chatbot-forge folded in; the chat list moved from a rail to a rack tab to keep the conversation at 60 percent"
+  },
+  "?stub#/x/transcribe": {
+    "original": "~/Downloads/scribe (12).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/audio/scribe-transcribe-empty-390.png"
   }
 }
