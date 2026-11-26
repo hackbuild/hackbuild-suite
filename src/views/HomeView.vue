@@ -21,6 +21,8 @@ const openTool = (id: string) => {
   if (t) router.push(toolPath(t, TOOLS))
 }
 const explorerTools = new Set(EXPLORERS.map((e) => e.tool))
+// the yard block leads home; it gets no tile of its own
+const tiles = EXPLORERS.filter((e) => e.tile !== false)
 const parts = TOOLS.filter((t) => !explorerTools.has(t.id))
 const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job === j.id) })).filter((j) => j.examples.length)
 </script>
@@ -33,7 +35,7 @@ const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job ===
     <section class="sx-home-sec" aria-labelledby="h-explorers">
       <h2 id="h-explorers" class="hb-panel-hd">explorers</h2>
       <HbTiles>
-        <HbTile v-for="e in EXPLORERS" :key="e.id" :name="e.title" :sub="e.line" @click="openExplorer(e)">
+        <HbTile v-for="e in tiles" :key="e.id" :name="e.title" :sub="e.line" @click="openExplorer(e)">
           <template #media><span class="sx-pic" v-html="e.picture" /></template>
         </HbTile>
       </HbTiles>

@@ -12,6 +12,8 @@ export interface Explorer {
   /** The explorer's own route, once it is rebuilt (rebuild plan 4). */
   route?: string
   picture: string
+  /** False for the yard: its block leads home already, so no tile repeats it. */
+  tile?: boolean
 }
 
 const svg = (body: string) =>
@@ -19,6 +21,7 @@ const svg = (body: string) =>
 const PINK = '#fe0386'
 
 const ALL: Explorer[] = [
+  { id: 'yard', title: 'yard', line: 'the dog simulator, in this tab', tool: '', route: '/x/yard', tile: false, picture: svg(`<path d="M20 96h120"/><circle cx="62" cy="70" r="10" fill="#fffdf7"/><path d="M96 96V60M90 60h12" stroke="${PINK}"/>`) },
   { id: 'chat', title: 'chat', line: 'talk to a model in this tab', tool: 'chat', route: '/x/chat', picture: svg(`<rect x="22" y="22" width="82" height="34" fill="#fffdf7"/><path d="M34 34h56M34 44h40"/><rect x="58" y="64" width="80" height="34" fill="${PINK}" stroke="${PINK}"/><path d="M70 76h56M70 86h32" stroke="#fffdf7"/>`) },
   { id: 'character', title: 'character', line: 'a body that talks, looks and listens', tool: 'character', route: '/x/character', picture: svg(`<circle cx="80" cy="44" r="18" fill="#fffdf7"/><path d="M50 104c2-22 14-34 30-34s28 12 30 34"/><path d="M73 50q7 6 14 0" stroke="${PINK}"/><circle cx="73" cy="40" r="1.5" fill="#1a1a1a"/><circle cx="87" cy="40" r="1.5" fill="#1a1a1a"/>`) },
   { id: 'room', title: 'room', line: 'an agent living in a room, and its mind', tool: 'room', route: '/x/room', picture: svg(`<path d="M20 30l40 14v60l-40-14zM60 44h80v60H60M140 44l0-14H20"/><circle cx="96" cy="64" r="6"/><path d="M96 70v18M88 104l8-16 8 16M86 78h20"/><path d="M122 92h12v12h-12z" fill="${PINK}" stroke="${PINK}"/>`) },
@@ -32,5 +35,6 @@ const ALL: Explorer[] = [
 /** Where an explorer's tile goes: its own route once rebuilt, else its tool. */
 export const explorerPath = (e: Explorer): string | null => (e.route && !__GROUP__ ? e.route : null)
 
-/** The explorers whose tool this build carries (a group single file has a few). */
-export const EXPLORERS = ALL.filter((e) => TOOLS.some((t) => t.id === e.tool))
+/** The explorers whose tool this build carries (a group single file has a few).
+ * The yard has no tool: it is the dog site in a frame, on every build with routes. */
+export const EXPLORERS = ALL.filter((e) => (e.id === 'yard' ? !__GROUP__ : TOOLS.some((t) => t.id === e.tool)))
