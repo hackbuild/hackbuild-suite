@@ -55,6 +55,8 @@ const current = shallowRef<Run | null>(null)
 const busy = ref(false)
 const stage = ref('')
 const note = ref('')
+// a load or run fault shows on the frame, where a phone sees it
+const failed = computed(() => / did not load: |^the run failed: /.test(note.value))
 let stop: AbortController | null = null
 
 async function load() {
@@ -196,9 +198,11 @@ onBeforeUnmount(() => {
         <p class="hb-lay-empty-note">{{ job ? 'type a prompt, then generate. ctrl enter works from anywhere.' : 'pick a model, load it, then generate. the first load fetches the weights and keeps them on this machine.' }}</p>
       </div>
       <figcaption v-if="busy" class="xg-busy" role="status">{{ stage || 'generating' }}</figcaption>
+      <figcaption v-else-if="failed" class="xg-busy is-err" role="alert">{{ note }}</figcaption>
     </figure>
     <template #verbs>
       <HbButton variant="go" class="xg-phone" :loading="loading" @click="pinkAct">{{ pinkLabel }}</HbButton>
+      <HbButton v-if="busy" class="xg-phone" @click="stop?.abort()">stop</HbButton>
       <HbButton v-if="current" @click="savePng">download png</HbButton>
     </template>
 
@@ -215,8 +219,8 @@ onBeforeUnmount(() => {
       <HbSlider v-model="steps" :label="`steps, ${form.steps.min} fastest, ${form.steps.max} most detail`" :min="form.steps.min" :max="form.steps.max" :step="1" />
       <HbSeed v-model="seed" v-model:locked="locked" label="seed" />
       <HbButton variant="go" class="xg-desk" block :loading="loading" @click="pinkAct">{{ pinkLabel }}</HbButton>
-      <HbButton v-if="busy" @click="stop?.abort()">stop</HbButton>
-      <p v-if="note" class="hb-note" role="status">{{ note }}</p>
+      <HbButton v-if="busy" class="xg-desk" @click="stop?.abort()">stop</HbButton>
+      <p v-if="note && !failed" class="hb-note" role="status">{{ note }}</p>
       <HbReadouts v-if="current" :rows="timing" />
     </template>
     <template #tab-runs>
@@ -244,4 +248,5 @@ onBeforeUnmount(() => {
 .xg-phone { display: none; }
 @media (max-width: 900px) { .xg-phone { display: inline-flex; } .xg-desk { display: none; } }
 .xg-busy { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px; font-family: var(--hb-utility, monospace); background: var(--hb-ink, #1a1a1a); color: var(--hb-paper, #fffdf7); }
+.xg-busy.is-err { background: var(--hb-red, #c3251f); }
 </style>
