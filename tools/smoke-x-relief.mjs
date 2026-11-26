@@ -65,14 +65,19 @@ try {
   let st = await S(() => window.hbExplorer.state())
   if (st.source !== 'brightness') fail(`with no depth model the relief came from ${st.source}`)
   if (st.open !== 0) fail(`${st.open} open edges`)
+  const depthPink = await S(() => [...document.querySelectorAll('.hb-lay-verbs .hb-btn-go')].map((b) => b.textContent.trim()))
+  if (depthPink.length !== 1 || !/^load depth, /.test(depthPink[0])) fail(`with depth missing the pink is: ${depthPink.join(', ')}`)
+  if (!(await S(() => document.body.textContent.includes('height comes from brightness')))) fail('the brightness fallback is not said')
+  if (!(await page.$('.xr-stage canvas'))) fail('the wide face has no iso part beside it')
 
-  await S(() => window.hbExplorer.pick.load())
+  // not awaited over the wire: the rebuild that follows can outlive the call
+  await S(() => { void window.hbExplorer.pick.load() })
   await page.waitForFunction(() => window.hbExplorer.state().source === 'depth', { timeout: 8000 }).catch(() => fail('the depth model loaded but the relief did not rebuild from depth'))
   if (shots) await page.screenshot({ path: `${shots}/x-relief-face-1440.png` })
 
   // the erase brush cuts, undo puts it back
   await page.click('.hb-lay-tools button:nth-child(2)').catch(() => S(() => document.querySelectorAll('.hb-lay-tools button')[1].click()))
-  const box = await page.$eval('.hb-lay-subject', (c) => { const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  const box = await page.$eval('.xr-face', (c) => { const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   await page.mouse.move(box.x - 40, box.y)
   await page.mouse.down()
   for (let i = 0; i < 8; i++) await page.mouse.move(box.x - 40 + i * 10, box.y + i * 3)
@@ -96,13 +101,15 @@ try {
 
   // exports
   const size = (k) => S(async (k) => (await window.hbExplorer.exportAs(k))?.size ?? 0, k)
-  const out = { '3mf': await size('3mf'), zip: await size('zip'), stl: await size('stl'), face: await size('face'), depth: await size('depth') }
+  const out = { '3mf': await size('3mf'), zip: await size('zip'), stl: await size('stl'), face: await size('face'), depth: await size('depth'), card: await size('card') }
   for (const [k, v] of Object.entries(out)) if (!v) fail(`the ${k} export is empty`)
 
   // the 3d views
-  await page.select('.hb-lay-verbs select', 'iso')
+  const cams = await S(() => [...document.querySelectorAll('.xr-cams button')].map((b) => b.textContent.trim()).join(' '))
+  if (cams !== 'face iso front side back explode cut') fail(`the view row: ${cams}`)
+  await S(() => [...document.querySelectorAll('.xr-cams button')].find((b) => b.textContent.trim() === 'back').click())
   await wait(800)
-  if (!(await page.$('.xr-stage canvas'))) fail('the iso view drew no canvas')
+  if (!(await page.$('.xr-stage canvas'))) fail('the back view drew no canvas')
   if (shots) await page.screenshot({ path: `${shots}/x-relief-iso-1440.png` })
 
   // a posed model
@@ -110,7 +117,7 @@ try {
   await page.waitForFunction(() => window.hbExplorer.state().kind === 'model' && window.hbExplorer.state().tris > 0, { timeout: 8000 }).catch(() => fail('the glb built no relief'))
   st = await S(() => window.hbExplorer.state())
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log(`smoke-x-relief: ok. one pink (${first.pink[0]}), 3 rail tools, 4 tabs; sample from brightness then depth, closed; erase and undo held; ${bands} terrace bodies, ${groups} colour bodies; 3mf ${out['3mf']} b, stl zip ${out.zip} b, stl ${out.stl} b, faces ${out.face} b, depth ${out.depth} b; the iso view drew; a glb cube built ${st.tris} triangles (measured)`)
+  console.log(`smoke-x-relief: ok. one pink (${first.pink[0]}), 3 rail tools, 4 tabs; sample from brightness then depth, closed; erase and undo held; ${bands} terrace bodies, ${groups} colour bodies; 3mf ${out['3mf']} b, stl zip ${out.zip} b, stl ${out.stl} b, faces ${out.face} b, depth ${out.depth} b, card ${out.card} b; the pink named ${depthPink[0]} with depth missing; face and iso side by side, the back view drew; a glb cube built ${st.tris} triangles (measured)`)
 } finally {
   await chrome.close()
   server.close?.()
