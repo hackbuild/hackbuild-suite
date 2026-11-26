@@ -52,20 +52,21 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('.sx-ex-src .hb-codeblock').length === 2, { timeout: 5000 }).catch(() => fail('the source block did not load'))
     const src = await page.evaluate(() => {
       const blocks = [...document.querySelectorAll('.sx-ex-src .hb-codeblock')]
-      return { install: blocks[0].querySelector('pre,code').textContent, code: blocks[1].querySelector('pre,code').textContent, copy: blocks[1].querySelectorAll('.hb-codeblock-btn').length, readme: document.querySelector('.sx-ex-foot a').href }
+      return { install: blocks[0].querySelector('pre,code').textContent, code: blocks[1].querySelector('pre,code').textContent, copy: blocks[1].querySelectorAll('.hb-codeblock-btn').length, readme: document.querySelector('.sx-ex-foot > a').href, links: [...document.querySelectorAll('.sx-ex-install a')].map((a) => [a.textContent, a.href]) }
     })
     const want = readFileSync(`examples/${e.job}/${e.id}/example.ts`, 'utf8')
     if (src.code.trim() !== want.trim()) fail('the source on screen is not the example file')
     if (!src.copy) fail('the source has no copy button')
     if (!src.install.startsWith('npm install ') || !e.packages.every((p) => src.install.includes(p))) fail(`install line: ${src.install}`)
     if (src.readme !== `https://www.npmjs.com/package/${e.readme}`) fail(`readme link: ${src.readme}`)
+    if (src.links.length !== e.packages.length + 1 || src.links.some(([p, href]) => href !== `https://www.npmjs.com/package/${p}`)) fail(`install links: ${JSON.stringify(src.links)}`)
     await page.click('.sx-ex-foot .hb-btn')
     if (off.length) fail(`requests off file://: ${off.join(' ')}`)
     if (errors.length) fail(`console errors: ${errors.join(' | ')}`)
     done.push(`${e.id}${sampled ? ' (sample ran)' : ''}`)
     await page.close()
   }
-  console.log(`smoke-examples: ok. ${job}: ${done.join(', ')}; one bar, no modal, the source is the file with copy, install and readme, 0 requests off file:// (measured)`)
+  console.log(`smoke-examples: ok. ${job}: ${done.join(', ')}; one bar, no modal, the source is the file with copy, each package linked to npm and the readme, 0 requests off file:// (measured)`)
 } finally {
   await chrome.close()
 }
