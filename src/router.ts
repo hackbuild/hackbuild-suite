@@ -32,6 +32,8 @@ export const router = createRouter({
       { path: '/x/room', name: 'x-room', component: () => import('./explorers/room/RoomExplorer.vue'), meta: { full: true, explorer: 'room' } },
       { path: '/x/masks', name: 'x-masks', component: () => import('./explorers/masks/MaskStudio.vue'), meta: { full: true, explorer: 'masks' } },
       { path: '/x/relief', name: 'x-relief', component: () => import('./explorers/relief/Relief.vue'), meta: { full: true, explorer: 'relief' } },
+      { path: '/x/vision', name: 'x-vision', component: () => import('./explorers/vision/VisionLab.vue'), meta: { full: true, explorer: 'find' } },
+      { path: '/x/generate', name: 'x-generate', component: () => import('./explorers/generate/Generate.vue'), meta: { full: true, explorer: 'make-an-image' } },
       { path: '/x/yard', name: 'x-yard', component: () => import('./explorers/yard/Yard.vue'), meta: { full: true, explorer: 'yard' } },
     ]),
     ...toolRoutes,

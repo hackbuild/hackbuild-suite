@@ -213,5 +213,24 @@
       "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-relief-props-390.png",
       "note": "the bench with a depth relief on the face canvas"
     }
+  },
+  "?stub#/x/vision": {
+    "original": "~/Downloads/arbor (10).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-eyes-detector-1440.png",
+    "note": "no original of its own; the arbor eyes tab with its detector inset",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/embodied/arbor-eyes-detector-1440.png",
+      "note": "the arbor eyes tab with its detector inset"
+    }
+  },
+  "?stub#/x/generate": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/grommet-sd-turbo/grommet (1).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-initial-390.png",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-result-history-dom-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/grommet-stage-390.png",
+      "note": "the original with a picture made"
+    }
   }
 }

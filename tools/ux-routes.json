@@ -193,5 +193,13 @@
   "?stub#/x/relief": {
     "layout": "canvas-rail",
     "setup": "(async () => { window.hbExplorer.sample(); await window.hbExplorer.pick.load(); await new Promise((r) => setTimeout(r, 1200)) })()"
+  },
+  "?stub#/x/vision": {
+    "layout": "canvas-rail",
+    "setup": "(async () => { window.hbExplorer.sample(); await window.hbExplorer.load(); await new Promise((r) => setTimeout(r, 400)) })()"
+  },
+  "?stub#/x/generate": {
+    "layout": "form-frame",
+    "setup": "(async () => { await window.hbExplorer.load(); await window.hbExplorer.generate(); await new Promise((r) => setTimeout(r, 300)) })()"
   }
 }

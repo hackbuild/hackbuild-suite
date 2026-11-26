@@ -64,7 +64,9 @@
     "smoke:x-room": "node tools/smoke-x-room.mjs",
     "smoke:x-masks": "node tools/smoke-x-masks.mjs",
     "smoke:x-yard": "node tools/smoke-x-yard.mjs",
-    "smoke:x-relief": "node tools/smoke-x-relief.mjs"
+    "smoke:x-relief": "node tools/smoke-x-relief.mjs",
+    "smoke:x-vision": "node tools/smoke-x-vision.mjs",
+    "smoke:x-generate": "node tools/smoke-x-generate.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
