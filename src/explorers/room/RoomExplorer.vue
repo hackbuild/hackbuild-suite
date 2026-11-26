@@ -46,6 +46,8 @@ const tick = ref(0)
 const awake = ref(false)
 const waking = ref(false)
 const preset = ref('feather')
+// the chip and the pickers follow the preset as soon as it is chosen, not only at wake
+watch(preset, (p) => { if (p !== 'rules') jobs.value?.applyPreset(p) })
 const gateNote = ref('')
 const log = ref<HbLogLine[]>([])
 const book = planBook()
@@ -436,6 +438,7 @@ onMounted(async () => {
   const shared = hooks.env ? { env: hooks.env } : {}
   jobs.value = useJobsPick(JOBS.map((job) => ({ job, required: job === 'chat', options: { ...shared, loader: hooks.loaderFor?.(job) ?? jobLoader(job) } })), PRESETS, shared)
   offs.push(jobs.value.subscribe(() => tick.value++))
+  if (preset.value !== 'rules') jobs.value.applyPreset(preset.value)
   chipPick.value = jobs.value.picks.get('chat') ?? null
   if (!hooks.env) void probe().then((env) => jobs.value?.update({ env }))
   offs.push(watch(() => tick.value, () => { if (awake.value && agent) build() }))
