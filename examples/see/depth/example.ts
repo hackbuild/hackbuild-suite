@@ -6,7 +6,7 @@
 import { probe, type Env } from "@hackbuild/ai-env";
 import { jobLoader, useModelPick, type Job, type Loader } from "@hackbuild/ai-views";
 import { define, type ModelSelectElement } from "@hackbuild/ai-views/elements";
-import { depthHeight } from "@hackbuild/depth-mesh";
+import { depthHeight, surfaceIndices } from "@hackbuild/depth-mesh";
 import { meshTurntable } from "@hackbuild/motion-views/vanilla";
 import { depthToRgba } from "@hackbuild/vision";
 import { layout } from "@virgilvox/hackbuild-ui/vanilla";
@@ -45,8 +45,8 @@ export default function mount(host: HTMLElement, hooks: Hooks = {}) {
         </section>
         <aside class="hb-rack" aria-label="depth">
           <nav class="hb-tabs" role="tablist" aria-label="depth tabs"><button type="button" class="hb-tab" role="tab" aria-selected="true">depth</button><button type="button" class="hb-tab" role="tab" aria-selected="false">surface</button><button type="button" class="hb-tab" role="tab" aria-selected="false">model</button></nav>
-          <section class="hb-rack-pane"><section class="hb-panel"><div class="hb-panel-hd-inst">the depth map</div><p class="hb-note" data-out="label"></p><img data-out="photo" alt="the photo" style="width:100%"></section></section>
-          <section class="hb-rack-pane" hidden><section class="hb-panel"><div class="hb-panel-hd-inst">surface</div><label class="hb-field"><span class="hb-label">how deep</span><input class="hb-range" type="range" min="2" max="40" value="18" data-depth></label></section></section>
+          <section class="hb-rack-pane"><section class="hb-panel"><div class="hb-panel-hd-inst">the depth map</div><p class="hb-note" data-out="label"></p><img data-out="photo" alt="the depth map: white is near, black is far" style="width:100%"><p class="hb-note">white is near, black is far.</p></section></section>
+          <section class="hb-rack-pane" hidden><section class="hb-panel"><div class="hb-panel-hd-inst">surface</div><label class="hb-field"><span class="hb-label">how deep</span><input class="hb-range" type="range" min="2" max="40" value="12" data-depth></label></section></section>
           <section class="hb-rack-pane" hidden><section class="hb-panel"><div class="hb-panel-hd-inst">depth model</div><model-select job="depth"></model-select></section></section>
           <details class="hb-rack-detail" data-ux="detail"><summary>detail</summary><div><p class="hb-note">the photo is cc0 from wikimedia commons. white is near, black is far. drag the surface to turn it.</p></div></details>
         </aside>
@@ -73,16 +73,31 @@ export default function mount(host: HTMLElement, hooks: Hooks = {}) {
     if (!photo || !depth) return;
     const cols = 160;
     const rows = Math.round((cols * photo.height) / photo.width);
-    const z = depthHeight(depth, cols, rows);
+    const raw = depthHeight(depth, cols, rows);
+    // a light 3 by 3 blur first, so leaf noise does not tear the sheet
+    const z = new Float32Array(raw.length);
+    for (let j = 0; j < rows; j++)
+      for (let i = 0; i < cols; i++) {
+        let sum = 0, n = 0;
+        for (let dj = -1; dj <= 1; dj++)
+          for (let di = -1; di <= 1; di++) {
+            const y = j + dj, x = i + di;
+            if (x >= 0 && y >= 0 && x < cols && y < rows) (sum += raw[y * cols + x]!), n++;
+          }
+        z[j * cols + i] = sum / n;
+      }
     const width = 60;
     const geo = new THREE.PlaneGeometry(width, (width * photo.height) / photo.width, cols - 1, rows - 1);
     const pos = geo.attributes.position!;
     for (let i = 0; i < pos.count; i++) pos.setZ(i, z[i]! * Number(deep.value));
+    // tear where a near edge meets a far one, so branches do not stretch into walls against the sky
+    geo.setIndex(new THREE.BufferAttribute(surfaceIndices(z, cols, rows, 0.15), 1));
     geo.computeVertexNormals();
     table.show(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(photo), roughness: 0.9, side: THREE.DoubleSide })));
     map.width = depth.width;
     map.height = depth.height;
     map.getContext("2d")!.putImageData(new ImageData(depthToRgba(depth) as Uint8ClampedArray<ArrayBuffer>, depth.width, depth.height), 0, 0);
+    (root.querySelector('[data-out="photo"]') as HTMLImageElement).src = map.toDataURL("image/png");
   }
   async function see(src: string | Blob): Promise<void> {
     const bmp = await createImageBitmap(typeof src === "string" ? await (await fetch(src)).blob() : src);
@@ -91,7 +106,6 @@ export default function mount(host: HTMLElement, hooks: Hooks = {}) {
     photo.width = Math.round(bmp.width * k);
     photo.height = Math.round(bmp.height * k);
     photo.getContext("2d")!.drawImage(bmp, 0, 0, photo.width, photo.height);
-    (root.querySelector('[data-out="photo"]') as HTMLImageElement).src = photo.toDataURL("image/jpeg", 0.8);
     label.textContent = model ? "" : "sample, no model loaded. this map is a guess from the rows of the photo; load a model from the chip in the bar for a real one.";
     depth = model ? await model(photo) : rowGuess(160, Math.round((160 * photo.height) / photo.width));
     lift();
