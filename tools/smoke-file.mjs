@@ -80,7 +80,7 @@ try {
   await page.click('.sx-name')
   await page.keyboard.type('character')
   await page.keyboard.press('Enter')
-  await page.waitForFunction(() => location.hash.startsWith('#/character'), { timeout: 3000 }).catch(() => { throw new Error('the switcher did not open character') })
+  await page.waitForFunction(() => /^#\/(x\/)?character/.test(location.hash), { timeout: 3000 }).catch(() => { throw new Error('the switcher did not open character') })
   if (shots) {
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
     await page.reload({ waitUntil: 'load' })
