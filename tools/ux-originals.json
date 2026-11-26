@@ -202,5 +202,16 @@
   "?stub#/x/yard": {
     "original": "~/Downloads/hackle (10).html",
     "note": "the yard explorer is the dog simulator in a frame"
+  },
+  "?stub#/x/relief": {
+    "original": "~/Projects/hackbuild/web-ai-knowledge/sources/browser-ai/bail/bail (16).html",
+    "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-welcome-1440.png",
+    "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-welcome-390.png",
+    "note": "the first view is the bench with its design picker",
+    "loaded": {
+      "shot1440": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-relief-props-sliders-1440.png",
+      "shot390": "~/Projects/hackbuild/web-ai-knowledge/research/ui-harvest/shots/vision/bail-relief-props-390.png",
+      "note": "the bench with a depth relief on the face canvas"
+    }
   }
 }

@@ -189,5 +189,9 @@
   "?stub#/x/yard": {
     "layout": "gate",
     "note": "first view only: once pressed the frame is the dog site, which brings its own stage, rack and pink and is gated on its own (plan 8)"
+  },
+  "?stub#/x/relief": {
+    "layout": "canvas-rail",
+    "setup": "(async () => { window.hbExplorer.sample(); await window.hbExplorer.pick.load(); await new Promise((r) => setTimeout(r, 1200)) })()"
   }
 }

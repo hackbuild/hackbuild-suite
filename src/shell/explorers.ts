@@ -29,7 +29,7 @@ const ALL: Explorer[] = [
   { id: 'masks', title: 'mask studio', line: 'cut things out, by hand or by model', tool: 'masks', route: '/x/masks', picture: svg(`<rect x="22" y="70" width="116" height="34" fill="#d9d0bd" stroke="none"/><rect x="56" y="38" width="40" height="44" fill="#c3251f" stroke="none"/><rect x="50" y="32" width="52" height="56" stroke="${PINK}" stroke-dasharray="6 5"/><circle cx="120" cy="80" r="14" fill="#2f5fa7" stroke="none"/>`) },
   { id: 'find', title: 'find', line: 'what is in a picture or a camera', tool: 'vision', picture: svg(`<rect x="18" y="18" width="124" height="84" fill="#fffdf7"/><rect x="34" y="40" width="40" height="46" stroke="${PINK}"/><rect x="92" y="52" width="34" height="34" stroke="${PINK}"/><path d="M34 34h20M92 46h16" stroke="${PINK}"/>`) },
   { id: 'make-an-image', title: 'make an image', line: 'a prompt becomes a picture', tool: 'generate', picture: svg(`<rect x="18" y="18" width="124" height="84" fill="#fffdf7"/><circle cx="112" cy="40" r="10" fill="${PINK}" stroke="${PINK}"/><path d="M18 92l38-36 26 24 18-14 42 34"/>`) },
-  { id: 'relief', title: 'relief', line: 'a photo to a relief you can print', tool: 'relief', picture: svg(`<path d="M20 90l40-22 80 0-40 22z" fill="#fffdf7"/><path d="M20 90v12h80l40-22v-12M100 90v12"/><path d="M46 80q14-22 28-6t28-8" stroke="${PINK}"/>`) },
+  { id: 'relief', title: 'relief', line: 'a photo to a relief you can print', tool: 'relief', route: '/x/relief', picture: svg(`<path d="M20 90l40-22 80 0-40 22z" fill="#fffdf7"/><path d="M20 90v12h80l40-22v-12M100 90v12"/><path d="M46 80q14-22 28-6t28-8" stroke="${PINK}"/>`) },
 ]
 
 /** Where an explorer's tile goes: its own route once rebuilt, else its tool. */
