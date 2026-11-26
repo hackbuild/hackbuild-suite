@@ -4,6 +4,7 @@
 // stored and loaded. One hub and one store behind every section.
 import { ref } from 'vue'
 import { HbCapabilities, HbCustomModelForm, HbModelManager, HbModelRack, HbReasons } from '@virgilvox/hackbuild-ui'
+import type { ModelRecordLike } from '@virgilvox/hackbuild-ui/vanilla'
 import {
   act, addCustom, allRecords, customModes, cancel, caps, checkCustom, customCheck, customSaved, defaultId, defaults, evict, fits, load,
   machine, persist, policy, rackPresets, rackSlots, rackStates, reasons, removeCustom, removeSlot, resident, states, storage, stored, unload,
@@ -21,7 +22,7 @@ function preset(id: string) {
   <HbModelManager
     class="hb-instrument"
     v-model="picked"
-    :records="allRecords"
+    :records="(allRecords as unknown as ModelRecordLike[])"
     :fits="fits"
     :states="states"
     :stored="stored"

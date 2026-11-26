@@ -69,5 +69,5 @@ test('the stub paints the same pixels for a seed and other pixels for another', 
 
 test('the two records name their size with its source', () => {
   assert.deepEqual(IMAGEGEN_RECORDS.map((r) => r.id), ['sd-turbo', 'sd-1.5'])
-  assert.match(loadLabel(IMAGEGEN_RECORDS[1]), /about 2\.0 gb \(inferred\)$/)
+  assert.match(loadLabel(IMAGEGEN_RECORDS[1]), /about 2\.0 gb \(vendor\)$/) // imagegen 0.1.2 cites the vendor size
 })

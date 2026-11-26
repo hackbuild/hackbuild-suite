@@ -838,7 +838,7 @@ onBeforeUnmount(() => {
       :title="`wake ${name} up.`"
       :lede="`${name} lives in this tab: a brain, a voice, a memory and a body. nothing is sent to a server unless you pick your endpoint. the models download once and stay in this browser. the wake press also turns on sound.`"
       :size-m-b="tier === 'tab' || tier === 'light' ? ((tier === 'light' ? lightRec : brainRec)?.sizeMB ?? null) : 0"
-      :size-source="brainRec?.sizeSource ?? 'unknown'"
+      :size-source="hub.uiSource(brainRec?.sizeSource ?? 'unknown')"
       :origin="origin"
       :quota-m-b="quotaMB"
       :webgpu="hub.env.value?.webgpu ?? true"

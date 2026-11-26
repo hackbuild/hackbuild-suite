@@ -21,6 +21,10 @@ import { customId, type CustomCheck, type CustomMode, type CustomValues } from '
 import { createEngine } from '@hackbuild/chat'
 import { transformersDriver, type TextGenerationLike, type TransformersModule } from '@hackbuild/chat/transformers'
 import { jobs, logEvent } from '../shell/shell.ts'
+import type { SizeSource as UiSizeSource } from '@virgilvox/hackbuild-ui/vanilla'
+
+/** models 0.2.0 adds "computed" (summed from file sizes); hackbuild-ui 0.10.2 types lack it and print the word as given. */
+export const uiSource = (s: string): UiSizeSource => s as UiSizeSource
 import { threadsOffWhy } from '../shell/isolation.ts'
 
 const MB = 1024 * 1024
@@ -376,7 +380,7 @@ export const rackSlots = computed<HbRackSlot[]>(() =>
       .filter((r) => r.provides.some((c) => SLOT_CAPS[slot].includes(c)))
       .map((r) => {
         const fit = fits.value[r.id]
-        return { value: r.id, label: r.label ?? r.id, sizeMB: r.sizeMB, sizeSource: r.sizeSource, disabled: fit && !fit.ok ? fit.reason : undefined }
+        return { value: r.id, label: r.label ?? r.id, sizeMB: r.sizeMB, sizeSource: uiSource(r.sizeSource), disabled: fit && !fit.ok ? fit.reason : undefined }
       }),
   })),
 )
@@ -388,7 +392,7 @@ export function removeSlot(slot: string): void {
 export const rackPresets = computed<HbRackPreset[]>(() =>
   PRESETS.map((p) => {
     const t = presetTotal(p, records.value)
-    return { id: p.id, label: p.label, picks: p.picks as Record<string, string>, totalMB: t.mb, totalSource: t.source, unknown: t.unknown }
+    return { id: p.id, label: p.label, picks: p.picks as Record<string, string>, totalMB: t.mb, totalSource: uiSource(t.source), unknown: t.unknown }
   }),
 )
 export function rackStates(picks: Record<string, string>): Record<string, HbRackSlotState> {
@@ -429,7 +433,7 @@ function modelCap(id: string, name: string, rec: ModelRecord | undefined, withou
     state,
     needs: ['model', ...(rec.ladder.every((r) => r.device === 'webgpu') ? [{ kind: 'webgpu' as const, missing: !env.value?.webgpu }] : [])],
     size: rec.sizeMB === null ? 'size unknown' : mbText(rec.sizeMB),
-    sizeSource: rec.sizeSource,
+    sizeSource: uiSource(rec.sizeSource),
     licence: rec.licence,
     commercial: rec.commercial === 'unknown' ? null : rec.commercial,
     licenceWhat: 'weights',

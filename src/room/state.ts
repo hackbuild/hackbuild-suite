@@ -68,7 +68,7 @@ export const presets = computed<HbRackPreset[]>(() => {
   return PRESETS.map((p) => {
     const cut = { ...p, picks: Object.fromEntries(Object.entries(p.picks).filter(([k]) => keep.has(k))) }
     const t = presetTotal(cut, hub.allRecords.value)
-    return { id: p.id, label: p.label, picks: cut.picks as Record<string, string>, totalMB: t.mb, totalSource: t.source, unknown: t.unknown }
+    return { id: p.id, label: p.label, picks: cut.picks as Record<string, string>, totalMB: t.mb, totalSource: hub.uiSource(t.source), unknown: t.unknown }
   })
 })
 
