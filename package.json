@@ -82,7 +82,7 @@
     "@hackbuild/agent": "file:tools/vendor/hackbuild-agent-0.1.4-npm.tgz",
     "@hackbuild/agents-views": "file:tools/vendor/hackbuild-agents-views-0.2.1-9a22c04.tgz",
     "@hackbuild/ai-env": "file:tools/vendor/hackbuild-ai-env-0.1.2-npm.tgz",
-    "@hackbuild/ai-views": "file:tools/vendor/hackbuild-ai-views-0.1.8-npm.tgz",
+    "@hackbuild/ai-views": "file:tools/vendor/hackbuild-ai-views-0.1.9-8be1a34.tgz",
     "@hackbuild/audio-dsp": "file:tools/vendor/hackbuild-audio-dsp-0.1.2-npm.tgz",
     "@hackbuild/avatar": "file:tools/vendor/hackbuild-avatar-0.1.4-npm.tgz",
     "@hackbuild/avatar-host": "file:tools/vendor/hackbuild-avatar-host-0.1.6-npm.tgz",

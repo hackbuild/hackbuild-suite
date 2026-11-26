@@ -69,6 +69,8 @@ const eyeWho = ref('colour')
 const settings = reactive({ mode: 'reflex' as Mode, budget: 4096, steps: 6, cache: true, soul: '', depthFrom: 'scene', feed: 'clear', captions: false, every: 20, prompt: 'describe what is in front of you in one sentence.' })
 const say = (kind: 'eye' | 'body' | 'note' | 'heard' | 'said', line: string, level: HbLogLine['level'] = 'info') => (log.value = [...log.value.slice(-200), { t: Date.now(), line: `${kind}: ${line}`, level }])
 const canCloneNow = computed(() => (void tick.value, canClone(jobs.value?.picks.get('voice')?.snapshot().loaded)))
+// his own voice, cloned as soon as a voice that clones has loaded
+watch(canCloneNow, (ok) => { if (ok && !STUB && !voice.cloned) void cloneOwnVoice(voice) })
 const loaded = <T,>(job: Job) => jobs.value?.picks.get(job)?.snapshot().loaded as T | undefined
 
 // --- the world and the body
@@ -78,6 +80,7 @@ const world = new World({
   gesture: (g) => stage.value?.gesture(g),
 })
 const voice = speaker(() => loaded<Engine>('voice') ?? null, {
+  onError: (err) => say('note', `he could not say that: ${err instanceof Error ? err.message : String(err)}`, 'warn'),
   play: async (line) => {
     const s = stage.value
     if (!s) return
@@ -389,7 +392,6 @@ async function wake() {
     if (preset.value !== 'rules') {
       jobs.value.applyPreset(preset.value)
       await jobs.value.loadAll().catch((err: unknown) => say('note', `not everything loaded: ${err instanceof Error ? err.message : String(err)}. he wakes with what did.`, 'warn'))
-      if (!STUB && canCloneNow.value) await cloneOwnVoice(voice)
     }
     await memReady
     build()

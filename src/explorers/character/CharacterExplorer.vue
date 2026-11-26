@@ -106,7 +106,9 @@ function onPane(h: MemoryPaneHandle) {
 const speakReplies = ref(true)
 const early = ref(false)
 const speakingNow = ref(false)
-const voice = speaker(() => (withVoice.value ? ((voiceSnap.value?.loaded as Engine | undefined) ?? null) : null), {
+const voiceNote = ref('')
+const voice = speaker(() => (voiceSnap.value?.row?.state === 'loaded' ? ((voiceSnap.value?.loaded as Engine | undefined) ?? null) : null), {
+  onError: (err) => (voiceNote.value = `he could not say that: ${err instanceof Error ? err.message : String(err)}`),
   play: async (line) => {
     const s = stage.value
     if (!s) return
@@ -117,6 +119,14 @@ const voice = speaker(() => (withVoice.value ? ((voiceSnap.value?.loaded as Engi
   onLine: (t) => (caption.value = t),
 })
 const canCloneNow = computed(() => canClone(voiceSnap.value?.loaded))
+// his own voice: cloned from the dog site's reference as soon as a voice that clones has loaded,
+// at wake or later from the voice tab
+watch(() => voiceSnap.value?.row?.state === 'loaded' && canCloneNow.value, async (ok) => {
+  if (!ok || STUB || voice.cloned) return
+  withVoice.value = true
+  voiceNote.value = 'cloning his voice from his recording.'
+  voiceNote.value = (await cloneOwnVoice(voice)) ? 'speaking in his own voice.' : 'his recording did not load, so this is the default voice.'
+})
 
 // hands free: the mic sends what it heard when you stop talking, gated while he speaks
 function heard(text: string) {
@@ -185,7 +195,6 @@ async function wake() {
   gateNote.value = ''
   try {
     await Promise.all([brainPick.value.load(), withVoice.value ? voicePick.value?.load().catch(() => (withVoice.value = false)) : null, ready])
-    if (withVoice.value && !STUB && canCloneNow.value) await cloneOwnVoice(voice)
     awake.value = true
     stage.value?.setVerbs(VERBS.value)
   } catch (err) {
@@ -317,6 +326,7 @@ onBeforeUnmount(() => {
             <ModelSelect v-if="voicePick" job="voice" :pick="voicePick" variant="line" :go="false" />
             <h3 class="hb-panel-hd">clone a voice</h3>
             <VoiceClone :speaker="voice" :can="canCloneNow" />
+            <p v-if="voiceNote" class="hb-note" role="status">{{ voiceNote }}</p>
             <p v-if="!withVoice" class="hb-note">woken with no voice. load one here and he speaks.</p>
           </section>
         </template>
