@@ -69,6 +69,10 @@ defineExpose({ play, DOG })
 /* a phone shows the dog and his person both: a 6 by 5 frame keeps 721 of the still's 1440 px (computed) */
 @media (max-width: 900px) {
   .sx-yard:not(.is-full) { height: auto; aspect-ratio: 6 / 5; }
+  /* the explorer's still too: at full height a cover crop keeps 296 of the 1440 px at 390 wide,
+     the person alone; the dog and his person span 675 px, so 6 by 5 is the tallest frame that
+     holds both (computed) */
+  .sx-yard.is-full:not(.is-live) { height: auto; aspect-ratio: 6 / 5; }
   .sx-yard-pic img { object-position: 72% 60%; }
   /* live, the yard stacks its rack under the stage and the page scrolls as one */
   .sx-yard.is-live { height: auto; aspect-ratio: auto; overflow: visible; }
