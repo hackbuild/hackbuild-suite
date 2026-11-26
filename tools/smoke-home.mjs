@@ -1,0 +1,75 @@
+// smoke-home: home and the shell bar (rebuild plan 2.1 and 4) from the
+// single file build on file://. Home opens with no modal on the yard still
+// and its one pink action, the line about this tab, eight explorer tiles
+// that open their tools, every example grouped by job and the parts. The
+// bar holds the mark, the name, the menu and nothing else; the name opens
+// the switcher with explorers first, then the jobs, then the parts. Any
+// request off file:// fails the run.
+//   npm run build:single && node tools/smoke-home.mjs
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { launch } from './browse.mjs'
+
+const file = resolve('dist/single/index.html')
+if (!existsSync(file)) throw new Error('no single build: run npm run build:single first')
+const index = JSON.parse(readFileSync('examples/index.json', 'utf8'))
+const built = index.examples.filter((e) => existsSync(`examples/${e.job}/${e.id}/example.ts`))
+const chrome = await launch({ prefix: 'smoke-home-' })
+const errors = []
+const off = []
+const fail = (m) => { throw new Error(m) }
+try {
+  const page = await chrome.browser.newPage()
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) off.push(r.url()) })
+  await page.setViewport({ width: 1440, height: 900 })
+  await page.goto(`${pathToFileURL(file).href}#/`, { waitUntil: 'load' })
+  await page.waitForSelector('.sx-yard img', { timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('.sx-yard img').naturalWidth > 0, { timeout: 5000 }).catch(() => fail('the yard still did not load'))
+  const home = await page.evaluate(() => {
+    const vis = (e) => e.checkVisibility()
+    const bar = document.querySelector('[data-ux~="bar"]')
+    return {
+      modal: [...document.querySelectorAll('[role=dialog],[aria-modal="true"]')].filter(vis).length,
+      barControls: [...bar.querySelectorAll('button,a,input,select')].filter(vis).map((b) => b.getAttribute('aria-label') ?? b.textContent.trim()),
+      barHeight: bar.getBoundingClientRect().height,
+      pink: [...document.querySelectorAll('.hb-btn-go')].filter(vis).map((b) => b.textContent.trim()),
+      yardShare: (() => { const r = document.querySelector('.sx-yard').getBoundingClientRect(); return (r.width * Math.min(r.bottom, innerHeight) - r.width * r.top) / (innerWidth * innerHeight) })(),
+      line: document.body.innerText.includes('everything runs in this tab. nothing is uploaded.'),
+      tiles: [...document.querySelectorAll('.sx-home .hb-tile .n')].map((n) => n.textContent.trim()),
+      examples: [...document.querySelectorAll('.sx-cards a')].map((a) => a.getAttribute('href')),
+      parts: document.querySelectorAll('.sx-parts a').length,
+      words: ['phase', 'guided', 'expert', 'local only'].filter((w) => document.body.innerText.toLowerCase().includes(w)),
+    }
+  })
+  if (home.modal) fail(`home opens with ${home.modal} dialog`)
+  if (home.barHeight > 52) fail(`the bar is ${home.barHeight} px`)
+  if (home.barControls.length !== 2) fail(`the bar on home should hold the name and the menu: ${home.barControls.join(', ')}`)
+  if (home.pink.length !== 1 || home.pink[0] !== 'open the dog simulator') fail(`home pink: ${home.pink.join(', ')}`)
+  if (home.yardShare < 0.6) fail(`the yard takes ${Math.round(home.yardShare * 100)} percent of the first view`)
+  if (!home.line) fail('the line about this tab is missing')
+  if (home.tiles.length !== 8) fail(`explorer tiles: ${home.tiles.join(', ')}`)
+  if (home.examples.length !== built.length) fail(`home lists ${home.examples.length} examples, ${built.length} are built`)
+  if (!home.parts) fail('home lists no parts')
+  if (home.words.length) fail(`home still says ${home.words.join(', ')}`)
+
+  // the name opens the switcher: explorers, then the jobs, then the parts
+  await page.click('.sx-name')
+  await page.waitForSelector('.hb-palette:not([hidden])', { timeout: 3000 }).catch(() => fail('the name did not open the switcher'))
+  const heads = await page.evaluate(() => [...document.querySelectorAll('.hb-palette .hb-palette-head')].map((e) => e.textContent.trim().toLowerCase()))
+  const order = ['explorers', ...index.jobs.map((j) => j.id).filter((j) => built.some((e) => e.job === j)), 'parts']
+  const at = order.map((h) => heads.indexOf(h))
+  if (at.some((i) => i < 0) || at.some((i, k) => k && i < at[k - 1])) fail(`switcher sections ${heads.join(', ')}, expected ${order.join(', ')} in order`)
+  await page.keyboard.press('Escape')
+
+  // a tile opens its tool for now
+  await page.evaluate(() => [...document.querySelectorAll('.sx-home .hb-tile')].find((t) => t.textContent.includes('transcribe')).click())
+  await page.waitForFunction(() => location.hash === '#/voice/transcribe', { timeout: 3000 }).catch(() => fail('the transcribe tile did not open transcribe'))
+  if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
+  if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
+  console.log(`smoke-home: ok. no modal, a ${home.barHeight} px bar with the name and the menu, the yard ${Math.round(home.yardShare * 100)} percent of the first view with one pink, 8 explorers, ${home.examples.length} examples by job, ${home.parts} parts, the switcher in order, 0 requests off file:// (measured)`)
+} finally {
+  await chrome.close()
+}

@@ -1,70 +1,66 @@
 <script setup lang="ts">
-// Home: on a first visit the welcome card with the capability panel and a
-// list that ticks itself from live state (design 2.4, P-START-2); then the
-// tools by group.
-import { computed, ref } from 'vue'
+// Home (rebuild plan 4): the yard first at full width, the explorers as
+// pictures, the examples by job, the parts, and one line about privacy.
+// The yard is a still of the dog simulator for now; the press opens it.
 import { useRouter } from 'vue-router'
-import { HbCapabilities, HbSectionHead, HbWelcome, type HbWelcomeStart, type HbWelcomeStep } from '@virgilvox/hackbuild-ui'
-import { GROUPS, toolPath } from '../tools/define'
+import { HbTile, HbTiles } from '@virgilvox/hackbuild-ui'
+import { toolPath } from '../tools/define'
 import { TOOLS } from '../tools/registry'
-import { overlay } from '../shell/shell'
-import { loadModels, models } from '../models/lazy'
+import { EXPLORERS } from '../shell/explorers'
+import { EXAMPLES, JOBS, examplePath } from '../examples/registry'
+import yard from '../assets/yard.jpg'
 
+const DOG = 'https://hackbuild.github.io/dog-simulator/'
+const openDog = () => window.location.assign(DOG)
 const router = useRouter()
-void loadModels()
-const welcome = ref(true)
-
-const caps = computed(() => models.value?.caps.value ?? [])
-const machine = computed(() => models.value?.machine.value ?? 'checking this machine.')
-const steps = computed<HbWelcomeStep[]>(() => {
-  const m = models.value
-  const stored = m?.stored.value.length ?? 0
-  const loaded = m?.resident.value.length ?? 0
-  const kept = m?.storage.value?.persisted === true
-  return [
-    { name: 'check this machine', text: machine.value, done: !!m?.env.value },
-    { name: 'pick a model', text: 'every row names its download size before anything loads.', done: stored > 0, ...(stored ? { count: `${stored} stored` } : { action: 'open the models' }) },
-    { name: 'load one', text: 'it stays in memory for every tool that needs it.', done: loaded > 0, ...(loaded ? { count: `${loaded} loaded` } : { action: 'open the models' }) },
-    { name: 'keep the weights', text: 'ask the browser not to clear them when space runs low.', done: kept, ...(kept ? { count: 'kept' } : { action: 'keep' }) },
-  ]
-})
-function step(i: number) {
-  if (i === 3) void models.value?.persist()
-  else overlay.value = 'models'
-}
-const starts: HbWelcomeStart[] = [
-  { id: 'chat', name: 'chat', sub: 'talk to a model in this tab', primary: true },
-  { id: 'transcribe', name: 'transcribe', sub: 'recordings to text' },
-  { id: 'relief', name: 'relief', sub: 'a photo to a printable relief' },
-]
-function start(id: string) {
+const openTool = (id: string) => {
   const t = TOOLS.find((x) => x.id === id)
   if (t) router.push(toolPath(t, TOOLS))
 }
+const explorerTools = new Set(EXPLORERS.map((e) => e.tool))
+const parts = TOOLS.filter((t) => !explorerTools.has(t.id))
+const jobs = JOBS.map((j) => ({ ...j, examples: EXAMPLES.filter((e) => e.job === j.id) })).filter((j) => j.examples.length)
 </script>
 
 <template>
-  <div class="hb-shell">
-    <HbWelcome
-      v-model:open="welcome"
-      title="suite"
-      note="browser ai and 3d character tools. models run in this tab and nothing leaves it."
-      :steps="steps"
-      :starts="starts"
-      persist-key="hb-suite.welcome"
-      @step="step"
-      @start="start"
-    >
-      <HbCapabilities :caps="caps" @act="(id, verb) => models?.act(id, verb)" />
-    </HbWelcome>
-    <HbSectionHead title="tools" kicker="hackbuild suite" />
-    <section v-for="g in GROUPS" :key="g.id" class="hb-panel">
-      <h2 class="hb-panel-hd">{{ g.title }}</h2>
-      <ul class="hb-list">
-        <li v-for="t in TOOLS.filter((x) => x.group === g.id)" :key="t.id">
-          <RouterLink :to="toolPath(t, TOOLS)" class="hb-link">{{ t.title }}</RouterLink>{{ ': ' + t.job + '. ' }}<span v-if="t.phase" class="hb-tag">phase {{ t.phase }}</span>
-        </li>
-      </ul>
+  <main class="sx-home">
+    <section class="sx-yard" data-ux="subject" aria-label="the dog simulator">
+      <a :href="DOG" class="sx-yard-pic" tabindex="-1" aria-hidden="true"><img :src="yard" alt="" width="1440" height="672" /></a>
+      <div class="hb-lay-verbs">
+        <button type="button" class="hb-btn hb-btn-go" @click="openDog">open the dog simulator</button>
+      </div>
     </section>
-  </div>
+    <p class="hb-note sx-home-line">everything runs in this tab. nothing is uploaded.</p>
+
+    <section class="sx-home-sec" aria-labelledby="h-explorers">
+      <h2 id="h-explorers" class="hb-panel-hd">explorers</h2>
+      <HbTiles>
+        <HbTile v-for="e in EXPLORERS" :key="e.id" :name="e.title" :sub="e.line" @click="openTool(e.tool)">
+          <template #media><span class="sx-pic" v-html="e.picture" /></template>
+        </HbTile>
+      </HbTiles>
+    </section>
+
+    <section class="sx-home-sec" aria-labelledby="h-examples">
+      <h2 id="h-examples" class="hb-panel-hd">examples</h2>
+      <div class="sx-jobs">
+        <div v-for="j in jobs" :key="j.id" class="sx-job">
+          <h3 class="hb-panel-hd">{{ j.title }}</h3>
+          <ul class="sx-cards">
+            <li v-for="e in j.examples" :key="e.id">
+              <RouterLink :to="examplePath(e)" class="hb-link">{{ e.title }}</RouterLink>
+              <span class="hb-note">{{ e.line }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="sx-home-sec" aria-labelledby="h-parts">
+      <h2 id="h-parts" class="hb-panel-hd">parts</h2>
+      <p class="sx-parts">
+        <RouterLink v-for="t in parts" :key="t.id" :to="toolPath(t, TOOLS)" class="hb-link" :title="t.job">{{ t.title }}</RouterLink>
+      </p>
+    </section>
+  </main>
 </template>
