@@ -196,6 +196,15 @@
     "setup": "(async () => { document.querySelector('.sx-yard .hb-btn-go').click(); for (let i = 0; i < 240 && !(window.__hackle && window.__hackle.dog.ready && window.__hackle.HUM.ready); i++) await new Promise((r) => setTimeout(r, 500)); if (!window.__hackle) throw new Error('the yard did not stand up'); await new Promise((r) => setTimeout(r, 1500)) })()",
     "note": "the still first; the press mounts the live yard, gated as stage and rack with its seven tabs as on the dog site (run with --dog-site)"
   },
+  "#/x/yard": {
+    "layout": "stage-rack",
+    "entry": "setup",
+    "rackTabs": [
+      3,
+      7
+    ],
+    "note": "a visitor gets the live yard at once with the setup panel of a first visit, judged on its own, then the stage and rack under it (run with --dog-site)"
+  },
   "?stub#/x/relief": {
     "layout": "canvas-rail",
     "setup": "(async () => { window.hbExplorer.sample(); await window.hbExplorer.pick.load(); await new Promise((r) => setTimeout(r, 1200)) })()"
