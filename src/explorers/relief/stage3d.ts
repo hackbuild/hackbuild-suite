@@ -1,11 +1,11 @@
-// The relief in 3D, the original's iso, front, side, explode and cut views:
+// The relief in 3D, the original's iso, front, side, back, explode and cut views:
 // each colour body lit from above in its filament colour. Imported on first
 // use so three.js stays out of the first load. A drag turns it.
 import {
   AmbientLight, BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Plane, Scene, Vector3, WebGLRenderer,
 } from 'three'
 
-export type View3d = 'iso' | 'front' | 'side' | 'explode' | 'cut'
+export type View3d = 'iso' | 'front' | 'side' | 'back' | 'explode' | 'cut'
 export interface Part3d { positions: Float32Array; indices: Uint32Array; color: string }
 
 export function createStage(host: HTMLElement) {
@@ -58,6 +58,7 @@ export function createStage(host: HTMLElement) {
     for (const m of group.children) ((m as Mesh).material as MeshStandardMaterial).clippingPlanes = view === 'cut' ? [cut] : []
     if (view === 'front') (yaw = 0), (pitch = 0.05)
     else if (view === 'side') (yaw = Math.PI / 2), (pitch = 0.05)
+    else if (view === 'back') (yaw = Math.PI), (pitch = 0.05)
     else (yaw = 0.5), (pitch = 0.75)
     draw()
   }

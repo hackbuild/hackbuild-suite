@@ -25,11 +25,15 @@ const STUB = new URLSearchParams(location.search).has('stub')
 // the depth model, from the chip or on its own when depth is wanted
 const pick = useModelPick('depth', { loader: jobLoader('depth') })
 const depthFn = shallowRef<DepthFn | null>(null)
-const offPick = pick.subscribe((s) => { if (s.loaded && s.loaded !== depthFn.value) depthFn.value = s.loaded as DepthFn })
+const tick = ref(0)
+const offPick = pick.subscribe((s) => { tick.value++; if (s.loaded && s.loaded !== depthFn.value) depthFn.value = s.loaded as DepthFn })
+const depthRow = computed(() => (void tick.value, pick.snapshot().row))
+const depthLoading = computed(() => depthRow.value?.state === 'loading')
+const depthLabel = computed(() => (depthLoading.value ? 'loading depth' : `load depth, ${depthRow.value?.size ?? 'size unknown'}`))
 const note = ref('')
 async function wantDepth() {
   const r = pick.snapshot().row
-  note.value = `loading ${r?.name ?? 'the depth model'}, ${r?.size ?? 'size unknown'}. brightness works now.`
+  note.value = `loading ${r?.name ?? 'the depth model'}, ${r?.size ?? 'size unknown'}. height comes from brightness until it lands.`
   try {
     await pick.load()
     note.value = pick.error(pick.snapshot().chosen) ?? ''
@@ -167,6 +171,7 @@ const result = shallowRef<PhotoRelief | null>(null)
 const parts = shallowRef<ThreeMfPart[]>([])
 const err = ref('')
 const ms = ref(0)
+const colourChecks = shallowRef<[string, string][]>([])
 let seq = 0, timer = 0
 const grid = (m: Uint8Array | null) => m && img.value ? { width: img.value.width, height: img.value.height, data: m } : undefined
 async function build() {
@@ -182,15 +187,21 @@ async function build() {
     if (n !== seq) return
     const k = colours.value
     let ps: ThreeMfPart[]
+    let cc: [string, string][] = []
     if (k < 2) ps = [{ name: 'relief', mesh: r.mesh, filament: 1 }]
     else if (split.value === 'colours' && kind.value === 'photo') {
       const c = colourClusters(p, { k })
       const ms = clusterMasks(c)
-      ps = reliefParts(core, r, { by: 'mask', labels: [ms[c.background]!, ...ms.filter((_, i) => i !== c.background)] })
+      const labels = [ms[c.background]!, ...ms.filter((_, i) => i !== c.background)]
+      ps = reliefParts(core, r, { by: 'mask', labels })
+      cc = colourWidth(r, labels)
     } else {
       const top = r.heights.reduce((a, h) => Math.max(a, h), 0)
-      ps = reliefParts(core, r, { by: 'height', breaks: Array.from({ length: k - 1 }, (_, i) => params.value.base + ((top - params.value.base) * (i + 1)) / k) })
+      const step = (top - params.value.base) / k
+      ps = reliefParts(core, r, { by: 'height', breaks: Array.from({ length: k - 1 }, (_, i) => params.value.base + step * (i + 1)) })
+      cc = [step < 2 * LAYER ? ['warn', `terraces are ${step.toFixed(2)} mm apart, under two ${LAYER} mm layers: a colour change will hardly show. raise the top.`] : ['ok', `terraces are ${step.toFixed(2)} mm apart, ${Math.floor(step / LAYER)} layers of ${LAYER} mm each.`]]
     }
+    colourChecks.value = cc
     result.value = r
     parts.value = ps
     err.value = ''
@@ -199,6 +210,37 @@ async function build() {
   } catch (e) {
     if (n === seq) err.value = `the relief did not build: ${e instanceof Error ? e.message : String(e)}`
   }
+}
+// the colour width check: per colour cell, the narrower of its row and column
+// run on the grid reliefParts cuts by; a strip under one nozzle line prints thin
+function colourWidth(r: PhotoRelief, masks: { width: number; height: number; data: ArrayLike<number> }[]): [string, string][] {
+  const { cols, rows, heights, px } = r
+  const lab = new Uint8Array(cols * rows)
+  masks.forEach((m, k) => {
+    for (let j = 0; j < rows; j++)
+      for (let i = 0; i < cols; i++) {
+        const v = m.data[Math.floor(((j + 0.5) / rows) * m.height) * m.width + Math.floor(((i + 0.5) / cols) * m.width)]!
+        if (v >= 128 || v === 1) lab[j * cols + i] = k
+      }
+  })
+  const run = (q: number, d: number, n: number, at: (t: number) => number) => {
+    let a = 0, b = 0
+    while (at(-a - 1) >= 0 && at(-a - 1) < n && lab[q - (a + 1) * d] === lab[q] && heights[q - (a + 1) * d]! > 0) a++
+    while (at(b + 1) >= 0 && at(b + 1) < n && lab[q + (b + 1) * d] === lab[q] && heights[q + (b + 1) * d]! > 0) b++
+    return a + b + 1
+  }
+  const need = Math.ceil(NOZZLE / px)
+  let thin = 0, coloured = 0
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++) {
+      const q = j * cols + i
+      if (!lab[q] || !(heights[q]! > 0)) continue
+      coloured++
+      if (Math.min(run(q, 1, cols, (t) => i + t), run(q, cols, rows, (t) => j + t)) < need) thin++
+    }
+  if (!coloured) return []
+  const share = Math.round((thin / coloured) * 100)
+  return [share > 5 ? ['warn', `${share}% of the colour is in strips under one ${NOZZLE} mm line; they print thin or drop out. fewer colours or a wider print helps.`] : ['ok', `colour strips are at least one ${NOZZLE} mm line wide${thin ? `, but for ${share}%` : ''}.`]]
 }
 const schedule = () => { clearTimeout(timer); timer = window.setTimeout(() => void build(), 120) }
 watch([img, depth, source, params, keepLargest, erase, restore, colours, split], schedule, { deep: true })
@@ -240,20 +282,26 @@ const layers = computed<ArtLayer[]>(() => (shade.value && img.value ? [{
 const sel = ref<string | number | null>(null)
 watch(tool, (t) => { sel.value = t === 'move' ? null : 'relief' })
 
-// the views: the face, or the 3d part from five sides
+// the views, a row on the stage as the original's: the face, or the 3d part
+// from six sides; on a wide screen the face sits beside the iso part
 const view = ref<'face' | View3d>('face')
-const VIEWS = [{ label: 'face', value: 'face' }, { label: 'iso', value: 'iso' }, { label: 'front', value: 'front' }, { label: 'side', value: 'side' }, { label: 'explode', value: 'explode' }, { label: 'cut', value: 'cut' }]
-const setView = (v: string | string[]) => { view.value = v as View3d; if (v !== 'face') tool.value = 'move' }
+const VIEWS = ['face', 'iso', 'front', 'side', 'back', 'explode', 'cut'] as const
+const setView = (v: string) => { view.value = v as View3d; if (v !== 'face') tool.value = 'move' }
+const wideQ = matchMedia('(min-width: 1024px)')
+const wide = ref(wideQ.matches)
+const onWide = () => { wide.value = wideQ.matches }
+wideQ.addEventListener('change', onWide)
+const split3d = computed(() => view.value === 'face' && wide.value)
 const stageEl = ref<HTMLElement | null>(null)
 let stage: Stage | null = null
-watch([view, stageEl], async ([v, el]) => {
-  if (v === 'face' || !el) return
+watch([view, stageEl, wide], async ([v, el, w]) => {
+  if ((v === 'face' && !w) || !el) return
   if (!stage) {
     const { createStage } = await import('./stage3d')
     stage = createStage(el)
     void build()
   }
-  stage.view(v)
+  stage.view(v === 'face' ? 'iso' : v)
 })
 const setTool = (t: string) => { tool.value = t as 'move'; if (t !== 'move') view.value = 'face' }
 
@@ -264,15 +312,16 @@ const stats = computed(() => {
   const b = bounds(r.mesh.positions)
   return { size: [0, 1, 2].map((k) => b.max[k]! - b.min[k]!), vol: volume(r.mesh), tris: r.mesh.indices.length / 3, open: openEdges(r.mesh.indices) }
 })
-const NOZZLE = 0.4
+const NOZZLE = 0.4, LAYER = 0.2
+const bare = (t: string) => t.replace(/ \((computed|measured|vendor|inferred|unknown)\)/g, '')
 const checks = computed(() => {
   const s = stats.value, r = result.value
   if (!s || !r) return []
-  const out: [string, string][] = r.notes.map(([l, t]) => [l, t])
+  const out: [string, string][] = r.notes.map(([l, t]) => [l, bare(t)])
   out.push(s.open ? ['err', `${s.open} open edges: the solid is not closed. raise the base.`] : ['ok', 'closed solid, no open edges.'])
-  out.push(r.px < NOZZLE / 2 ? ['warn', `cells are ${r.px.toFixed(2)} mm (computed), finer than half a ${NOZZLE} mm nozzle (vendor). detail under that will not print.`] : ['ok', `cells are ${r.px.toFixed(2)} mm (computed), fine for a ${NOZZLE} mm nozzle (vendor).`])
-  if (params.value.height - params.value.base < 0.4) out.push(['warn', 'under 0.4 mm of relief: two layers at 0.2 mm (vendor) show little.'])
-  return out
+  out.push(r.px < NOZZLE / 2 ? ['warn', `cells are ${r.px.toFixed(2)} mm, finer than half a ${NOZZLE} mm nozzle. detail under that will not print.`] : ['ok', `cells are ${r.px.toFixed(2)} mm, fine for a ${NOZZLE} mm nozzle.`])
+  if (params.value.height - params.value.base < 2 * LAYER) out.push(['warn', `under ${2 * LAYER} mm of relief: two layers at ${LAYER} mm show little.`])
+  return [...out, ...colourChecks.value]
 })
 const PRINTERS = [
   { label: 'the slicer keeps its own', value: '' },
@@ -282,10 +331,57 @@ const printer = ref('')
 
 // exports
 const blob = (d: Uint8Array, type: string) => new Blob([d as BlobPart], { type })
-async function exportAs(k: '3mf' | 'stl' | 'zip' | 'obj' | 'face' | 'depth' | 'design'): Promise<Blob | null> {
+// the print card: the part beside its settings, filaments and checks, one png
+async function cardPng(): Promise<Blob | null> {
+  const r = result.value, s = stats.value
+  if (!r || !s) return null
+  const src = stage ? stage.png() : shade.value
+  const art = new Image()
+  art.src = src
+  await art.decode().catch(() => undefined)
+  const W = 1200, H = 720, c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const x = c.getContext('2d')!
+  x.fillStyle = '#fffdf7'
+  x.fillRect(0, 0, W, H)
+  x.fillStyle = '#e9e2d0'
+  x.fillRect(0, 0, 640, H)
+  if (art.naturalWidth) {
+    const k = Math.min(600 / art.naturalWidth, 680 / art.naturalHeight)
+    x.drawImage(art, 20 + (600 - art.naturalWidth * k) / 2, 20 + (680 - art.naturalHeight * k) / 2, art.naturalWidth * k, art.naturalHeight * k)
+  }
+  x.fillStyle = '#1a1a1a'
+  x.font = 'bold 34px monospace'
+  x.fillText(name.value, 670, 64)
+  x.font = '20px monospace'
+  const lines = [
+    `size ${s.size.map((v) => v.toFixed(1)).join(' x ')} mm`,
+    `base ${mm(params.value.base)}, top ${mm(params.value.height)}`,
+    `height from ${result.value?.source ?? source.value}`,
+    `${parts.value.length} bodies, ${s.tris} triangles`,
+    `printer ${PRINTERS.find((p) => p.value === printer.value)?.label ?? 'the slicer keeps its own'}`,
+  ]
+  lines.forEach((l, i) => x.fillText(l, 670, 116 + i * 34))
+  fil.value.slice(0, Math.max(1, colours.value)).forEach((f, i) => {
+    const y = 300 + i * 44
+    x.fillStyle = f
+    x.fillRect(670, y, 32, 32)
+    x.strokeStyle = '#1a1a1a'
+    x.lineWidth = 2
+    x.strokeRect(670, y, 32, 32)
+    x.fillStyle = '#1a1a1a'
+    x.fillText(`${i + 1} ${i === 0 ? 'base' : split.value === 'height' ? `terrace ${i}` : `colour ${i + 1}`}, petg, ${f}`, 716, y + 23)
+  })
+  x.font = '16px monospace'
+  checks.value.slice(0, 6).forEach(([t, l], i) => x.fillText(`${t === 'ok' ? 'ok' : t === 'warn' ? 'check' : 'fault'} ${l}`.slice(0, 58), 670, 500 + i * 28))
+  return (await fetch(c.toDataURL('image/png'))).blob()
+}
+async function exportAs(k: '3mf' | 'stl' | 'zip' | 'obj' | 'face' | 'depth' | 'design' | 'card'): Promise<Blob | null> {
   await build()
   const r = result.value
   if (!r) return null
+  if (k === 'card') return cardPng()
   const [pr, pc] = printer.value.split('|')
   if (k === '3mf') return blob(toThreeMf([{ name: name.value, parts: parts.value }], fil.value.slice(0, Math.max(1, colours.value)).map((color) => ({ color, type: 'PETG' })), { title: name.value, ...(pr ? { printer: pr, process: pc! } : {}) }), 'model/3mf')
   if (k === 'stl') return blob(toStl(r.mesh), 'model/stl')
@@ -306,7 +402,7 @@ function depthUrl() {
   c.getContext('2d')!.putImageData(new ImageData(px, d.width, d.height), 0, 0)
   return c.toDataURL('image/png')
 }
-const EXT = { '3mf': '.3mf', stl: '.stl', zip: '-stl.zip', obj: '.obj', face: '-face.png', depth: '-depth.png', design: '.hbrelief.json' }
+const EXT = { '3mf': '.3mf', stl: '.stl', zip: '-stl.zip', obj: '.obj', face: '-face.png', depth: '-depth.png', design: '.hbrelief.json', card: '-card.png' }
 async function save(k: keyof typeof EXT) {
   const b = await exportAs(k)
   if (b) saveFile(`${name.value}${EXT[k]}`, b)
@@ -327,6 +423,10 @@ const TABS = [{ id: 'art', label: 'art' }, { id: 'relief', label: 'relief' }, { 
 const SOURCES = [{ label: 'depth anything', value: 'depth' }, { label: 'brightness', value: 'brightness' }, { label: 'inflate', value: 'inflate' }]
 const setSource = (v: string | string[]) => { source.value = v as HeightSourceName; commit(); if (v === 'depth' && !depthFn.value && kind.value === 'photo') void wantDepth() }
 const mm = (v: number) => `${v.toFixed(2)} mm`
+const WORD: Record<string, string> = { depth: 'the depth model', brightness: 'brightness', inflate: 'the inflated outline' }
+const usedSource = computed(() => result.value?.source ?? source.value)
+const needDepth = computed(() => kind.value === 'photo' && source.value === 'depth' && !depthFn.value)
+const heightNote = computed(() => (kind.value === 'model' ? 'height from the posed model.' : needDepth.value ? 'depth is not loaded, so height comes from brightness for now.' : `height from ${WORD[usedSource.value] ?? usedSource.value}.`))
 
 function onKey(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest?.('input,textarea,select,[contenteditable]')) return
@@ -353,6 +453,7 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   offPick(), clearTimeout(timer), stage?.dispose()
+  wideQ.removeEventListener('change', onWide)
   document.removeEventListener('keydown', onKey)
   if (chipPick.value === pick) chipPick.value = null
 })
@@ -374,32 +475,44 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <HbArtboard
-      v-else-if="view === 'face'" v-model:selected="sel" v-model:tool="tool" fill :width="img.width" :height="img.height" :layers="layers" :brush="{ size: brush }"
-      caption="face, shaded relief" :label="`${name} face`" @stroke="onStroke"
-    />
-    <div v-show="img && view !== 'face'" ref="stageEl" class="xr-stage" />
+    <template v-else>
+      <div class="xr-views" :class="{ 'is-split': split3d }">
+        <HbArtboard
+          v-if="view === 'face'" v-model:selected="sel" v-model:tool="tool" class="xr-face" fill :width="img.width" :height="img.height" :layers="layers" :brush="{ size: brush }"
+          :caption="`face, ${heightNote.replace(/\.$/, '')}`" :label="`${name} face`" @stroke="onStroke"
+        />
+        <div v-show="view !== 'face' || wide" ref="stageEl" class="xr-stage" />
+      </div>
+    </template>
+    <template v-if="img" #inset>
+      <div class="hb-cams xr-cams" role="group" aria-label="view">
+        <button v-for="v in VIEWS" :key="v" type="button" :aria-pressed="view === v" @click="setView(v)">{{ v }}</button>
+      </div>
+    </template>
 
     <template v-if="img" #verbs>
-      <HbSelect :model-value="view" :options="VIEWS" label="view" @update:model-value="setView(String($event))" />
       <HbButton v-if="canUndo" variant="ghost" size="sm" @click="undo">undo</HbButton>
       <HbButton v-if="canRedo" variant="ghost" size="sm" @click="redo">redo</HbButton>
-      <HbButton variant="go" size="sm" @click="save('3mf')">save 3mf</HbButton>
+      <HbButton v-if="needDepth" variant="go" size="sm" :loading="depthLoading" @click="wantDepth">{{ depthLabel }}</HbButton>
+      <HbButton :variant="needDepth ? 'secondary' : 'go'" size="sm" @click="save('3mf')">save 3mf</HbButton>
     </template>
 
     <template #tab-art>
       <p v-if="note" class="hb-note" role="status">{{ note }}</p>
       <p v-if="err" class="hb-note is-err" role="alert">{{ err }}</p>
-      <p v-if="img" class="hb-note">{{ name }}, {{ kind === 'model' ? 'a posed model' : `${img.width} by ${img.height}` }}{{ result ? `, height from ${result.source}` : '' }}</p>
-      <HbChipGroup v-if="kind !== 'model'" :model-value="source" :options="SOURCES" label="height from" @update:model-value="setSource" />
-      <HbButton v-if="kind === 'photo' && source === 'depth' && !depthFn" variant="secondary" size="sm" @click="wantDepth">load the depth model</HbButton>
+      <template v-if="img">
+        <p class="hb-note">{{ name }}, {{ kind === 'model' ? 'a posed model' : `${img.width} by ${img.height}` }}. {{ heightNote }}</p>
+        <HbChipGroup v-if="kind !== 'model'" :model-value="source" :options="SOURCES" label="height from" @update:model-value="setSource" />
+        <HbButton v-if="needDepth" variant="go" size="sm" :loading="depthLoading" @click="wantDepth">{{ depthLabel }}</HbButton>
+      </template>
+      <p v-else class="hb-note">open a photo or a glb on the stage, or try the sample.</p>
       <template v-if="kind === 'model'">
         <HbChipGroup v-model="pose.up" :options="[{ label: 'y up', value: 'y' }, { label: 'z up', value: 'z' }]" label="up axis" />
         <HbSlider v-model="pose.yaw" label="turn" :min="-180" :max="180" :step="5" unit=" deg" />
         <HbSlider v-model="pose.pitch" label="tip" :min="-90" :max="90" :step="5" unit=" deg" />
         <HbSlider v-model="pose.roll" label="roll" :min="-180" :max="180" :step="5" unit=" deg" />
       </template>
-      <HbButton variant="secondary" size="sm" @click="fileIn?.click()">open another</HbButton>
+      <HbButton v-if="img" variant="secondary" size="sm" @click="fileIn?.click()">open another</HbButton>
       <HbButton v-if="!img" variant="secondary" size="sm" @click="sample">try the sample</HbButton>
     </template>
     <template #tab-relief>
@@ -426,10 +539,10 @@ onBeforeUnmount(() => {
     </template>
     <template #tab-print>
       <dl v-if="stats" class="hb-kv">
-        <dt>size</dt><dd>{{ stats.size.map((v) => v.toFixed(1)).join(' by ') }} mm (computed)</dd>
-        <dt>volume</dt><dd>{{ (stats.vol / 1000).toFixed(2) }} cm3 (computed)</dd>
-        <dt>triangles</dt><dd>{{ stats.tris }} (computed)</dd>
-        <dt>build</dt><dd>{{ ms }} ms (measured)</dd>
+        <dt>size</dt><dd>{{ stats.size.map((v) => v.toFixed(1)).join(' by ') }} mm</dd>
+        <dt>volume</dt><dd>{{ (stats.vol / 1000).toFixed(2) }} cm3</dd>
+        <dt>triangles</dt><dd>{{ stats.tris }}</dd>
+        <dt>build</dt><dd>{{ ms }} ms</dd>
       </dl>
       <ul class="xr-checks">
         <li v-for="([t, x], i) in checks" :key="i" :class="`is-${t}`">{{ x }}</li>
@@ -441,8 +554,12 @@ onBeforeUnmount(() => {
         <HbButton variant="secondary" size="sm" @click="save('stl')">stl</HbButton>
         <HbButton variant="secondary" size="sm" @click="save('obj')">obj</HbButton>
         <HbButton variant="secondary" size="sm" @click="save('face')">faces png</HbButton>
+        <HbButton variant="secondary" size="sm" @click="save('card')">print card png</HbButton>
         <HbButton v-if="depth" variant="secondary" size="sm" @click="save('depth')">depth png</HbButton>
       </div>
+      <HbFold summary="where the numbers come from">
+        <p class="hb-note">size, volume, triangles and the checks are computed from the mesh in this tab; the build time is measured here. the {{ NOZZLE }} mm nozzle and {{ LAYER }} mm layers are the printer maker's defaults.</p>
+      </HbFold>
       <HbFold summary="designs">
         <HbButton variant="secondary" size="sm" @click="save('design')">save this design</HbButton>
         <label class="hb-btn hb-btn-secondary hb-btn-sm">open a design<input type="file" accept=".json" hidden @change="openDesign(($event.target as HTMLInputElement).files?.[0])"></label>
@@ -457,7 +574,14 @@ onBeforeUnmount(() => {
 <style scoped>
 .xr { height: calc(100dvh - 52px); }
 .xr :deep(.hb-lay-verbs) { display: flex; gap: var(--hb-s-2, 8px); align-items: center; flex-wrap: wrap; }
-.xr-stage { position: absolute; inset: 0; }
+.xr-views { position: absolute; inset: 0; display: flex; }
+.xr-views > * { position: relative; flex: 1 1 0; min-width: 0; }
+.xr-views.is-split > .xr-stage { border-left: 1.5px solid var(--hb-ink, #1a1a1a); }
+/* the view row sits on the stage as the original's cams, not as a card */
+.xr :deep(.hb-lay-inset) { width: auto; right: var(--hb-s3, 12px); left: auto; max-width: calc(100% - 24px); background: none; border: 0; box-shadow: none; pointer-events: none; }
+.xr-cams { justify-content: flex-end; }
+@media (max-width: 640px) { .xr :deep(.hb-lay-inset) { top: auto; bottom: 72px; } }
+.xr-cams > button { pointer-events: auto; }
 /* the original's face canvas has no zoom buttons: the wheel zooms, a drag pans */
 .xr :deep(.hb-ab-zoom) { display: none; }
 .xr-fil { display: flex; gap: var(--hb-s-2, 8px); align-items: center; margin: 4px 0; font-family: var(--hb-mono); font-size: 13px; }
