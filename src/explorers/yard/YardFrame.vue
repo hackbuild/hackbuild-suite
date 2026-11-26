@@ -2,14 +2,14 @@
 // The yard (rebuild plan 4 and 5): a still of the dog and his person until a
 // press plays the dog simulator here, in a frame, with the link out under
 // it. Home shows it first at full width; the yard explorer fills the page
-// with it. Under isolation the frame needs the same headers: on pages the
+// with it and plays at once (the still stays behind ?stub, for gates). Under isolation the frame needs the same headers: on pages the
 // two sites share an origin, so the dog site's own coi-sw takes its scope
 // before the frame loads (its storage stays its own); anywhere else the
 // frame is credentialless.
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import yard from './yard.jpg'
 
-defineProps<{ full?: boolean }>()
+const props = defineProps<{ full?: boolean }>()
 // a single file is never isolated and never hosted beside the dog site
 const sibling = !__SINGLE__ && location.pathname.includes('/hackbuild-suite/')
 const DOG = sibling ? new URL('../dog-simulator/', location.href).href : 'https://hackbuild.github.io/dog-simulator/'
@@ -34,6 +34,8 @@ async function play() {
   if (self.crossOriginIsolated) credentialless.value = !(await isolateDog())
   playing.value = true
 }
+// the yard explorer plays at once; home keeps the still and the press
+onMounted(() => { if (props.full && !new URLSearchParams(location.search).has('stub')) void play() })
 defineExpose({ play, DOG })
 </script>
 

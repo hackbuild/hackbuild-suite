@@ -39,6 +39,14 @@ try {
   await page.click('.sx-yard .hb-btn-go')
   const src = await page.waitForSelector('.sx-yard iframe', { timeout: 5000 }).then((f) => f.evaluate((x) => x.src)).catch(() => fail('the press mounted no frame'))
   if (src !== 'https://hackbuild.github.io/dog-simulator/') fail(`the frame plays ${src}`)
+  // a visitor (no ?stub) gets the frame at once, no still and no press
+  const p0 = await chrome.browser.newPage()
+  await p0.setRequestInterception(true)
+  p0.on('request', (r) => (r.url().startsWith('https://hackbuild.github.io/dog-simulator') ? r.abort() : r.continue()))
+  await p0.goto(`${server.base}#/x/yard`, { waitUntil: 'load' })
+  await p0.waitForSelector('.sx-yard iframe', { timeout: 5000 }).catch(() => fail('without ?stub the yard did not play at once'))
+  if (await p0.$('.sx-yard img')) fail('without ?stub the yard still shows')
+  await p0.close()
   let embed = 'not checked (no --dog)'
   if (dog) {
     // both sites on one origin, as on pages: the suite under /hackbuild-suite/, the dog under /dog-simulator/
@@ -52,8 +60,7 @@ try {
     await p2.setViewport({ width: 1440, height: 900 })
     await p2.goto(`${both.base}hackbuild-suite/#/x/yard`, { waitUntil: 'load' })
     await p2.waitForFunction(() => self.crossOriginIsolated, { timeout: 15000 }).catch(() => fail('the suite did not isolate'))
-    await p2.waitForSelector('.sx-yard .hb-btn-go', { timeout: 8000 })
-    await p2.click('.sx-yard .hb-btn-go')
+    // without ?stub the yard plays at once, no press
     await p2.waitForSelector('.sx-yard iframe', { timeout: 8000 })
     let inner = null
     for (let i = 0; i < 40 && !inner?.canvas; i++) {
@@ -68,7 +75,7 @@ try {
     both.close()
   }
   if (errors.length) fail(`page errors:\n${errors.join('\n')}`)
-  console.log(`smoke-x-yard: ok. the still takes ${Math.round(first.share * 100)} percent of the page with one pink and the link out, the press mounted the dog simulator; ${embed} (measured)`)
+  console.log(`smoke-x-yard: ok. the still takes ${Math.round(first.share * 100)} percent of the page with one pink and the link out, the press mounted the dog simulator, a visitor gets the frame at once; ${embed} (measured)`)
 } finally {
   await chrome.close()
   server.close?.()
