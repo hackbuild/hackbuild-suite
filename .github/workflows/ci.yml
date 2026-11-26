@@ -18,6 +18,7 @@ jobs:
       - run: npm install -g npm@11.21.0
       - run: npm ci
       - run: node tools/check-likeness.mjs --no-dist
+      - run: node tools/llms.mjs --check && node tools/check-readme.mjs
       - run: node --test tools/test/*.test.mjs
       - run: git ls-files -z | grep -zEv '\.(png|jpe?g|gif|webp|glb|gltf|bin|wasm|onnx|wav|ico|woff2?|ttf)$|^(LICENSES/|RULES.md|CLAUDE.md|tools/)|package-lock.json|Cargo.lock' | xargs -0 node tools/lint-voice.mjs
       - run: node tools/lint-commits.mjs

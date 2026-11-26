@@ -15,7 +15,7 @@
     "build:groups": "node tools/build-groups.mjs",
     "build:all": "npm run build && npm run build:single && npm run build:groups",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
-    "test": "node tools/check-likeness.mjs && node tools/llms.mjs --check && node --test tools/test/*.test.mjs",
+    "test": "node tools/check-likeness.mjs && node tools/llms.mjs --check && node tools/check-readme.mjs && node --test tools/test/*.test.mjs",
     "check:likeness": "node tools/check-likeness.mjs",
     "smoke:file": "node tools/smoke-file.mjs",
     "test:roundtrip": "node tools/roundtrip-workspace.mjs",
