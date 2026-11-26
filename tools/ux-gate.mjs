@@ -47,6 +47,9 @@
 // route's built-in sample (never weights) and the checks run again as a
 // second, loaded row. --layout sets the layout for routes the file lacks.
 //
+// "loadedLayout" judges the loaded row by another layout: a gate that opens
+// on its stage and rack once the setup has woken it.
+//
 //   node tools/ux-gate.mjs --dir dist/hosted --routes "#/,#/chat/chat" --out <dir> [--name suite] [--report-only]
 // For a non hash site pass file routes, like --routes "index.html".
 // Writes <out>/<name>-<slug>[-loaded]-<width>.png, <out>/report.json and <out>/report.md.
@@ -94,7 +97,7 @@ const log = (r) => {
 }
 try {
   for (const route of routes) {
-    const { layout = fallback, setup } = layouts[route] ?? {}
+    const { layout = fallback, setup, loadedLayout = layout } = layouts[route] ?? {}
     for (const { width, height } of VIEWS) {
       const r = { route, width, layout, state: 'first view', shot: `${name}-${slug(route)}-${width}.png` }
       const rows = [r]
@@ -110,15 +113,15 @@ try {
         m.setup = setupPanel
         Object.assign(r, { detectors: m.detectors, checks: judge(m, width, layout, layouts[route] ?? {}), measured: m, errors: o.errors, blocked: o.blocked.length })
         if (setup) {
-          const l = { route, width, layout, state: 'loaded', shot: `${name}-${slug(route)}-loaded-${width}.png` }
+          const l = { route, width, layout: loadedLayout, state: 'loaded', shot: `${name}-${slug(route)}-loaded-${width}.png` }
           rows.push(l)
           await o.target.evaluate(setup)
           await page.waitForNetworkIdle({ idleTime: 500, timeout: 8000 }).catch(() => {})
           await wait(1200)
           await o.shot(join(out, l.shot))
-          const ml = await o.target.evaluate(pageScript(layout))
+          const ml = await o.target.evaluate(pageScript(loadedLayout))
           ml.modal = null
-          Object.assign(l, { detectors: ml.detectors, checks: judge(ml, width, layout, layouts[route] ?? {}), measured: ml, errors: o.errors, blocked: o.blocked.length })
+          Object.assign(l, { detectors: ml.detectors, checks: judge(ml, width, loadedLayout, layouts[route] ?? {}), measured: ml, errors: o.errors, blocked: o.blocked.length })
         }
       } catch (e) {
         for (const x of rows) if (!x.checks) {

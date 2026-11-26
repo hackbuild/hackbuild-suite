@@ -28,6 +28,8 @@ export const router = createRouter({
     ...(__GROUP__ ? [] : [
       { path: '/x/chat', name: 'x-chat', component: () => import('./explorers/chat/ChatStudio.vue'), meta: { full: true, explorer: 'chat' } },
       { path: '/x/transcribe', name: 'x-transcribe', component: () => import('./explorers/transcribe/Transcribe.vue'), meta: { full: true, explorer: 'transcribe' } },
+      { path: '/x/character', name: 'x-character', component: () => import('./explorers/character/CharacterExplorer.vue'), meta: { full: true, explorer: 'character' } },
+      { path: '/x/room', name: 'x-room', component: () => import('./explorers/room/RoomExplorer.vue'), meta: { full: true, explorer: 'room' } },
     ]),
     ...toolRoutes,
     ...groupRoutes,
