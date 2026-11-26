@@ -97,7 +97,7 @@ try {
 
   // pocket: picking it fetches nothing; load is a separate press that names the size
   await page.evaluate(() => [...document.querySelectorAll('.hb-method')].find((m) => /pocket/.test(m.textContent))?.click())
-  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /^load pocket tts, size unknown/.test(b.textContent.trim())), { timeout: 3000 }).catch(() => fail('pocket has no load button with its size'))
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /^load pocket tts, (about )?[0-9.]+ (kb|mb|gb)/.test(b.textContent.trim())), { timeout: 3000 }).catch(() => fail('pocket has no load button with its size'))
   if (await page.$('.is-side .hb-dropzone')) fail('the clone slot shows before pocket loads')
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /^load pocket tts/.test(b.textContent.trim()))?.click())
   await page.waitForSelector('.is-side .hb-dropzone input[type=file]', { timeout: 6000 }).catch(() => fail('pocket did not load'))

@@ -74,14 +74,14 @@ try {
   await page.waitForFunction(() => document.body.textContent.includes('press load first'), { timeout: 3000 }).catch(() => fail('generate ran with no model'))
   const cards = await page.$$eval('.hb-methods > *', (els) => els.map((e) => e.textContent.trim()))
   if (cards.length !== 2) fail(`expected 2 model cards, found ${cards.length}`)
-  // sd 1.5: the form grows a negative prompt and guidance; its repo and size are inferred
+  // sd 1.5: the form grows a negative prompt and guidance; its size is the vendor figure since imagegen 0.1.2
   await page.evaluate(() => [...document.querySelectorAll('.hb-methods > *')].find((e) => /stable diffusion 1\.5/.test(e.textContent))?.click())
   await page.waitForFunction(() => document.querySelector('#gen-neg') && document.body.textContent.includes('guidance'), { timeout: 3000 }).catch(() => fail('the form did not reshape for sd 1.5'))
-  if (!/microsoft\/stable-diffusion-v1\.5-webnn, about 2\.0 gb \(inferred\)/.test(await text())) fail('sd 1.5 source and size lack the inferred word')
+  if (!/microsoft\/stable-diffusion-v1\.5-webnn, about 2\.0 gb \(vendor\)/.test(await text())) fail('sd 1.5 source and size lack the vendor word')
   await page.evaluate(() => [...document.querySelectorAll('.hb-methods > *')].find((e) => /sd-turbo/.test(e.textContent))?.click())
   await page.waitForFunction(() => !document.querySelector('#gen-neg'), { timeout: 3000 }).catch(() => fail('the form did not reshape for sd-turbo'))
   const load = await page.evaluate(() => [...document.querySelectorAll('.is-side button')].map((b) => b.textContent.trim()).find((t) => t.startsWith('load ')))
-  if (!/^load sd-turbo 512, about 2\.6 gb \(inferred\)$/.test(load ?? '')) fail(`the load button does not name its size: ${load}`)
+  if (!/^load sd-turbo 512, about 2\.4 gb \(vendor\)$/.test(load ?? '')) fail(`the load button does not name its size: ${load}`)
   if (!(await click('^load sd-turbo'))) fail('no load button')
   await page.waitForFunction(() => document.body.textContent.includes('sd-turbo 512 loaded'), { timeout: 8000 }).catch(async () => fail(`the model did not load: ${(await text()).match(/(fail|stopped)[^.]*\./)?.[0]}`))
 
@@ -170,7 +170,7 @@ try {
 
   if (off.length) fail(`requests off file://:\n${off.join('\n')}`)
   if (errors.length) fail(`console errors:\n${errors.join('\n')}`)
-  console.log('smoke-generate: ok. the load button names 2.6 gb (inferred) and sd 1.5 shows its inferred repo and size, the form reshapes per model, a prompt runs with the step on the stage and 4 timing cells, the locked seed repeats the pixels, esc stops a 22 step run and keeps nothing, a reroll gives other pixels, the wipe compares two runs, history restores seed 4242, the png carries its settings, the sidecar restores them, the strip zips 3 png with their sidecars, the session exports and imports with 3 runs, a run opens in vision, 0 requests off file:// (measured)')
+  console.log('smoke-generate: ok. the load button names 2.4 gb (vendor) and sd 1.5 shows its repo and vendor size, the form reshapes per model, a prompt runs with the step on the stage and 4 timing cells, the locked seed repeats the pixels, esc stops a 22 step run and keeps nothing, a reroll gives other pixels, the wipe compares two runs, history restores seed 4242, the png carries its settings, the sidecar restores them, the strip zips 3 png with their sidecars, the session exports and imports with 3 runs, a run opens in vision, 0 requests off file:// (measured)')
 } finally {
   await browser.close()
   rmSync(profile, { recursive: true, force: true })

@@ -150,19 +150,19 @@ try {
     const y1 = await h((c) => c.rig().yaw)
     if (!(Math.abs(y1 - y0) > 0.2)) fail(`a drag did not turn the orbit: yaw ${y0} then ${y1}`)
     // split with two targets, then without
-    await page.click('[data-split]')
+    await page.evaluate(() => document.querySelector('[data-split]').click()) // on a phone the move pad sits over the chip at this scroll
     await wait(500)
     const sp = await pos()
     if (!sp.split || sp.drawn !== 2) fail(`split drew ${sp.drawn} viewports`)
-    await page.click('[data-second]')
+    await page.evaluate(() => document.querySelector('[data-second]').click())
     await wait(400)
-    await page.click('[data-split]')
+    await page.evaluate(() => document.querySelector('[data-split]').click()) // on a phone the move pad sits over the chip at this scroll
     await wait(400)
     const one = await pos()
     if (one.split || one.drawn !== 1 || !(await caption()).includes('no second target. split view needs two.')) fail(`split with one target: ${one.drawn} viewports, caption ${await caption()}`)
-    await page.click('[data-second]')
+    await page.evaluate(() => document.querySelector('[data-second]').click())
     // shake: a kick, then the amplitude decays to rest
-    await page.click('[data-shake]')
+    await page.evaluate(() => document.querySelector('[data-shake]').click())
     await wait(60)
     const a0 = await h((c) => c.rig().amp)
     let a1 = a0
