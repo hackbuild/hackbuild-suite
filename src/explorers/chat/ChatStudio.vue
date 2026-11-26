@@ -168,7 +168,7 @@ onMounted(async () => {
   if (comp) comp.dataset.ux = 'verbs'
   chipPick.value = pick
   const w = window as unknown as { hbExplorer?: unknown }
-  w.hbExplorer = { list, pick, useTools, plan, sample: () => list.thread.send('what filament do i print with?') }
+  if (STUB || import.meta.env.DEV) w.hbExplorer = { list, pick, useTools, plan, sample: () => list.thread.send('what filament do i print with?') }
   if (STUB) {
     const s = await import('./stubs')
     pick.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })

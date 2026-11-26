@@ -111,7 +111,8 @@ async function sample() {
 
 onMounted(async () => {
   chipPick.value = pick
-  ;(window as unknown as { hbExplorer?: unknown }).hbExplorer = { queue, pick, sample }
+  // the test hook, for smokes and gates only
+  if (STUB || import.meta.env.DEV) (window as unknown as { hbExplorer?: unknown }).hbExplorer = { queue, pick, sample }
   if (STUB) {
     const s = await import('./stubs')
     pick.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })

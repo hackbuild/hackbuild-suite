@@ -292,7 +292,8 @@ onMounted(async () => {
   chipPick.value = pick.value
   document.addEventListener('keydown', onKey)
   document.addEventListener('paste', onPaste)
-  ;(window as unknown as { hbExplorer?: unknown }).hbExplorer = { picks, sample, setTool, look, load, askNow, ask: (q: string) => ((question.value = q), askNow()), state: () => ({ tool: tool.value, found: found.value, answers: answers.value, kept: kept.value.length, ready: ready.value }), remember }
+  // the test hook, for smokes and gates only
+  if (STUB || import.meta.env.DEV) (window as unknown as { hbExplorer?: unknown }).hbExplorer = { picks, sample, setTool, look, load, askNow, ask: (q: string) => ((question.value = q), askNow()), state: () => ({ tool: tool.value, found: found.value, answers: answers.value, kept: kept.value.length, ready: ready.value }), remember }
   if (STUB) {
     const s = await import('./stubs')
     for (const p of Object.values(picks)) p.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })

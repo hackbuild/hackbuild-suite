@@ -166,7 +166,8 @@ let store: WeightStore | null = null
 onMounted(async () => {
   chipPick.value = pick
   document.addEventListener('keydown', onKey)
-  ;(window as unknown as { hbExplorer?: unknown }).hbExplorer = { pick, generate, load, restore: (i: number) => runs.value[i] && restore({ id: runs.value[i]!.id }), state: () => ({ runs: runs.value.length, current: current.value, prompt: prompt.value, seed: seed.value, steps: steps.value, form: form.value }), choose: (id: string) => (model.value = id), setSeed: (n: number) => (seed.value = n) }
+  // the test hook, for smokes and gates only
+  if (STUB || import.meta.env.DEV) (window as unknown as { hbExplorer?: unknown }).hbExplorer = { pick, generate, load, restore: (i: number) => runs.value[i] && restore({ id: runs.value[i]!.id }), state: () => ({ runs: runs.value.length, current: current.value, prompt: prompt.value, seed: seed.value, steps: steps.value, form: form.value }), choose: (id: string) => (model.value = id), setSeed: (n: number) => (seed.value = n) }
   if (STUB) {
     const s = await import('./stubs')
     pick.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })

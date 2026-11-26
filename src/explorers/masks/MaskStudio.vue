@@ -160,7 +160,8 @@ const TABS = [
 onMounted(async () => {
   chipPick.value = pick
   document.addEventListener('keydown', onKey)
-  ;(window as unknown as { hbExplorer?: unknown }).hbExplorer = { pick, studio: () => studio.value, sample, auto, findAll, perObject }
+  // the test hook, for smokes and gates only
+  if (STUB || import.meta.env.DEV) (window as unknown as { hbExplorer?: unknown }).hbExplorer = { pick, studio: () => studio.value, sample, auto, findAll, perObject }
   if (STUB) {
     const s = await import('./stubs')
     pick.update({ env: s.FIXTURE_ENV, loader: s.stubLoader })

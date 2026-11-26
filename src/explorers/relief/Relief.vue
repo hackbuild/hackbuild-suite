@@ -337,7 +337,8 @@ function onKey(e: KeyboardEvent) {
 onMounted(async () => {
   chipPick.value = pick
   document.addEventListener('keydown', onKey)
-  ;(window as unknown as { hbExplorer?: unknown }).hbExplorer = {
+  // the test hook, for smokes and gates only
+  if (STUB || import.meta.env.DEV) (window as unknown as { hbExplorer?: unknown }).hbExplorer = {
     pick, sample, openModel, exportAs, state: () => ({ kind: kind.value, source: result.value?.source, parts: parts.value.length, tris: stats.value?.tris ?? 0, open: stats.value?.open ?? -1, depth: !!depth.value, erased: erase.value?.reduce((a, v) => a + v, 0) ?? 0 }),
     set: (o: { colours?: number; split?: 'height' | 'colours'; source?: HeightSourceName }) => { if (o.colours) colours.value = o.colours; if (o.split) split.value = o.split; if (o.source) source.value = o.source; commit() },
   }
