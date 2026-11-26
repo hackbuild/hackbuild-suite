@@ -9,22 +9,22 @@ import { MeshDepthMaterial, WebGLRenderer } from 'three'
 import { probe, type Env } from '@hackbuild/ai-env'
 import type { AgentEvent, Agent, Perception } from '@hackbuild/agent'
 import type { ChatEngine } from '@hackbuild/chat'
-import { jobLoader, useJobsPick, type AskFn, type DepthFn, type DetectFn, type Job, type JobsPick, type Loader, type PickPreset } from '@hackbuild/ai-views'
-import { jobRecords } from '@hackbuild/ai-views'
-import { ModelJobs } from '@hackbuild/ai-views/vue'
-import { DrivesBars, EyeInset } from '@hackbuild/agents-views/vue'
-import { drivesBarsState, type DrivesBarsState, type EyeWho } from '@hackbuild/agents-views'
+import { canClone, jobLoader, jobRecords, speaker, useJobsPick, type AskFn, type DepthFn, type DetectFn, type Job, type JobsPick, type Loader, type PickPreset } from '@hackbuild/ai-views'
+import { MemoryPane, ModelJobs, SourcesDrop, VoiceClone } from '@hackbuild/ai-views/vue'
+import type { MemoryPaneHandle } from '@hackbuild/ai-views/elements'
+import { DrivesBars, EyeInset, MapInset, PlanLog, StepLog } from '@hackbuild/agents-views/vue'
+import { drivesBarsState, planBook, type DrivesBarsState, type EyeWho, type MapState, type PlanLogState } from '@hackbuild/agents-views'
 import { load as loadDrives } from '@hackbuild/drives'
-import { hashedEmbedder, loadCore, open, type Embedder, type Kind, type Memory, type StoredItem } from '@hackbuild/memory'
+import { hashedEmbedder, loadCore, open, type Embedder, type Memory } from '@hackbuild/memory'
+import type { Engine } from '@hackbuild/speak'
 import { MEMORY_WASM_BASE64 } from '@hackbuild/memory/inline'
-import { characterStage, type CharacterStageHandle, type Verb } from '@hackbuild/motion-views/vanilla'
+import { characterStage, type CharacterStageHandle, type Speech, type Verb } from '@hackbuild/motion-views/vanilla'
 import { AvatarDrop } from '@hackbuild/motion-views/vue'
-import { HbRack, HbRackLog, HbSelect, HbSlider, HbToggleRow, type HbLogLine } from '@virgilvox/hackbuild-ui'
-import { saveFile } from '@virgilvox/hackbuild-ui/vanilla'
+import { HbMicButton, HbRack, HbRackLog, HbSelect, HbSlider, HbToggleRow, type HbLogLine } from '@virgilvox/hackbuild-ui'
 import { chipPick } from '../../shell/chip'
+import { HUMAN_GLB } from '../../shell/dog'
 import { World, HALF } from './world'
-import { ACT_ORDER, MODES, ORDERS, SOUL, freeRun, goalLine, makeGoals, mind, type Act, type Mode, type MindOptions } from './mind'
-import { canClone, voice as makeVoice } from './voice'
+import { ACT_ORDER, MODES, MUTTER_EVERY, ORDERS, REFLECT_GAP, REFLECT_PLANS, SOUL, freeRun, goalLine, makeGoals, mind, mutter, reflect, type Act, type Mode, type MindOptions } from './mind'
 
 const STUB = new URLSearchParams(location.search).has('stub')
 const hooks: { env?: Env; loaderFor?: (job: Job) => Loader } = {}
@@ -48,7 +48,10 @@ const waking = ref(false)
 const preset = ref('feather')
 const gateNote = ref('')
 const log = ref<HbLogLine[]>([])
-const steps = ref<HbLogLine[]>([])
+const book = planBook()
+const plan = shallowRef<PlanLogState>(book.state())
+const mutters = ref(true)
+const speakingNow = ref(false)
 const order = ref('')
 const busy = ref(false)
 const free = ref(false)
@@ -56,15 +59,14 @@ const follow = ref(false)
 const mapOn = ref(false)
 const grippers = ref(true)
 const drivesState = shallowRef<DrivesBarsState | null>(null)
-const lastPlan = ref('')
 const lastPrompt = ref('')
 const cost = ref('')
-const goals = ref<string[]>([])
 const inView = ref<string[]>([])
 const earlier = ref<string[]>([])
 const eyeWho = ref('colour')
 const settings = reactive({ mode: 'reflex' as Mode, budget: 4096, steps: 6, cache: true, soul: '', depthFrom: 'scene', feed: 'clear', captions: false, every: 20, prompt: 'describe what is in front of you in one sentence.' })
 const say = (kind: 'eye' | 'body' | 'note' | 'heard' | 'said', line: string, level: HbLogLine['level'] = 'info') => (log.value = [...log.value.slice(-200), { t: Date.now(), line: `${kind}: ${line}`, level }])
+const canCloneNow = computed(() => (void tick.value, canClone(jobs.value?.picks.get('voice')?.snapshot().loaded)))
 const loaded = <T,>(job: Job) => jobs.value?.picks.get(job)?.snapshot().loaded as T | undefined
 
 // --- the world and the body
@@ -73,34 +75,37 @@ const world = new World({
   say: async (text) => (say('said', text), await voice.say(text)),
   gesture: (g) => stage.value?.gesture(g),
 })
-const voice = makeVoice(() => (loaded<never>('voice') ?? null), () => stage.value)
-const cloneNote = ref('')
-const cloned = ref(false)
+const voice = speaker(() => loaded<Engine>('voice') ?? null, {
+  play: async (line) => {
+    const s = stage.value
+    if (!s) return
+    speakingNow.value = true
+    try { await s.say(line as Speech) } finally { speakingNow.value = false }
+  },
+  halt: () => stage.value?.stop(),
+})
 const bodyName = ref('mannequin')
 const bodyLoaded = ref(false)
 let head = 1.6
 
 // --- memory
 let mem: Memory | null = null
-const items = shallowRef<StoredItem[]>([])
-const memKind = ref<'all' | Kind>('all')
-const memQuery = ref('')
+const memRef = shallowRef<Memory | null>(null)
+const count = ref(0)
 const memNote = ref('')
 const memLine = ref('')
-const KINDS: { value: 'all' | Kind; label: string }[] = [{ value: 'all', label: 'everything' }, { value: 'episode', label: 'episodes' }, { value: 'gist', label: 'gists' }, { value: 'fact', label: 'facts' }, { value: 'rule', label: 'rules' }, { value: 'lesson', label: 'lessons' }, { value: 'doc', label: 'imported' }, { value: 'lore', label: 'background' }]
+const KINDS: Record<string, string> = { episode: 'episodes', gist: 'gists', fact: 'facts', rule: 'rules', lesson: 'lessons', doc: 'imported', lore: 'background' }
+const ACTS = [{ id: 'consolidate', label: 'consolidate' }]
 const core = loadCore({ base64: MEMORY_WASM_BASE64 })
-const openMem = (embed: Embedder) => core.then((c) => open('room', { core: c, embed })).then((m) => ((mem = m), (items.value = m.all())))
+const openMem = (embed: Embedder) => core.then((c) => open('room', { core: c, embed })).then((m) => ((mem = m), (memRef.value = m), (count.value = m.all().length)))
 const memReady = openMem(hashedEmbedder())
-const shown = computed(() => items.value.filter((i) => memKind.value === 'all' || i.kind === memKind.value).slice(-60).reverse())
+const pane = shallowRef<MemoryPaneHandle | null>(null)
+const onPane = (h: MemoryPaneHandle) => (pane.value = h)
+const memChanged = () => (count.value = mem?.all().length ?? 0)
+const memWrote = () => (memChanged(), pane.value?.refresh())
 const memory = {
   recall: async (q: string) => (await memReady, mem ? (await mem.recall(q, { k: 4 })).hits.map((h) => h.item.text) : []),
-  write: async (kind: 'episode' | 'lesson', text: string) => { await memReady; await mem?.add(text, { kind }); items.value = mem?.all() ?? [] },
-}
-async function memSearch() {
-  await memReady
-  if (!mem) return
-  if (!memQuery.value.trim()) return void (items.value = mem.all())
-  items.value = (await mem.recall(memQuery.value.trim(), { k: 12 })).hits.map((h) => h.item)
+  write: async (kind: 'episode' | 'lesson' | 'gist', text: string) => { await memReady; await mem?.add(text, { kind }); memWrote() },
 }
 async function memAdd() {
   await memReady
@@ -108,24 +113,21 @@ async function memAdd() {
   if (!mem || !t) return
   await mem.add(t.replace(/^rule:\s*/i, ''), { kind: /^rule:/i.test(t) ? 'rule' : 'fact' })
   memNote.value = ''
-  items.value = mem.all()
+  memWrote()
 }
-async function memConsolidate() {
-  const r = await mem?.compact()
-  items.value = mem?.all() ?? []
+async function memAct(id: string) {
+  if (id !== 'consolidate' || !mem) return
+  const r = await mem.compact()
+  memWrote()
   memLine.value = r ? `consolidated: ${JSON.stringify(r).slice(0, 80)}` : ''
 }
-async function memForget() {
-  if (mem) await mem.remove(mem.all().map((i) => i.id))
-  items.value = []
-}
-function memBake() {
-  if (mem) saveFile('room-memory.json', JSON.stringify(mem.export(), null, 1), 'application/json')
-}
-async function memImport(e: Event) {
+const readIn = async (files: File[], o: { onFile: (e: { name: string; chunks: number; note?: string }) => void }) => {
   await memReady
-  for (const f of (e.target as HTMLInputElement).files ?? []) for (const p of (await f.text()).split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean)) await mem?.add(p.slice(0, 2000), { kind: 'doc' })
-  items.value = mem?.all() ?? []
+  if (!mem) return { files: 0, chunks: 0 }
+  const { ingest } = await import('@hackbuild/memory/ingest')
+  const r = await ingest(mem, files, { onFile: o.onFile })
+  memWrote()
+  return r
 }
 
 // --- eyes: an offscreen renderer draws what the body sees
@@ -135,7 +137,6 @@ let depthCache: { at: number; img: ImageData | null } = { at: 0, img: null }
 let detectCache: { at: number; boxes: { label: string; x: number; y: number; w: number; h: number }[] } = { at: 0, boxes: [] }
 let caption = ''
 const EYES: EyeWho[] = [{ id: 'colour', label: 'colour', title: 'what he sees' }, { id: 'depth', label: 'depth', title: 'how far things are' }, { id: 'detector', label: 'detector', title: 'what he recognizes' }]
-const MAPS: EyeWho[] = [{ id: 'map', label: 'map', title: 'the map he built' }]
 const eyeRef = ref<{ frame(): void } | null>(null)
 const mapRef = ref<{ frame(): void } | null>(null)
 
@@ -191,33 +192,11 @@ function drawEye(canvas: HTMLCanvasElement, who: EyeWho): string {
   }
   return who.id === 'depth' ? 'depth from the scene' : 'colour'
 }
-function drawMap(canvas: HTMLCanvasElement): string {
-  const g = canvas.getContext('2d')
-  if (!g) return ''
-  const W = canvas.width, H = canvas.height, s = Math.min(W, H) / (HALF * 2), ox = (W - s * HALF * 2) / 2
-  g.fillStyle = '#efe9db'
-  g.fillRect(0, 0, W, H)
-  const c = (HALF * 2 * s) / 30
-  for (let k = 0; k < world.map.length; k++) {
-    if (!world.map[k]) continue
-    g.fillStyle = world.map[k] === 2 ? '#1a1a1a' : '#fffdf7'
-    g.fillRect(ox + (k % 30) * c, Math.floor(k / 30) * c, c, c)
-  }
-  const px = (x: number) => ox + (x + HALF) * s
-  const pz = (z: number) => (z + HALF) * s
-  g.strokeStyle = '#fe0386'
-  g.beginPath()
-  world.trail.forEach((p, i) => (i ? g.lineTo(px(p.x), pz(p.z)) : g.moveTo(px(p.x), pz(p.z))))
-  g.stroke()
-  g.fillStyle = '#fe0386'
-  g.beginPath()
-  g.arc(px(world.at.x), pz(world.at.z), 4, 0, Math.PI * 2)
-  g.fill()
-  return `${world.map.filter(Boolean).length} cells seen`
-}
+const mapState = (): MapState => ({ cols: 30, rows: 30, cells: world.map, half: HALF, trail: world.trail, at: world.at })
 
 // --- perception
 let depthText = ''
+let selfNote = ''
 function perceive(): Perception<World> {
   const seen = world.seen()
   const scene = stage.value?.stage.scene
@@ -240,6 +219,7 @@ function perceive(): Perception<World> {
       { name: 'DEPTH', priority: 7, text: depthText },
       { name: 'I SAW EARLIER', priority: 6, text: earlier.value.join('\n') },
       ...(caption ? [{ name: 'MY EYES SAY', priority: 5, text: caption }] : []),
+      ...(selfNote ? [{ name: 'MY ATTENTION', priority: 4, text: selfNote }] : []),
     ],
     fixed: [`HANDS: ${world.held ? `holding the ${world.held.name}` : 'empty'}`],
     state: world,
@@ -269,9 +249,10 @@ const options = (): MindOptions => ({
   })
 const build = () => (agent = mind(options()))
 function onAgent(e: AgentEvent) {
-  if (e.type === 'plan') lastPlan.value = `${e.via}: ${e.plan.think ? `${e.plan.think}. ` : ''}${e.plan.do.map((s) => `${s.tool}(${s.args.join(', ')})`).join(', ') || 'no steps'}`
-  else if (e.type === 'step') steps.value = [...steps.value.slice(-200), { t: Date.now(), line: `${e.result.step.tool}(${e.result.step.args.join(', ')}): ${e.result.text}`, level: e.result.ok ? 'ok' : 'warn' }]
-  else if (e.type === 'goal') say('note', `goal ${goalLine(e.goal)}`)
+  if (book.push(e)) {
+    plan.value = book.state()
+    if (e.type === 'plan') void maybeReflect()
+  } else if (e.type === 'goal') say('note', `goal ${goalLine(e.goal)}`)
   else if (e.type === 'end' && agent) {
     const c = agent.cost
     cost.value = `${c.modelCalls} model calls, ${c.reflexHits} rule hits, ${c.cacheHits} reused plans, last prompt ${c.lastPromptTokens} tokens, last reply ${c.lastReplyMs} ms (measured)`
@@ -291,7 +272,8 @@ async function run(text: string, why: 'heard' | 'free' = 'heard', once = false) 
     say('note', err instanceof Error ? err.message : String(err), 'warn')
   } finally {
     busy.value = false
-    goals.value = goalBook.list().filter((g) => g.status === 'active' || Date.now() - g.updated < 60000).map(goalLine)
+    book.setGoals(goalBook.list().filter((g) => g.status === 'active' || Date.now() - g.updated < 60000).map(goalLine))
+    plan.value = book.state()
   }
 }
 function send() {
@@ -305,6 +287,40 @@ function stopAll() {
   voice.stop()
   free.value = false
   busy.value = false
+}
+
+// --- mutters and reflections: only with a brain, and never over an order
+let mutterAt = 0
+let plans = 0
+let reflectAt = 0
+let thinking = false
+const recent = () => log.value.slice(-5).map((l) => l.line).join(' / ')
+async function maybeMutter(t: number) {
+  const b = loaded<ChatEngine>('chat')
+  if (!b || !mutters.value || busy.value || thinking || t - mutterAt < MUTTER_EVERY * 1000) return
+  mutterAt = t
+  thinking = true
+  try {
+    const line = await mutter(b, settings.soul, `holding ${world.held?.name ?? 'nothing'}. just now: ${log.value.at(-1)?.line ?? 'nothing'}.`)
+    if (!line) return
+    book.think('mutter', line)
+    plan.value = book.state()
+    // now and then he says it, under his breath (mortise: about one in six)
+    if (!speakingNow.value && Math.random() < 0.16) void voice.say(line)
+  } catch { /* a mutter that fails is dropped */ } finally { thinking = false }
+}
+async function maybeReflect() {
+  const b = loaded<ChatEngine>('chat')
+  if (!b || ++plans % REFLECT_PLANS || performance.now() - reflectAt < REFLECT_GAP * 1000) return
+  reflectAt = performance.now()
+  try {
+    const line = await reflect(b, `${goalBook.list().map(goalLine).join('; ') || 'no goal'}. recent: ${recent()}`)
+    if (!line) return
+    selfNote = line
+    book.think('reflection', line)
+    plan.value = book.state()
+    await memory.write('gist', line)
+  } catch { /* dropped */ }
 }
 
 // --- free run with drives
@@ -382,18 +398,19 @@ async function wake() {
   }
 }
 
+// his own body by default, from the dog site; the mannequin offline or on ?stub
+let ownTry = false
+function wearOwn() {
+  const s = stage.value
+  if (!s || STUB) return
+  ownTry = true
+  void s.show(HUMAN_GLB).then((b) => { if (!b) s.showPlaceholder() }, () => s.showPlaceholder())
+}
+function heard(text: string) {
+  if (text.trim()) void run(text)
+}
 function useBody(e: { files: readonly unknown[] }) {
   void stage.value?.show(e.files as never)
-}
-async function cloneFrom(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (!f) return
-  try {
-    cloneNote.value = `cloned from ${(await voice.cloneFile(f)).toFixed(1)} s of ${f.name}.`
-    cloned.value = true
-  } catch (err) {
-    cloneNote.value = err instanceof Error ? err.message : String(err)
-  }
 }
 function newRoom() {
   world.build(Math.floor(Math.random() * 1e6) + 1)
@@ -434,8 +451,15 @@ onMounted(async () => {
     s.stage.controls.update()
   }
   offs.push(s.on((e) => {
-    if (e.type === 'loaded') (place(), (bodyName.value = e.placeholder ? 'mannequin' : e.name), (bodyLoaded.value = !e.placeholder))
-    else if (e.type === 'failed') bodyName.value = e.message
+    if (e.type === 'loaded') {
+      place()
+      bodyName.value = e.placeholder ? (ownTry ? 'mannequin. his own body did not load here.' : 'mannequin') : ownTry ? 'his own body' : e.name
+      bodyLoaded.value = !e.placeholder
+      ownTry = false
+    } else if (e.type === 'failed') {
+      bodyName.value = ownTry ? 'mannequin. his own body did not load here.' : e.message
+      ownTry = false
+    }
     else if (e.type === 'verb') {
       if (e.id === 'follow') (follow.value = !follow.value, s.stage.setFollow(follow.value), follow.value || place())
       else if (e.id === 'map') mapOn.value = !mapOn.value
@@ -445,6 +469,7 @@ onMounted(async () => {
     }
   }))
   place()
+  wearOwn()
   const frame = (t: number) => {
     const dt = Math.min(0.1, (t - (last || t)) / 1000)
     last = t
@@ -454,6 +479,7 @@ onMounted(async () => {
     if (awake.value) {
       eyeRef.value?.frame()
       if (mapOn.value) mapRef.value?.frame()
+      void maybeMutter(t)
       if (t - perceiveAt > 700) (perceiveAt = t, perceive())
       if (settings.captions && loaded('vision') && t - captionAt > settings.every * 1000) (captionAt = t, void glance())
     }
@@ -495,7 +521,7 @@ onBeforeUnmount(() => {
       </Teleport>
       <Teleport v-if="stage && awake" :to="stage.inset">
         <EyeInset ref="eyeRef" v-model:selected="eyeWho" :who="EYES" :draw="drawEye" :width="320" :height="160" />
-        <EyeInset v-if="mapOn" ref="mapRef" :who="MAPS" :draw="drawMap" :width="160" :height="160" />
+        <MapInset v-if="mapOn" ref="mapRef" :map="mapState" :size="160" />
       </Teleport>
 
       <HbRack v-if="awake" :tabs="TABS" label="room">
@@ -506,6 +532,7 @@ onBeforeUnmount(() => {
             <form class="sx-x-compose" @submit.prevent="send">
               <input v-model="order" class="hb-input" type="text" placeholder="say something or give an order" aria-label="order">
               <button type="submit" class="hb-btn hb-btn-go">send</button>
+              <HbMicButton listen :speaking="speakingNow" @final="heard" />
             </form>
           </div>
         </template>
@@ -513,11 +540,10 @@ onBeforeUnmount(() => {
           <section class="sx-x-pad">
             <DrivesBars v-if="drivesState" :state="drivesState" />
             <p v-else class="hb-note">drives move in free run. press free run on the stage.</p>
-            <h3 class="hb-panel-hd">last plan</h3>
-            <p class="hb-note">{{ lastPlan || 'none yet' }}</p>
-            <p v-if="goals.length" class="hb-note">{{ goals.join('; ') }}</p>
+            <PlanLog :state="plan" :steps="false" />
             <h3 class="hb-panel-hd">steps</h3>
-            <HbRackLog :lines="steps" empty="no steps yet." label="steps" :max="80" />
+            <StepLog :steps="plan.steps" />
+            <HbToggleRow v-model="mutters" label="mutters" description="thoughts of his own between orders, with a brain loaded" />
             <label class="hb-field"><span class="hb-label">who decides</span><HbSelect v-model="settings.mode" :options="MODES" /></label>
             <HbSlider v-model="settings.steps" label="max steps per order" :min="1" :max="14" :step="1" />
             <HbSlider v-model="settings.budget" label="context" :min="2048" :max="12288" :step="1024" unit=" tokens" />
@@ -544,18 +570,11 @@ onBeforeUnmount(() => {
         </template>
         <template #memory>
           <section class="sx-x-pad">
-            <p class="hb-note">{{ items.length }} memories. he writes an episode each turn and a lesson when something fails twice.</p>
-            <label class="hb-field"><span class="hb-label">find</span><input v-model="memQuery" class="hb-input" type="search" @input="memSearch"></label>
-            <label class="hb-field"><span class="hb-label">show</span><HbSelect v-model="memKind" :options="KINDS" /></label>
-            <ul class="hb-list sx-x-mem"><li v-for="i in shown" :key="i.id"><b>{{ i.kind }}</b> {{ i.text }}</li></ul>
-            <label class="hb-field"><span class="hb-label">teach him</span><input v-model="memNote" class="hb-input" type="text" placeholder="rule: mugs live on the shelf" @keydown.enter="memAdd"></label>
-            <p class="sx-x-row">
-              <button v-if="memNote.trim()" type="button" class="hb-btn" @click="memAdd">add</button>
-              <button v-if="items.length" type="button" class="hb-btn" @click="memConsolidate">consolidate</button>
-              <button v-if="items.length" type="button" class="hb-btn" @click="memBake">bake into a file</button>
-              <label class="hb-btn">import text files<input type="file" accept=".txt,.md" multiple hidden @change="memImport"></label>
-              <button v-if="items.length" type="button" class="hb-btn hb-btn-danger" @click="memForget">forget</button>
-            </p>
+            <p class="hb-note">{{ count }} memories. he writes an episode each turn, a lesson when something fails twice, and a gist when he reflects.</p>
+            <MemoryPane v-if="memRef" :memory="memRef" name="his memory" by="kind" :kinds="KINDS" :acts="ACTS" export-label="bake into a file" @pane="onPane" @change="memChanged" @act="memAct" />
+            <label class="hb-field"><span class="hb-label">teach him a rule</span><input v-model="memNote" class="hb-input" type="text" placeholder="rule: mugs live on the shelf" @keydown.enter="memAdd"></label>
+            <p v-if="memNote.trim()" class="sx-x-row"><button type="button" class="hb-btn" @click="memAdd">add</button></p>
+            <SourcesDrop :ingest="readIn" />
             <p v-if="memLine" class="hb-note">{{ memLine }}</p>
           </section>
         </template>
@@ -564,16 +583,10 @@ onBeforeUnmount(() => {
             <ModelJobs v-if="jobs" :jobs="jobs" :go="false" />
             <h3 class="hb-panel-hd">body</h3>
             <AvatarDrop :options="{ label: 'load a body file', hint: 'drop a vrm, glb, gltf or fbx' }" @use="useBody" />
-            <p class="sx-x-row"><button v-if="bodyLoaded" type="button" class="hb-btn" @click="stage?.showPlaceholder()">back to the mannequin</button></p>
+            <p class="sx-x-row"><button v-if="bodyLoaded" type="button" class="hb-btn" @click="stage?.showPlaceholder()">back to the mannequin</button><button v-else-if="!STUB" type="button" class="hb-btn" @click="wearOwn">his own body</button></p>
             <p class="hb-note">{{ bodyName }}</p>
-            <template v-if="canClone(jobs?.picks.get('voice')?.snapshot().loaded)">
-              <h3 class="hb-panel-hd">voice clone</h3>
-              <p class="sx-x-row">
-                <label class="hb-btn">clone from audio file<input type="file" accept="audio/*" hidden @change="cloneFrom"></label>
-                <button v-if="cloned" type="button" class="hb-btn" @click="voice.clearClone(), (cloned = false)">clear clone</button>
-              </p>
-              <p class="hb-note">{{ cloneNote }}</p>
-            </template>
+            <h3 class="hb-panel-hd">voice clone</h3>
+            <VoiceClone :speaker="voice" :can="canCloneNow" />
             <h3 class="hb-panel-hd">room</h3>
             <p class="sx-x-row"><button type="button" class="hb-btn" @click="newRoom">new random room</button><button type="button" class="hb-btn" @click="forgetRoom">forget this room</button></p>
           </section>
@@ -597,7 +610,6 @@ onBeforeUnmount(() => {
 .sx-x-log { flex: 1; min-height: 160px; }
 .sx-x-compose { position: sticky; bottom: 0; display: flex; gap: var(--hb-s2); padding-top: var(--hb-s2); background: var(--hb-paper); }
 .sx-x-compose .hb-input { flex: 1; min-width: 0; }
-.sx-x-mem { max-height: 240px; overflow: auto; }
 .sx-x-pre { white-space: pre-wrap; font-size: 11px; max-height: 200px; overflow: auto; }
 @media (max-width: 900px) {
   .sx-x { height: auto; min-height: calc(100svh - 52px); }

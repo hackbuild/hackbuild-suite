@@ -144,3 +144,35 @@ export function freeRun() {
 }
 
 export const goalLine = (g: Goal) => `${g.kind}${g.target ? ` ${g.target}` : ''}, ${g.status}${g.note ? `: ${g.note}` : ''}`
+
+// --- mutters and reflections (ported from mortise): with a brain loaded and no
+// order running, a fleeting thought fragment every few seconds, and every
+// seventh plan a line that finishes "right now my attention is on". The
+// reflection goes to memory and back into the next prompt.
+const META = /\b(user|assistant|prompt|instruction|as an ai)\b/i
+const firstLine = (t: string) => t.split('\n')[0]!.replace(/^["'\s~-]+|["'\s]+$/g, '').trim()
+
+/** Seconds between mutters (inferred from mortise: 6.5 s less up to 2.8 s when excited). */
+export const MUTTER_EVERY = 6.5
+/** A reflection after this many plans, at most once in this many seconds (mortise). */
+export const REFLECT_PLANS = 7
+export const REFLECT_GAP = 25
+
+export async function mutter(brain: ChatEngine, soul: string, state: string): Promise<string> {
+  const r = await brain.complete([
+    { role: 'system', content: `you are the inner voice of a small being living its own life in one room. ${soul} there is no user and you are not an assistant. write one fleeting thought fragment, first person, under 16 words. sensory, about the body or the room. never advice.` },
+    { role: 'user', content: `${state} one fragment:` },
+  ], { maxTokens: 26, temperature: 0.95 })
+  const line = firstLine(r.text).slice(0, 140)
+  return line && !META.test(line) ? line : ''
+}
+
+const STEM = 'right now my attention is on '
+export async function reflect(brain: ChatEngine, recent: string): Promise<string> {
+  const r = await brain.complete([
+    { role: 'system', content: 'you are the attention watching part of a small being. you finish its sentences in first person. use only details from the notes given. invent nothing. no advice, no second person.' },
+    { role: 'user', content: `notes: ${recent}\nfinish this sentence in under 22 words: "${STEM}` },
+  ], { maxTokens: 40, temperature: 0.65 })
+  const tail = firstLine(r.text).replace(/["'].*$/, '').trim()
+  return tail && !META.test(tail) && !/^you\b/i.test(tail) ? (STEM + tail).slice(0, 240) : ''
+}
